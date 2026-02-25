@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -9,11 +10,12 @@ import (
 )
 
 type ProjectHandler struct {
-	projects *store.ProjectStore
+	projects     *store.ProjectStore
+	environments *store.EnvironmentStore
 }
 
-func NewProjectHandler(projects *store.ProjectStore) *ProjectHandler {
-	return &ProjectHandler{projects: projects}
+func NewProjectHandler(projects *store.ProjectStore, environments *store.EnvironmentStore) *ProjectHandler {
+	return &ProjectHandler{projects: projects, environments: environments}
 }
 
 // Create handles POST /api/v1/projects
@@ -40,6 +42,11 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to create project")
 		return
+	}
+
+	if err := h.environments.CreateDefaultEnvironments(r.Context(), project.ID); err != nil {
+		// Log but don't fail — the project was created successfully
+		fmt.Printf("warning: failed to create default environments: %v\n", err)
 	}
 
 	writeJSON(w, http.StatusCreated, project)
