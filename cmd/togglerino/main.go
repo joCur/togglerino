@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -12,6 +12,7 @@ import (
 	"github.com/togglerino/togglerino/internal/config"
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/handler"
+	"github.com/togglerino/togglerino/internal/logging"
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
 	"github.com/togglerino/togglerino/migrations"
@@ -24,6 +25,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// 1b. Set up structured logging
+	logging.Setup(cfg.LogFormat)
+	slog.Info("starting togglerino", "port", cfg.Port)
 
 	// 2. Connect to database
 	ctx := context.Background()
@@ -148,9 +153,9 @@ func main() {
 		fileServer.ServeHTTP(w, r)
 	})
 
-	// Start server with CORS middleware
-	fmt.Printf("togglerino starting on %s\n", cfg.Addr())
-	if err := http.ListenAndServe(cfg.Addr(), corsMiddleware(mux)); err != nil {
+	// Start server with logging and CORS middleware
+	slog.Info("listening", "addr", cfg.Addr())
+	if err := http.ListenAndServe(cfg.Addr(), logging.Middleware(corsMiddleware(mux))); err != nil {
 		log.Fatal(err)
 	}
 }

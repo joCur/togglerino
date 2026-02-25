@@ -9,12 +9,14 @@ import (
 type Config struct {
 	Port        string
 	DatabaseURL string
+	LogFormat   string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
 		Port:        envOr("PORT", "8080"),
 		DatabaseURL: envOr("DATABASE_URL", "postgres://togglerino:togglerino@localhost:5432/togglerino?sslmode=disable"),
+		LogFormat:   envOr("LOG_FORMAT", "json"),
 	}
 	return cfg, nil
 }

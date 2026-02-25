@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -89,7 +89,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 			EntityID:   flag.Key,
 			NewValue:   newVal,
 		}); err != nil {
-			fmt.Printf("warning: failed to record audit log: %v\n", err)
+			slog.Warn("failed to record audit log", "error", err)
 		}
 	}
 
@@ -220,7 +220,7 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 			OldValue:   oldVal,
 			NewValue:   newVal,
 		}); err != nil {
-			fmt.Printf("warning: failed to record audit log: %v\n", err)
+			slog.Warn("failed to record audit log", "error", err)
 		}
 	}
 
@@ -269,7 +269,7 @@ func (h *FlagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			EntityID:   flag.Key,
 			OldValue:   oldVal,
 		}); err != nil {
-			fmt.Printf("warning: failed to record audit log: %v\n", err)
+			slog.Warn("failed to record audit log", "error", err)
 		}
 	}
 
@@ -349,13 +349,13 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 			EntityID:   flag.Key,
 			NewValue:   newVal,
 		}); err != nil {
-			fmt.Printf("warning: failed to record audit log: %v\n", err)
+			slog.Warn("failed to record audit log", "error", err)
 		}
 	}
 
 	// Refresh cache and broadcast SSE event
 	if err := h.cache.Refresh(r.Context(), h.pool, projectKey, envKey); err != nil {
-		fmt.Printf("warning: failed to refresh cache: %v\n", err)
+		slog.Warn("failed to refresh cache", "error", err)
 	}
 	h.hub.Broadcast(projectKey, envKey, stream.Event{
 		FlagKey: flagKey,

@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -49,7 +49,7 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.environments.CreateDefaultEnvironments(r.Context(), project.ID); err != nil {
 		// Log but don't fail — the project was created successfully
-		fmt.Printf("warning: failed to create default environments: %v\n", err)
+		slog.Warn("failed to create default environments", "error", err)
 	}
 
 	// Best-effort audit logging
@@ -63,7 +63,7 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 			EntityID:   project.Key,
 			NewValue:   newVal,
 		}); err != nil {
-			fmt.Printf("warning: failed to record audit log: %v\n", err)
+			slog.Warn("failed to record audit log", "error", err)
 		}
 	}
 
@@ -143,7 +143,7 @@ func (h *ProjectHandler) Update(w http.ResponseWriter, r *http.Request) {
 			OldValue:   oldVal,
 			NewValue:   newVal,
 		}); err != nil {
-			fmt.Printf("warning: failed to record audit log: %v\n", err)
+			slog.Warn("failed to record audit log", "error", err)
 		}
 	}
 
@@ -181,7 +181,7 @@ func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			EntityID:   project.Key,
 			OldValue:   oldVal,
 		}); err != nil {
-			fmt.Printf("warning: failed to record audit log: %v\n", err)
+			slog.Warn("failed to record audit log", "error", err)
 		}
 	}
 
