@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/config"
@@ -13,6 +15,7 @@ import (
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
 	"github.com/togglerino/togglerino/migrations"
+	"github.com/togglerino/togglerino/web"
 )
 
 func main() {
@@ -116,6 +119,34 @@ func main() {
 	mux.Handle("POST /api/v1/evaluate/{project}/{env}", wrap(evaluateHandler.EvaluateAll, sdkAuth))
 	mux.Handle("POST /api/v1/evaluate/{project}/{env}/{flag}", wrap(evaluateHandler.EvaluateSingle, sdkAuth))
 	mux.Handle("GET /api/v1/stream/{project}/{env}", wrap(streamHandler.Handle, sdkAuth))
+
+	// Serve the embedded React dashboard
+	distFS, err := fs.Sub(web.DistFS, "dist")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fileServer := http.FileServer(http.FS(distFS))
+
+	// Serve static files, fall back to index.html for SPA routing
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Try to serve the file directly
+		path := r.URL.Path
+		if path == "/" {
+			path = "/index.html"
+		}
+
+		// Check if file exists
+		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
+		if err == nil {
+			f.Close()
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		// Fall back to index.html for SPA routing
+		r.URL.Path = "/"
+		fileServer.ServeHTTP(w, r)
+	})
 
 	// Start server with CORS middleware
 	fmt.Printf("togglerino starting on %s\n", cfg.Addr())
