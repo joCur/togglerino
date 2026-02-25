@@ -14,7 +14,7 @@ type ResolvedConfig = Required<Omit<TogglerinoConfig, 'context'>> & {
 }
 
 /**
- * Shape of the response from POST /api/v1/evaluate/:project/:env
+ * Shape of the response from POST /api/v1/evaluate
  */
 interface EvaluateAllResponse {
   flags: Record<string, EvaluationResult>
@@ -31,8 +31,6 @@ type Listener = (...args: any[]) => void
  * const client = new Togglerino({
  *   serverUrl: 'http://localhost:8080',
  *   sdkKey: 'sdk_abc123',
- *   project: 'my-project',
- *   environment: 'production',
  *   context: { userId: 'user-42' },
  * })
  *
@@ -62,8 +60,6 @@ export class Togglerino {
     this.config = {
       serverUrl: config.serverUrl.replace(/\/+$/, ''), // strip trailing slash
       sdkKey: config.sdkKey,
-      project: config.project,
-      environment: config.environment,
       context: config.context ?? {},
       streaming: config.streaming ?? true,
       pollingInterval: config.pollingInterval ?? 30_000,
@@ -226,7 +222,7 @@ export class Togglerino {
    * Fetch all flags from the server evaluation endpoint.
    */
   private async fetchFlags(): Promise<void> {
-    const url = `${this.config.serverUrl}/api/v1/evaluate/${this.config.project}/${this.config.environment}`
+    const url = `${this.config.serverUrl}/api/v1/evaluate`
 
     const body = {
       context: {
@@ -318,7 +314,7 @@ export class Togglerino {
    * and uses polling as a fallback in the meantime.
    */
   private async startSSE(): Promise<void> {
-    const url = `${this.config.serverUrl}/api/v1/stream/${this.config.project}/${this.config.environment}`
+    const url = `${this.config.serverUrl}/api/v1/stream`
 
     this.sseAbortController = new AbortController()
 

@@ -61,8 +61,6 @@ import { Togglerino } from '@togglerino/sdk'
 const client = new Togglerino({
   serverUrl: 'https://flags.example.com',
   sdkKey: 'sdk_your_key_here',
-  project: 'my-project',
-  environment: 'production',
   context: { userId: 'user-123' },
 })
 
@@ -91,8 +89,6 @@ function App() {
     <TogglerioProvider config={{
       serverUrl: 'https://flags.example.com',
       sdkKey: 'sdk_your_key_here',
-      project: 'my-project',
-      environment: 'production',
     }}>
       <MyComponent />
     </TogglerioProvider>

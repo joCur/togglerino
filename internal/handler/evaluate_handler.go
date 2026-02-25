@@ -27,21 +27,14 @@ type evaluateAllResponse struct {
 	Flags map[string]*model.EvaluationResult `json:"flags"`
 }
 
-// EvaluateAll evaluates all flags for a project/environment and returns the results.
-// POST /api/v1/evaluate/{project}/{env}
+// EvaluateAll evaluates all flags for the SDK key's project/environment.
+// POST /api/v1/evaluate
 func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
-	projectKey := r.PathValue("project")
-	envKey := r.PathValue("env")
-
 	sdkKey := auth.SDKKeyFromContext(r.Context())
-	if sdkKey.ProjectKey != projectKey || sdkKey.EnvironmentKey != envKey {
-		writeError(w, http.StatusForbidden, "SDK key is not authorized for this project/environment")
-		return
-	}
 
 	evalCtx := h.parseContext(r)
 
-	flags := h.cache.GetFlags(projectKey, envKey)
+	flags := h.cache.GetFlags(sdkKey.ProjectKey, sdkKey.EnvironmentKey)
 	results := make(map[string]*model.EvaluationResult, len(flags))
 	for flagKey, fd := range flags {
 		results[flagKey] = h.engine.Evaluate(&fd.Flag, &fd.Config, evalCtx)
@@ -50,22 +43,15 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, evaluateAllResponse{Flags: results})
 }
 
-// EvaluateSingle evaluates a single flag for a project/environment and returns the result.
-// POST /api/v1/evaluate/{project}/{env}/{flag}
+// EvaluateSingle evaluates a single flag for the SDK key's project/environment.
+// POST /api/v1/evaluate/{flag}
 func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request) {
-	projectKey := r.PathValue("project")
-	envKey := r.PathValue("env")
 	flagKey := r.PathValue("flag")
 
 	sdkKey := auth.SDKKeyFromContext(r.Context())
-	if sdkKey.ProjectKey != projectKey || sdkKey.EnvironmentKey != envKey {
-		writeError(w, http.StatusForbidden, "SDK key is not authorized for this project/environment")
-		return
-	}
-
 	evalCtx := h.parseContext(r)
 
-	fd, ok := h.cache.GetFlag(projectKey, envKey, flagKey)
+	fd, ok := h.cache.GetFlag(sdkKey.ProjectKey, sdkKey.EnvironmentKey, flagKey)
 	if !ok {
 		writeError(w, http.StatusNotFound, "flag not found")
 		return
