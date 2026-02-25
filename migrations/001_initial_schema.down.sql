@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS flag_environment_configs;
+DROP TABLE IF EXISTS flags;
+DROP TABLE IF EXISTS sdk_keys;
+DROP TABLE IF EXISTS environments;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS users;

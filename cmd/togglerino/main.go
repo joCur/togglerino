@@ -1,17 +1,30 @@
-// cmd/togglerino/main.go
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/config"
+	"github.com/togglerino/togglerino/internal/store"
+	"github.com/togglerino/togglerino/migrations"
 )
 
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	pool, err := store.NewPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pool.Close()
+
+	if err := store.RunMigrations(ctx, pool, migrations.FS); err != nil {
 		log.Fatal(err)
 	}
 
