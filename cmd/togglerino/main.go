@@ -17,6 +17,7 @@ import (
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/handler"
 	"github.com/togglerino/togglerino/internal/logging"
+	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/ratelimit"
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
@@ -50,6 +51,7 @@ func main() {
 	// 4. Initialize all stores
 	userStore := store.NewUserStore(pool)
 	sessionStore := store.NewSessionStore(pool)
+	inviteStore := store.NewInviteStore(pool)
 	projectStore := store.NewProjectStore(pool)
 	environmentStore := store.NewEnvironmentStore(pool)
 	sdkKeyStore := store.NewSDKKeyStore(pool)
@@ -67,7 +69,8 @@ func main() {
 	}
 
 	// 7. Initialize all handlers
-	authHandler := handler.NewAuthHandler(userStore, sessionStore)
+	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
+	userHandler := handler.NewUserHandler(userStore, inviteStore)
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
@@ -94,9 +97,17 @@ func main() {
 	mux.Handle("POST /api/v1/auth/setup", authLimiter.Middleware(http.HandlerFunc(authHandler.Setup)))
 	mux.Handle("POST /api/v1/auth/login", authLimiter.Middleware(http.HandlerFunc(authHandler.Login)))
 	mux.HandleFunc("POST /api/v1/auth/logout", authHandler.Logout)
+	mux.Handle("POST /api/v1/auth/accept-invite", authLimiter.Middleware(http.HandlerFunc(authHandler.AcceptInvite)))
 
 	// --- Session-authed routes (management API) ---
 	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionAuth))
+
+	// User management (admin-only)
+	requireAdmin := auth.RequireRole(model.RoleAdmin)
+	mux.Handle("GET /api/v1/management/users", wrap(userHandler.List, sessionAuth, requireAdmin))
+	mux.Handle("POST /api/v1/management/users/invite", wrap(userHandler.Invite, sessionAuth, requireAdmin))
+	mux.Handle("GET /api/v1/management/users/invites", wrap(userHandler.ListInvites, sessionAuth, requireAdmin))
+	mux.Handle("DELETE /api/v1/management/users/{id}", wrap(userHandler.Delete, sessionAuth, requireAdmin))
 
 	// Projects
 	mux.Handle("POST /api/v1/projects", wrap(projectHandler.Create, sessionAuth))

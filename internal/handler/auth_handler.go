@@ -12,10 +12,11 @@ import (
 type AuthHandler struct {
 	users    *store.UserStore
 	sessions *store.SessionStore
+	invites  *store.InviteStore
 }
 
-func NewAuthHandler(users *store.UserStore, sessions *store.SessionStore) *AuthHandler {
-	return &AuthHandler{users: users, sessions: sessions}
+func NewAuthHandler(users *store.UserStore, sessions *store.SessionStore, invites *store.InviteStore) *AuthHandler {
+	return &AuthHandler{users: users, sessions: sessions, invites: invites}
 }
 
 // POST /api/v1/auth/setup — create the initial admin user (only works when no users exist)
@@ -150,5 +151,66 @@ func (h *AuthHandler) Status(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"setup_required": count == 0,
+	})
+}
+
+// POST /api/v1/auth/accept-invite — accept an invite and create a new user account
+func (h *AuthHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Token == "" {
+		writeError(w, http.StatusBadRequest, "token is required")
+		return
+	}
+	if req.Password == "" {
+		writeError(w, http.StatusBadRequest, "password is required")
+		return
+	}
+	if len(req.Password) < 8 {
+		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+
+	invite, err := h.invites.FindByToken(r.Context(), req.Token)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "invite not found")
+		return
+	}
+
+	if invite.AcceptedAt != nil {
+		writeError(w, http.StatusConflict, "invite already accepted")
+		return
+	}
+
+	if time.Now().After(invite.ExpiresAt) {
+		writeError(w, http.StatusGone, "invite has expired")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	_, err = h.users.Create(r.Context(), invite.Email, hash, invite.Role)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create user")
+		return
+	}
+
+	if err := h.invites.MarkAccepted(r.Context(), invite.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to mark invite accepted")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]string{
+		"email": invite.Email,
 	})
 }
