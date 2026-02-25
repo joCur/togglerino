@@ -6,9 +6,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/auth"
+	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
+	"github.com/togglerino/togglerino/internal/stream"
 )
 
 type FlagHandler struct {
@@ -16,10 +19,13 @@ type FlagHandler struct {
 	projects     *store.ProjectStore
 	environments *store.EnvironmentStore
 	audit        *store.AuditStore
+	hub          *stream.Hub
+	cache        *evaluation.Cache
+	pool         *pgxpool.Pool
 }
 
-func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore) *FlagHandler {
-	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit}
+func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool) *FlagHandler {
+	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool}
 }
 
 // Create handles POST /api/v1/projects/{key}/flags
@@ -346,6 +352,16 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 			fmt.Printf("warning: failed to record audit log: %v\n", err)
 		}
 	}
+
+	// Refresh cache and broadcast SSE event
+	if err := h.cache.Refresh(r.Context(), h.pool, projectKey, envKey); err != nil {
+		fmt.Printf("warning: failed to refresh cache: %v\n", err)
+	}
+	h.hub.Broadcast(projectKey, envKey, stream.Event{
+		FlagKey: flagKey,
+		Value:   cfg.Enabled,
+		Variant: cfg.DefaultVariant,
+	})
 
 	writeJSON(w, http.StatusOK, cfg)
 }
