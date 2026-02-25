@@ -24,3 +24,14 @@ type Session struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type Invite struct {
+	ID         string     `json:"id"`
+	Email      string     `json:"email"`
+	Role       Role       `json:"role"`
+	Token      string     `json:"-"`
+	ExpiresAt  time.Time  `json:"expires_at"`
+	AcceptedAt *time.Time `json:"accepted_at,omitempty"`
+	InvitedBy  *string    `json:"invited_by,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
