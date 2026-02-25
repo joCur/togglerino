@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/joCur/togglerino/compare/v0.2.1...v0.3.0) (2026-02-25)
+
+
+### Features
+
+* **web:** add contextual help text to flag configuration screen ([85ebf7e](https://github.com/joCur/togglerino/commit/85ebf7e436839f90b967be672928364a59bfc530))
+* **web:** add inline description to rollout slider ([41360d7](https://github.com/joCur/togglerino/commit/41360d72c9b6b23c9acf5aea50827c8933af641d))
+* **web:** add toggle and default variant inline descriptions ([edaefb8](https://github.com/joCur/togglerino/commit/edaefb8911167dc86b4bbfd16f7acdc07e283f72))
+* **web:** add type-specific descriptions to variant editor ([b464ff5](https://github.com/joCur/togglerino/commit/b464ff55e5ce58e1e9b2b465d3391159406da669))
+* **web:** expand operators to 14 with optgroups, add rule descriptions and contextual placeholders ([1e86895](https://github.com/joCur/togglerino/commit/1e868958b1a560e61bd492e2a9d5d31976ff1bc4))
+
+
+### Bug Fixes
+
+* **web:** use unique IDs for rollout checkboxes, clear value on exists/not_exists ([21fe753](https://github.com/joCur/togglerino/commit/21fe7539183412f555205bc680dec6f8c69244bc))
+
 ## [0.2.1](https://github.com/joCur/togglerino/compare/v0.2.0...v0.2.1) (2026-02-25)
 
 
