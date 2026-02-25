@@ -154,8 +154,9 @@ func main() {
 	})
 
 	// Start server with logging and CORS middleware
+	slog.Info("cors configured", "origins", cfg.CORSOrigins)
 	slog.Info("listening", "addr", cfg.Addr())
-	if err := http.ListenAndServe(cfg.Addr(), logging.Middleware(corsMiddleware(mux))); err != nil {
+	if err := http.ListenAndServe(cfg.Addr(), logging.Middleware(corsMiddleware(cfg.CORSOrigins, mux))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -170,10 +171,40 @@ func wrap(h http.HandlerFunc, middlewares ...func(http.Handler) http.Handler) ht
 	return handler
 }
 
-// corsMiddleware adds CORS headers for development.
-func corsMiddleware(next http.Handler) http.Handler {
+// corsMiddleware adds CORS headers based on the configured allowed origins.
+// If origins contains only "*", all origins are allowed. Otherwise, the
+// request's Origin header is checked against the whitelist.
+func corsMiddleware(origins []string, next http.Handler) http.Handler {
+	allowAll := len(origins) == 1 && origins[0] == "*"
+
+	// Build a set for fast lookup when not allowing all.
+	allowed := make(map[string]struct{}, len(origins))
+	if !allowAll {
+		for _, o := range origins {
+			allowed[o] = struct{}{}
+		}
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+
+		if allowAll {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		} else if origin != "" {
+			if _, ok := allowed[origin]; ok {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Add("Vary", "Origin")
+			} else {
+				// Origin not in whitelist — don't set any CORS headers.
+				if r.Method == "OPTIONS" {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
