@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/stream"
 )
 
@@ -23,6 +24,12 @@ func NewStreamHandler(hub *stream.Hub) *StreamHandler {
 func (h *StreamHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	projectKey := r.PathValue("project")
 	envKey := r.PathValue("env")
+
+	sdkKey := auth.SDKKeyFromContext(r.Context())
+	if sdkKey.ProjectKey != projectKey || sdkKey.EnvironmentKey != envKey {
+		writeError(w, http.StatusForbidden, "SDK key is not authorized for this project/environment")
+		return
+	}
 
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")

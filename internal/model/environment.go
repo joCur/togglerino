@@ -11,10 +11,12 @@ type Environment struct {
 }
 
 type SDKKey struct {
-	ID            string    `json:"id"`
-	Key           string    `json:"key"`
-	EnvironmentID string    `json:"environment_id"`
-	Name          string    `json:"name"`
-	Revoked       bool      `json:"revoked"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID             string    `json:"id"`
+	Key            string    `json:"key"`
+	EnvironmentID  string    `json:"environment_id"`
+	Name           string    `json:"name"`
+	Revoked        bool      `json:"revoked"`
+	CreatedAt      time.Time `json:"created_at"`
+	ProjectKey     string    `json:"project_key"`
+	EnvironmentKey string    `json:"environment_key"`
 }

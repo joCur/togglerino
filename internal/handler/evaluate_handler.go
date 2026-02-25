@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/model"
 )
@@ -32,6 +33,12 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 	projectKey := r.PathValue("project")
 	envKey := r.PathValue("env")
 
+	sdkKey := auth.SDKKeyFromContext(r.Context())
+	if sdkKey.ProjectKey != projectKey || sdkKey.EnvironmentKey != envKey {
+		writeError(w, http.StatusForbidden, "SDK key is not authorized for this project/environment")
+		return
+	}
+
 	evalCtx := h.parseContext(r)
 
 	flags := h.cache.GetFlags(projectKey, envKey)
@@ -49,6 +56,12 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 	projectKey := r.PathValue("project")
 	envKey := r.PathValue("env")
 	flagKey := r.PathValue("flag")
+
+	sdkKey := auth.SDKKeyFromContext(r.Context())
+	if sdkKey.ProjectKey != projectKey || sdkKey.EnvironmentKey != envKey {
+		writeError(w, http.StatusForbidden, "SDK key is not authorized for this project/environment")
+		return
+	}
 
 	evalCtx := h.parseContext(r)
 

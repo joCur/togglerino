@@ -150,6 +150,12 @@ func TestSDKKeyStore_FindByKey(t *testing.T) {
 	if found.Name != "Findable Key" {
 		t.Errorf("Name: got %q, want %q", found.Name, "Findable Key")
 	}
+	if found.ProjectKey == "" {
+		t.Error("ProjectKey: expected non-empty value")
+	}
+	if found.EnvironmentKey != "development" {
+		t.Errorf("EnvironmentKey: got %q, want %q", found.EnvironmentKey, "development")
+	}
 }
 
 func TestSDKKeyStore_FindByKey_NotFound(t *testing.T) {

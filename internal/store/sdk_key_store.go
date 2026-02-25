@@ -65,12 +65,18 @@ func (s *SDKKeyStore) ListByEnvironment(ctx context.Context, environmentID strin
 }
 
 // FindByKey looks up an SDK key by its key string. Returns error if not found or revoked.
+// Joins environments and projects to resolve the project and environment keys
+// so handlers can verify the SDK key is authorized for the requested scope.
 func (s *SDKKeyStore) FindByKey(ctx context.Context, key string) (*model.SDKKey, error) {
 	var k model.SDKKey
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, key, environment_id, name, revoked, created_at FROM sdk_keys WHERE key = $1 AND revoked = FALSE`,
+		`SELECT sk.id, sk.key, sk.environment_id, sk.name, sk.revoked, sk.created_at, p.key, e.key
+		 FROM sdk_keys sk
+		 JOIN environments e ON e.id = sk.environment_id
+		 JOIN projects p ON p.id = e.project_id
+		 WHERE sk.key = $1 AND sk.revoked = FALSE`,
 		key,
-	).Scan(&k.ID, &k.Key, &k.EnvironmentID, &k.Name, &k.Revoked, &k.CreatedAt)
+	).Scan(&k.ID, &k.Key, &k.EnvironmentID, &k.Name, &k.Revoked, &k.CreatedAt, &k.ProjectKey, &k.EnvironmentKey)
 	if err != nil {
 		return nil, fmt.Errorf("finding SDK key: %w", err)
 	}
