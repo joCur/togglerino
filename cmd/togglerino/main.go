@@ -6,7 +6,11 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/config"
@@ -36,7 +40,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer pool.Close()
 
 	// 3. Run migrations
 	if err := store.RunMigrations(ctx, pool, migrations.FS); err != nil {
@@ -156,9 +159,37 @@ func main() {
 	// Start server with logging and CORS middleware
 	slog.Info("cors configured", "origins", cfg.CORSOrigins)
 	slog.Info("listening", "addr", cfg.Addr())
-	if err := http.ListenAndServe(cfg.Addr(), logging.Middleware(corsMiddleware(cfg.CORSOrigins, mux))); err != nil {
-		log.Fatal(err)
+
+	srv := &http.Server{
+		Addr:    cfg.Addr(),
+		Handler: logging.Middleware(corsMiddleware(cfg.CORSOrigins, mux)),
 	}
+
+	// Start listening in a goroutine so we can wait for shutdown signals.
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	// Wait for SIGINT or SIGTERM.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	slog.Info("shutting down")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("server shutdown error", "error", err)
+	}
+
+	hub.Close()
+	pool.Close()
+
+	slog.Info("server stopped")
 }
 
 // wrap applies middleware to a handler function.
