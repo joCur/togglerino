@@ -12,8 +12,6 @@ globalThis.fetch = mockFetch
 const baseConfig = {
   serverUrl: 'http://localhost:8080',
   sdkKey: 'sdk_test123',
-  project: 'web-app',
-  environment: 'development',
   streaming: false, // disable SSE for most tests; use polling
   pollingInterval: 60_000, // long interval so polling doesn't fire during tests
   context: { userId: 'user-1', attributes: { plan: 'pro' } },
@@ -59,7 +57,7 @@ describe('Togglerino', () => {
     // Verify the fetch was called with the correct URL, headers, and body
     expect(mockFetch).toHaveBeenCalledOnce()
     const [url, options] = mockFetch.mock.calls[0]
-    expect(url).toBe('http://localhost:8080/api/v1/evaluate/web-app/development')
+    expect(url).toBe('http://localhost:8080/api/v1/evaluate')
     expect(options.method).toBe('POST')
     expect(options.headers['Authorization']).toBe('Bearer sdk_test123')
     expect(options.headers['Content-Type']).toBe('application/json')
@@ -86,7 +84,7 @@ describe('Togglerino', () => {
     await client.initialize()
 
     const [url] = mockFetch.mock.calls[0]
-    expect(url).toBe('http://localhost:8080/api/v1/evaluate/web-app/development')
+    expect(url).toBe('http://localhost:8080/api/v1/evaluate')
 
     client.close()
   })
@@ -497,7 +495,7 @@ describe('Togglerino', () => {
 
     // Verify polling is running by checking for an evaluate call
     const evaluateCalls = mockFetch.mock.calls.filter(
-      ([url]: [string]) => url.includes('/evaluate/')
+      ([url]: [string]) => url.includes('/evaluate')
     )
     expect(evaluateCalls.length).toBeGreaterThanOrEqual(2) // initial + at least one poll
 
@@ -537,7 +535,7 @@ describe('Togglerino', () => {
 
     // Verify polling is running (at least initial + poll evaluate calls)
     const evaluateCalls = mockFetch.mock.calls.filter(
-      ([url]: [string]) => url.includes('/evaluate/')
+      ([url]: [string]) => url.includes('/evaluate')
     )
     expect(evaluateCalls.length).toBeGreaterThanOrEqual(2)
 
@@ -749,8 +747,6 @@ describe('Togglerino', () => {
     const client = new Togglerino({
       serverUrl: 'http://localhost:8080',
       sdkKey: 'sdk_test',
-      project: 'proj',
-      environment: 'dev',
       streaming: false,
     })
 

@@ -8,12 +8,6 @@ export interface TogglerinoConfig {
   /** SDK key for authenticating with the server. */
   sdkKey: string
 
-  /** Project key (slug) to evaluate flags for. */
-  project: string
-
-  /** Environment key (e.g. "production", "development"). */
-  environment: string
-
   /** Optional evaluation context (user, attributes). */
   context?: EvaluationContext
 
