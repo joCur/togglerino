@@ -74,7 +74,7 @@ function ConfigEditor({
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: 16,
           marginBottom: 24,
           padding: 16,
@@ -111,15 +111,31 @@ function ConfigEditor({
             }}
           />
         </div>
-        <span style={{ fontSize: 14, fontWeight: 500, color: t.textPrimary }}>
-          {enabled ? 'Enabled' : 'Disabled'} in {envKey}
-        </span>
+        <div>
+          <span style={{ fontSize: 14, fontWeight: 500, color: t.textPrimary }}>
+            {enabled ? 'Enabled' : 'Disabled'} in {envKey}
+          </span>
+          <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginTop: 4 }}>
+            {enabled
+              ? 'Targeting rules and variants are active. Users are evaluated against rules below.'
+              : 'All SDK evaluations return the default variant. Targeting rules are ignored.'}
+          </div>
+        </div>
       </div>
 
       {/* Default Variant */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary, marginBottom: 4 }}>
           Default Variant
+        </div>
+        <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 10 }}>
+          {flag.flag_type === 'boolean'
+            ? "The value returned when no targeting rule matches. For boolean flags, this is typically 'on' or 'off'."
+            : flag.flag_type === 'string'
+            ? 'The string value returned when no targeting rule matches.'
+            : flag.flag_type === 'number'
+            ? 'The numeric value returned when no targeting rule matches.'
+            : 'The JSON payload returned when no targeting rule matches.'}
         </div>
         {variants.length > 0 ? (
           <select
