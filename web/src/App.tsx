@@ -6,6 +6,10 @@ import LoginPage from './pages/LoginPage.tsx'
 import ProjectsPage from './pages/ProjectsPage.tsx'
 import ProjectDetailPage from './pages/ProjectDetailPage.tsx'
 import FlagDetailPage from './pages/FlagDetailPage.tsx'
+import EnvironmentsPage from './pages/EnvironmentsPage.tsx'
+import SDKKeysPage from './pages/SDKKeysPage.tsx'
+import AuditLogPage from './pages/AuditLogPage.tsx'
+import TeamPage from './pages/TeamPage.tsx'
 import Layout from './components/Layout.tsx'
 
 const queryClient = new QueryClient()
@@ -54,6 +58,10 @@ function AuthRouter() {
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:key" element={<ProjectDetailPage />} />
         <Route path="/projects/:key/flags/:flag" element={<FlagDetailPage />} />
+        <Route path="/projects/:key/environments" element={<EnvironmentsPage />} />
+        <Route path="/projects/:key/environments/:env/sdk-keys" element={<SDKKeysPage />} />
+        <Route path="/projects/:key/audit-log" element={<AuditLogPage />} />
+        <Route path="/settings/team" element={<TeamPage />} />
         <Route path="*" element={<Navigate to="/projects" replace />} />
       </Route>
     </Routes>

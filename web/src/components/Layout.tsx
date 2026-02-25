@@ -99,6 +99,9 @@ export default function Layout() {
       </header>
       <div style={styles.body}>
         <nav style={styles.sidebar}>
+          <div style={{ padding: '0 24px 8px', fontSize: 11, fontWeight: 600, color: '#5a6580', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>
+            Global
+          </div>
           <NavLink
             to="/projects"
             style={({ isActive }) => ({
@@ -107,6 +110,15 @@ export default function Layout() {
             })}
           >
             Projects
+          </NavLink>
+          <NavLink
+            to="/settings/team"
+            style={({ isActive }) => ({
+              ...styles.navLink,
+              ...(isActive ? styles.navLinkActive : {}),
+            })}
+          >
+            Team
           </NavLink>
         </nav>
         <main style={styles.main}>
