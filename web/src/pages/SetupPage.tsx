@@ -1,80 +1,30 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../hooks/useAuth.ts'
+import { t } from '../theme.ts'
 
-const styles = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#1a1a2e',
-    color: '#e0e0e0',
-  } as const,
-  card: {
-    width: '100%',
-    maxWidth: 400,
-    padding: 40,
-    borderRadius: 12,
-    backgroundColor: '#16213e',
-    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
-  } as const,
-  heading: {
-    fontSize: 28,
-    fontWeight: 700,
-    marginBottom: 8,
-    color: '#ffffff',
-    textAlign: 'center',
-  } as const,
-  subtitle: {
-    fontSize: 14,
-    color: '#8892b0',
-    marginBottom: 32,
-    textAlign: 'center',
-  } as const,
-  label: {
-    display: 'block',
-    fontSize: 13,
-    fontWeight: 500,
-    color: '#8892b0',
-    marginBottom: 6,
-  } as const,
-  input: {
-    width: '100%',
-    padding: '10px 12px',
-    fontSize: 14,
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    backgroundColor: '#0f3460',
-    color: '#e0e0e0',
-    outline: 'none',
-    marginBottom: 16,
-  } as const,
-  button: {
-    width: '100%',
-    padding: '12px 16px',
-    fontSize: 15,
-    fontWeight: 600,
-    border: 'none',
-    borderRadius: 6,
-    backgroundColor: '#e94560',
-    color: '#ffffff',
-    cursor: 'pointer',
-    marginTop: 8,
-  } as const,
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  } as const,
-  error: {
-    padding: '10px 12px',
-    borderRadius: 6,
-    backgroundColor: 'rgba(233, 69, 96, 0.15)',
-    border: '1px solid rgba(233, 69, 96, 0.3)',
-    color: '#e94560',
-    fontSize: 13,
-    marginBottom: 16,
-  } as const,
+const inputStyle = {
+  width: '100%',
+  padding: '10px 14px',
+  fontSize: 14,
+  border: `1px solid ${t.border}`,
+  borderRadius: t.radiusMd,
+  backgroundColor: t.bgInput,
+  color: t.textPrimary,
+  outline: 'none',
+  marginBottom: 18,
+  fontFamily: t.fontSans,
+  transition: 'border-color 200ms ease, box-shadow 200ms ease',
+} as const
+
+const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+  e.currentTarget.style.borderColor = t.accentBorder
+  e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}`
+}
+
+const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+  e.currentTarget.style.borderColor = t.border
+  e.currentTarget.style.boxShadow = 'none'
 }
 
 export default function SetupPage() {
@@ -111,48 +61,184 @@ export default function SetupPage() {
   const displayError = validationError || (setupError instanceof Error ? setupError.message : '')
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.heading}>Welcome to togglerino</h1>
-        <p style={styles.subtitle}>Create your admin account to get started</p>
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        backgroundColor: t.bgBase,
+        color: t.textPrimary,
+        fontFamily: t.fontSans,
+        background: `radial-gradient(ellipse 60% 50% at 50% 40%, rgba(212,149,106,0.04) 0%, ${t.bgBase} 70%)`,
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 400,
+          padding: 40,
+          borderRadius: t.radiusXl,
+          backgroundColor: t.bgSurface,
+          border: `1px solid ${t.border}`,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.4), 0 0 80px rgba(212,149,106,0.03)',
+          animation: 'fadeInUp 400ms ease',
+        }}
+      >
+        {/* Brand */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            marginBottom: 8,
+          }}
+        >
+          <svg width="24" height="14" viewBox="0 0 24 14" fill="none">
+            <rect width="24" height="14" rx="7" fill={t.accent} opacity="0.25" />
+            <circle cx="17" cy="7" r="5" fill={t.accent} />
+          </svg>
+          <span
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 18,
+              fontWeight: 600,
+              color: t.accent,
+              letterSpacing: '0.5px',
+            }}
+          >
+            togglerino
+          </span>
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: t.textMuted,
+            textAlign: 'center',
+            marginBottom: 36,
+          }}
+        >
+          Create your admin account to get started
+        </div>
+
         <form onSubmit={handleSubmit}>
-          {displayError && <div style={styles.error}>{displayError}</div>}
-          <label style={styles.label}>Email</label>
+          {displayError && (
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: t.radiusMd,
+                backgroundColor: t.dangerSubtle,
+                border: `1px solid ${t.dangerBorder}`,
+                color: t.danger,
+                fontSize: 13,
+                marginBottom: 20,
+              }}
+            >
+              {displayError}
+            </div>
+          )}
+
+          <label
+            style={{
+              display: 'block',
+              fontSize: 12,
+              fontWeight: 500,
+              color: t.textSecondary,
+              marginBottom: 6,
+              letterSpacing: '0.3px',
+            }}
+          >
+            Email
+          </label>
           <input
-            style={styles.input}
+            style={inputStyle}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="admin@example.com"
             required
             autoFocus
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
-          <label style={styles.label}>Password</label>
+
+          <label
+            style={{
+              display: 'block',
+              fontSize: 12,
+              fontWeight: 500,
+              color: t.textSecondary,
+              marginBottom: 6,
+              letterSpacing: '0.3px',
+            }}
+          >
+            Password
+          </label>
           <input
-            style={styles.input}
+            style={inputStyle}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="At least 8 characters"
             required
             minLength={8}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
-          <label style={styles.label}>Confirm Password</label>
+
+          <label
+            style={{
+              display: 'block',
+              fontSize: 12,
+              fontWeight: 500,
+              color: t.textSecondary,
+              marginBottom: 6,
+              letterSpacing: '0.3px',
+            }}
+          >
+            Confirm Password
+          </label>
           <input
-            style={styles.input}
+            style={inputStyle}
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm your password"
             required
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
+
           <button
             type="submit"
-            style={{
-              ...styles.button,
-              ...(submitting ? styles.buttonDisabled : {}),
-            }}
             disabled={submitting}
+            style={{
+              width: '100%',
+              padding: '11px 16px',
+              fontSize: 14,
+              fontWeight: 600,
+              border: 'none',
+              borderRadius: t.radiusMd,
+              background: `linear-gradient(135deg, ${t.accent}, #c07e4e)`,
+              color: '#ffffff',
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              opacity: submitting ? 0.6 : 1,
+              fontFamily: t.fontSans,
+              transition: 'all 200ms ease',
+              boxShadow: '0 2px 12px rgba(212,149,106,0.2)',
+              letterSpacing: '0.3px',
+            }}
+            onMouseEnter={(e) => {
+              if (!submitting) {
+                e.currentTarget.style.boxShadow = '0 4px 20px rgba(212,149,106,0.35)'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 2px 12px rgba(212,149,106,0.2)'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
           >
             {submitting ? 'Creating Account...' : 'Create Account'}
           </button>

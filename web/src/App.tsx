@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from './hooks/useAuth.ts'
+import { t } from './theme.ts'
 import SetupPage from './pages/SetupPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import ProjectsPage from './pages/ProjectsPage.tsx'
@@ -25,12 +26,20 @@ function AuthRouter() {
           justifyContent: 'center',
           alignItems: 'center',
           height: '100vh',
-          backgroundColor: '#1a1a2e',
-          color: '#8892b0',
-          fontSize: 16,
+          backgroundColor: t.bgBase,
+          color: t.textMuted,
+          fontFamily: t.fontSans,
+          fontSize: 14,
+          letterSpacing: '0.5px',
         }}
       >
-        Loading...
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
+            <rect width="20" height="12" rx="6" fill={t.accent} opacity="0.25" />
+            <circle cx="14" cy="6" r="4" fill={t.accent} style={{ animation: 'shimmer 1.5s ease infinite' }} />
+          </svg>
+          <span style={{ animation: 'shimmer 1.5s ease infinite' }}>Loading...</span>
+        </div>
       </div>
     )
   }

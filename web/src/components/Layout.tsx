@@ -1,82 +1,28 @@
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.ts'
+import { t } from '../theme.ts'
 
-const styles = {
-  wrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-    backgroundColor: '#1a1a2e',
-    color: '#e0e0e0',
-  } as const,
-  topBar: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 24px',
-    height: 56,
-    backgroundColor: '#16213e',
-    borderBottom: '1px solid #2a2a4a',
-    flexShrink: 0,
-  } as const,
-  brand: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: '#e94560',
-    letterSpacing: '-0.5px',
-  } as const,
-  userSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-  } as const,
-  userEmail: {
-    fontSize: 13,
-    color: '#8892b0',
-  } as const,
-  logoutButton: {
-    padding: '6px 14px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-    color: '#8892b0',
-    cursor: 'pointer',
-  } as const,
-  body: {
-    display: 'flex',
-    flex: 1,
-  } as const,
-  sidebar: {
-    width: 220,
-    backgroundColor: '#16213e',
-    borderRight: '1px solid #2a2a4a',
-    padding: '16px 0',
-    flexShrink: 0,
-  } as const,
-  navLink: {
-    display: 'block',
-    padding: '10px 24px',
-    fontSize: 14,
-    color: '#8892b0',
-    textDecoration: 'none',
-    borderLeft: '3px solid transparent',
-  } as const,
-  navLinkActive: {
-    color: '#ffffff',
-    backgroundColor: 'rgba(233, 69, 96, 0.1)',
-    borderLeftColor: '#e94560',
-  } as const,
-  main: {
-    flex: 1,
-    padding: 32,
-    overflowY: 'auto',
-  } as const,
-}
+const navLinkStyle = (isActive: boolean) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  padding: '8px 20px',
+  fontSize: 13,
+  fontWeight: isActive ? 500 : 400,
+  color: isActive ? t.textPrimary : t.textSecondary,
+  textDecoration: 'none' as const,
+  borderLeft: `2px solid ${isActive ? t.accent : 'transparent'}`,
+  backgroundColor: isActive ? t.accentSubtle : 'transparent',
+  transition: 'all 200ms ease',
+  fontFamily: t.fontSans,
+})
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const location = useLocation()
+
+  const projectMatch = location.pathname.match(/^\/projects\/([^/]+)/)
+  const projectKey = projectMatch ? projectMatch[1] : null
 
   const handleLogout = async () => {
     try {
@@ -87,41 +33,212 @@ export default function Layout() {
   }
 
   return (
-    <div style={styles.wrapper}>
-      <header style={styles.topBar}>
-        <div style={styles.brand}>togglerino</div>
-        <div style={styles.userSection}>
-          <span style={styles.userEmail}>{user?.email}</span>
-          <button style={styles.logoutButton} onClick={handleLogout}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        backgroundColor: t.bgBase,
+        color: t.textPrimary,
+        fontFamily: t.fontSans,
+      }}
+    >
+      {/* Top bar */}
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 24px',
+          height: 52,
+          backgroundColor: t.bgSurface,
+          borderBottom: `1px solid ${t.border}`,
+          flexShrink: 0,
+        }}
+      >
+        <Link
+          to="/projects"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            textDecoration: 'none',
+          }}
+        >
+          <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
+            <rect width="20" height="12" rx="6" fill={t.accent} opacity="0.25" />
+            <circle cx="14" cy="6" r="4" fill={t.accent} />
+          </svg>
+          <span
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 14,
+              fontWeight: 600,
+              color: t.accent,
+              letterSpacing: '0.5px',
+            }}
+          >
+            togglerino
+          </span>
+        </Link>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              backgroundColor: t.accentSubtle,
+              border: `1px solid ${t.accentBorder}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 11,
+              fontWeight: 600,
+              color: t.accent,
+              fontFamily: t.fontMono,
+            }}
+          >
+            {user?.email?.charAt(0).toUpperCase()}
+          </div>
+          <span style={{ fontSize: 12, color: t.textSecondary }}>{user?.email}</span>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '5px 12px',
+              fontSize: 12,
+              fontWeight: 500,
+              fontFamily: t.fontSans,
+              border: `1px solid ${t.border}`,
+              borderRadius: t.radiusSm,
+              backgroundColor: 'transparent',
+              color: t.textSecondary,
+              cursor: 'pointer',
+              transition: 'all 200ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = t.borderHover
+              e.currentTarget.style.color = t.textPrimary
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = t.border
+              e.currentTarget.style.color = t.textSecondary
+            }}
+          >
             Log out
           </button>
         </div>
       </header>
-      <div style={styles.body}>
-        <nav style={styles.sidebar}>
-          <div style={{ padding: '0 24px 8px', fontSize: 11, fontWeight: 600, color: '#5a6580', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>
-            Global
+
+      <div style={{ display: 'flex', flex: 1 }}>
+        {/* Sidebar */}
+        <nav
+          style={{
+            width: 200,
+            backgroundColor: t.bgSurface,
+            borderRight: `1px solid ${t.border}`,
+            padding: '20px 0',
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0,
+          }}
+        >
+          <div
+            style={{
+              padding: '0 20px 10px',
+              fontSize: 10,
+              fontWeight: 500,
+              color: t.textMuted,
+              textTransform: 'uppercase',
+              letterSpacing: '1.2px',
+              fontFamily: t.fontMono,
+            }}
+          >
+            Navigation
           </div>
           <NavLink
             to="/projects"
-            style={({ isActive }) => ({
-              ...styles.navLink,
-              ...(isActive ? styles.navLinkActive : {}),
-            })}
+            end
+            style={({ isActive }) => navLinkStyle(isActive && !projectKey)}
           >
             Projects
           </NavLink>
           <NavLink
             to="/settings/team"
-            style={({ isActive }) => ({
-              ...styles.navLink,
-              ...(isActive ? styles.navLinkActive : {}),
-            })}
+            style={({ isActive }) => navLinkStyle(isActive)}
           >
             Team
           </NavLink>
+
+          {/* Project-scoped nav */}
+          {projectKey && (
+            <>
+              <div
+                style={{
+                  margin: '16px 20px 0',
+                  paddingTop: 16,
+                  borderTop: `1px solid ${t.border}`,
+                }}
+              />
+              <div
+                style={{
+                  padding: '0 20px 6px',
+                  fontSize: 10,
+                  fontWeight: 500,
+                  color: t.textMuted,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.2px',
+                  fontFamily: t.fontMono,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span style={{ opacity: 0.6 }}>&rsaquo;</span>
+                <span
+                  style={{
+                    maxWidth: 120,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {projectKey}
+                </span>
+              </div>
+              <NavLink
+                to={`/projects/${projectKey}`}
+                end
+                style={({ isActive }) => navLinkStyle(isActive)}
+              >
+                Flags
+              </NavLink>
+              <NavLink
+                to={`/projects/${projectKey}/environments`}
+                style={({ isActive }) => navLinkStyle(isActive)}
+              >
+                Environments
+              </NavLink>
+              <NavLink
+                to={`/projects/${projectKey}/audit-log`}
+                style={({ isActive }) => navLinkStyle(isActive)}
+              >
+                Audit Log
+              </NavLink>
+            </>
+          )}
         </nav>
-        <main style={styles.main}>
+
+        {/* Main content */}
+        <main
+          style={{
+            flex: 1,
+            padding: 36,
+            overflowY: 'auto',
+            animation: 'fadeIn 300ms ease',
+          }}
+        >
           <Outlet />
         </main>
       </div>

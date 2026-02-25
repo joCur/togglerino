@@ -1,76 +1,10 @@
 import type { Variant } from '../api/types.ts'
+import { t } from '../theme.ts'
 
 interface Props {
   variants: Variant[]
   flagType: string
   onChange: (variants: Variant[]) => void
-}
-
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  } as const,
-  heading: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: '#e0e0e0',
-    marginBottom: 4,
-  } as const,
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  } as const,
-  input: {
-    padding: '8px 10px',
-    fontSize: 13,
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    backgroundColor: '#0f3460',
-    color: '#e0e0e0',
-    outline: 'none',
-    flex: 1,
-  } as const,
-  keyInput: {
-    padding: '8px 10px',
-    fontSize: 13,
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    backgroundColor: '#0f3460',
-    color: '#e0e0e0',
-    outline: 'none',
-    width: 120,
-    flexShrink: 0,
-  } as const,
-  removeBtn: {
-    padding: '6px 10px',
-    fontSize: 12,
-    border: '1px solid rgba(233, 69, 96, 0.3)',
-    borderRadius: 6,
-    backgroundColor: 'rgba(233, 69, 96, 0.1)',
-    color: '#e94560',
-    cursor: 'pointer',
-    flexShrink: 0,
-  } as const,
-  addBtn: {
-    padding: '8px 14px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-    color: '#8892b0',
-    cursor: 'pointer',
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  } as const,
-  emptyText: {
-    fontSize: 13,
-    color: '#8892b0',
-    fontStyle: 'italic',
-  } as const,
 }
 
 function formatValue(value: unknown): string {
@@ -81,19 +15,23 @@ function formatValue(value: unknown): string {
 
 function parseValue(raw: string, flagType: string): unknown {
   if (flagType === 'boolean') return raw === 'true'
-  if (flagType === 'number') {
-    const n = Number(raw)
-    return isNaN(n) ? 0 : n
-  }
-  if (flagType === 'json') {
-    try {
-      return JSON.parse(raw)
-    } catch {
-      return raw
-    }
-  }
+  if (flagType === 'number') { const n = Number(raw); return isNaN(n) ? 0 : n }
+  if (flagType === 'json') { try { return JSON.parse(raw) } catch { return raw } }
   return raw
 }
+
+const inputStyle = {
+  padding: '7px 10px',
+  fontSize: 12,
+  border: `1px solid ${t.border}`,
+  borderRadius: t.radiusSm,
+  backgroundColor: t.bgInput,
+  color: t.textPrimary,
+  outline: 'none',
+  flex: 1,
+  fontFamily: t.fontSans,
+  transition: 'border-color 200ms ease',
+} as const
 
 export default function VariantEditor({ variants, flagType, onChange }: Props) {
   const updateKey = (index: number, newKey: string) => {
@@ -130,17 +68,20 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.heading}>Variants</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary }}>Variants</div>
+
       {variants.length === 0 && (
-        <div style={styles.emptyText}>
+        <div style={{ fontSize: 12, color: t.textMuted, fontStyle: 'italic' }}>
           No variants defined.
           {flagType === 'boolean' && (
             <>
               {' '}
               <span
-                style={{ color: '#e94560', cursor: 'pointer', fontStyle: 'normal' }}
+                style={{ color: t.accent, cursor: 'pointer', fontStyle: 'normal', transition: 'color 200ms ease' }}
                 onClick={addDefaults}
+                onMouseEnter={(e) => { e.currentTarget.style.color = t.accentLight }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = t.accent }}
               >
                 Add boolean defaults
               </span>
@@ -148,17 +89,20 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
           )}
         </div>
       )}
+
       {variants.map((v, i) => (
-        <div key={i} style={styles.row}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
-            style={styles.keyInput}
+            style={{ ...inputStyle, flex: 'none', width: 110, fontFamily: t.fontMono }}
             placeholder="Key"
             value={v.key}
             onChange={(e) => updateKey(i, e.target.value)}
+            onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
           />
           {flagType === 'boolean' ? (
             <select
-              style={{ ...styles.input, cursor: 'pointer' }}
+              style={{ ...inputStyle, cursor: 'pointer' }}
               value={String(v.value)}
               onChange={(e) => updateValue(i, e.target.value)}
             >
@@ -167,26 +111,53 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
             </select>
           ) : flagType === 'json' ? (
             <textarea
-              style={{ ...styles.input, minHeight: 32, resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
+              style={{ ...inputStyle, minHeight: 32, resize: 'vertical', fontFamily: t.fontMono, fontSize: 11 }}
               value={formatValue(v.value)}
               onChange={(e) => updateValue(i, e.target.value)}
               placeholder="JSON value"
+              onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
             />
           ) : (
             <input
-              style={styles.input}
+              style={inputStyle}
               type={flagType === 'number' ? 'number' : 'text'}
               placeholder="Value"
               value={formatValue(v.value)}
               onChange={(e) => updateValue(i, e.target.value)}
+              onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
             />
           )}
-          <button style={styles.removeBtn} onClick={() => remove(i)}>
+          <button
+            style={{
+              padding: '5px 10px', fontSize: 11, fontWeight: 500,
+              border: `1px solid ${t.dangerBorder}`, borderRadius: t.radiusSm,
+              backgroundColor: t.dangerSubtle, color: t.danger,
+              cursor: 'pointer', flexShrink: 0, fontFamily: t.fontSans,
+              transition: 'all 200ms ease',
+            }}
+            onClick={() => remove(i)}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(242,116,116,0.15)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = t.dangerSubtle }}
+          >
             Remove
           </button>
         </div>
       ))}
-      <button style={styles.addBtn} onClick={add}>
+
+      <button
+        style={{
+          padding: '7px 14px', fontSize: 12, fontWeight: 500,
+          border: `1px solid ${t.border}`, borderRadius: t.radiusMd,
+          backgroundColor: 'transparent', color: t.textSecondary,
+          cursor: 'pointer', alignSelf: 'flex-start', marginTop: 2,
+          fontFamily: t.fontSans, transition: 'all 200ms ease',
+        }}
+        onClick={add}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.color = t.accent }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textSecondary }}
+      >
         + Add Variant
       </button>
     </div>

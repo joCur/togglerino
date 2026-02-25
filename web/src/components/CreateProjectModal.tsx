@@ -2,107 +2,11 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type { Project } from '../api/types.ts'
+import { t } from '../theme.ts'
 
 interface Props {
   open: boolean
   onClose: () => void
-}
-
-const styles = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    zIndex: 1000,
-  } as const,
-  modal: {
-    width: '100%',
-    maxWidth: 460,
-    padding: 32,
-    borderRadius: 12,
-    backgroundColor: '#16213e',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-  } as const,
-  heading: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: '#ffffff',
-    marginBottom: 24,
-  } as const,
-  label: {
-    display: 'block',
-    fontSize: 13,
-    fontWeight: 500,
-    color: '#8892b0',
-    marginBottom: 6,
-  } as const,
-  input: {
-    width: '100%',
-    padding: '10px 12px',
-    fontSize: 14,
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    backgroundColor: '#0f3460',
-    color: '#e0e0e0',
-    outline: 'none',
-    marginBottom: 16,
-  } as const,
-  textarea: {
-    width: '100%',
-    padding: '10px 12px',
-    fontSize: 14,
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    backgroundColor: '#0f3460',
-    color: '#e0e0e0',
-    outline: 'none',
-    marginBottom: 16,
-    minHeight: 80,
-    resize: 'vertical' as const,
-    fontFamily: 'inherit',
-  } as const,
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 8,
-  } as const,
-  cancelBtn: {
-    padding: '10px 18px',
-    fontSize: 14,
-    fontWeight: 500,
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-    color: '#8892b0',
-    cursor: 'pointer',
-  } as const,
-  createBtn: {
-    padding: '10px 18px',
-    fontSize: 14,
-    fontWeight: 600,
-    border: 'none',
-    borderRadius: 6,
-    backgroundColor: '#e94560',
-    color: '#ffffff',
-    cursor: 'pointer',
-  } as const,
-  disabledBtn: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  } as const,
-  error: {
-    padding: '10px 12px',
-    borderRadius: 6,
-    backgroundColor: 'rgba(233, 69, 96, 0.15)',
-    border: '1px solid rgba(233, 69, 96, 0.3)',
-    color: '#e94560',
-    fontSize: 13,
-    marginBottom: 16,
-  } as const,
 }
 
 function slugify(text: string): string {
@@ -111,6 +15,30 @@ function slugify(text: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: '10px 14px',
+  fontSize: 13,
+  border: `1px solid ${t.border}`,
+  borderRadius: t.radiusMd,
+  backgroundColor: t.bgInput,
+  color: t.textPrimary,
+  outline: 'none',
+  marginBottom: 18,
+  fontFamily: t.fontSans,
+  transition: 'border-color 200ms ease, box-shadow 200ms ease',
+} as const
+
+const handleFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  e.currentTarget.style.borderColor = t.accentBorder
+  e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}`
+}
+
+const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  e.currentTarget.style.borderColor = t.border
+  e.currentTarget.style.boxShadow = 'none'
 }
 
 export default function CreateProjectModal({ open, onClose }: Props) {
@@ -160,46 +88,90 @@ export default function CreateProjectModal({ open, onClose }: Props) {
   const errorMsg = mutation.error instanceof Error ? mutation.error.message : ''
 
   return (
-    <div style={styles.overlay} onClick={resetAndClose}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <h2 style={styles.heading}>Create Project</h2>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(4px)',
+        zIndex: 1000,
+        animation: 'overlayIn 200ms ease',
+      }}
+      onClick={resetAndClose}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 460,
+          padding: 32,
+          borderRadius: t.radiusXl,
+          backgroundColor: t.bgSurface,
+          border: `1px solid ${t.borderStrong}`,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+          animation: 'modalIn 250ms ease',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ fontSize: 18, fontWeight: 600, color: t.textPrimary, marginBottom: 24, letterSpacing: '-0.2px' }}>
+          Create Project
+        </h2>
         <form onSubmit={handleSubmit}>
-          {errorMsg && <div style={styles.error}>{errorMsg}</div>}
-          <label style={styles.label}>Name</label>
-          <input
-            style={styles.input}
-            value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            placeholder="My Project"
-            required
-            autoFocus
-          />
-          <label style={styles.label}>Key</label>
-          <input
-            style={styles.input}
-            value={key}
-            onChange={(e) => handleKeyChange(e.target.value)}
-            placeholder="my-project"
-            required
-          />
-          <label style={styles.label}>Description</label>
+          {errorMsg && (
+            <div style={{ padding: '10px 14px', borderRadius: t.radiusMd, backgroundColor: t.dangerSubtle, border: `1px solid ${t.dangerBorder}`, color: t.danger, fontSize: 13, marginBottom: 18 }}>
+              {errorMsg}
+            </div>
+          )}
+
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSecondary, marginBottom: 6, letterSpacing: '0.3px' }}>Name</label>
+          <input style={inputStyle} value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="My Project" required autoFocus onFocus={handleFocus} onBlur={handleBlur} />
+
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSecondary, marginBottom: 6, letterSpacing: '0.3px' }}>Key</label>
+          <input style={{ ...inputStyle, fontFamily: t.fontMono, fontSize: 12 }} value={key} onChange={(e) => handleKeyChange(e.target.value)} placeholder="my-project" required onFocus={handleFocus} onBlur={handleBlur} />
+
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSecondary, marginBottom: 6, letterSpacing: '0.3px' }}>Description</label>
           <textarea
-            style={styles.textarea}
+            style={{
+              ...inputStyle,
+              minHeight: 80,
+              resize: 'vertical',
+            }}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Optional description"
+            onFocus={handleFocus as unknown as React.FocusEventHandler<HTMLTextAreaElement>}
+            onBlur={handleBlur as unknown as React.FocusEventHandler<HTMLTextAreaElement>}
           />
-          <div style={styles.actions}>
-            <button type="button" style={styles.cancelBtn} onClick={resetAndClose}>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
+            <button
+              type="button"
+              style={{
+                padding: '9px 16px', fontSize: 13, fontWeight: 500,
+                border: `1px solid ${t.border}`, borderRadius: t.radiusMd,
+                backgroundColor: 'transparent', color: t.textSecondary, cursor: 'pointer',
+                fontFamily: t.fontSans, transition: 'all 200ms ease',
+              }}
+              onClick={resetAndClose}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = t.borderHover; e.currentTarget.style.color = t.textPrimary }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textSecondary }}
+            >
               Cancel
             </button>
             <button
               type="submit"
-              style={{
-                ...styles.createBtn,
-                ...(mutation.isPending ? styles.disabledBtn : {}),
-              }}
               disabled={mutation.isPending}
+              style={{
+                padding: '9px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: t.radiusMd,
+                background: `linear-gradient(135deg, ${t.accent}, #c07e4e)`, color: '#ffffff',
+                cursor: mutation.isPending ? 'not-allowed' : 'pointer',
+                opacity: mutation.isPending ? 0.6 : 1, fontFamily: t.fontSans,
+                transition: 'all 200ms ease', boxShadow: '0 2px 10px rgba(212,149,106,0.15)',
+              }}
+              onMouseEnter={(e) => { if (!mutation.isPending) { e.currentTarget.style.boxShadow = '0 4px 16px rgba(212,149,106,0.3)' } }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(212,149,106,0.15)' }}
             >
               {mutation.isPending ? 'Creating...' : 'Create Project'}
             </button>
