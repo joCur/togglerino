@@ -83,9 +83,9 @@ func main() {
 	mux.HandleFunc("GET /api/v1/auth/status", authHandler.Status)
 	mux.HandleFunc("POST /api/v1/auth/setup", authHandler.Setup)
 	mux.HandleFunc("POST /api/v1/auth/login", authHandler.Login)
+	mux.HandleFunc("POST /api/v1/auth/logout", authHandler.Logout)
 
 	// --- Session-authed routes (management API) ---
-	mux.Handle("POST /api/v1/auth/logout", wrap(authHandler.Logout, sessionAuth))
 	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionAuth))
 
 	// Projects

@@ -16,8 +16,13 @@ export function useAuth() {
 
   const meQuery = useQuery({
     queryKey: ['auth', 'me'],
-    queryFn: () => api.get<User>('/auth/me'),
-    retry: false,
+    queryFn: async () => {
+      try {
+        return await api.get<User>('/auth/me')
+      } catch {
+        return null
+      }
+    },
     enabled: statusQuery.data?.setup_required === false,
   })
 
@@ -40,7 +45,8 @@ export function useAuth() {
   const logoutMutation = useMutation({
     mutationFn: () => api.post('/auth/logout'),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['auth'] })
+      queryClient.setQueryData(['auth', 'me'], null)
+      queryClient.removeQueries()
     },
   })
 
