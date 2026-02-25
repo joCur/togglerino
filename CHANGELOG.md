@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/joCur/togglerino/compare/v0.2.0...v0.2.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* replace setState-in-useEffect with keyed components ([7e5a1a0](https://github.com/joCur/togglerino/commit/7e5a1a05584ae09ca3bf73dd427f8198b5ad887f))
+
 ## [0.2.0](https://github.com/joCur/togglerino/compare/v0.1.0...v0.2.0) (2026-02-25)
 
 
