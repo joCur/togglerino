@@ -70,13 +70,21 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary }}>Variants</div>
+      <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 4 }}>
+        {flagType === 'boolean'
+          ? 'Define the on/off states for this flag. Each variant has a key (referenced in targeting rules) and a boolean value.'
+          : flagType === 'string'
+          ? 'Define the possible string values this flag can return. Each variant has a key (referenced in targeting rules) and a string value.'
+          : flagType === 'number'
+          ? 'Define the possible numeric values this flag can return. Each variant has a key (referenced in targeting rules) and a number value.'
+          : 'Define the possible JSON payloads this flag can return. Each variant has a key (referenced in targeting rules) and a JSON value.'}
+      </div>
 
       {variants.length === 0 && (
         <div style={{ fontSize: 12, color: t.textMuted, fontStyle: 'italic' }}>
-          No variants defined.
-          {flagType === 'boolean' && (
+          {flagType === 'boolean' ? (
             <>
-              {' '}
+              No variants defined.{' '}
               <span
                 style={{ color: t.accent, cursor: 'pointer', fontStyle: 'normal', transition: 'color 200ms ease' }}
                 onClick={addDefaults}
@@ -86,6 +94,8 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
                 Add boolean defaults
               </span>
             </>
+          ) : (
+            'No variants defined. Add variants to use in targeting rules and as the default value.'
           )}
         </div>
       )}
