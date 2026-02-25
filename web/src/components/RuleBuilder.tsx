@@ -8,16 +8,52 @@ interface Props {
   onChange: (rules: TargetingRule[]) => void
 }
 
-const OPERATORS = [
-  { value: 'equals', label: 'equals' },
-  { value: 'not_equals', label: 'not equals' },
-  { value: 'contains', label: 'contains' },
-  { value: 'not_contains', label: 'not contains' },
-  { value: 'in', label: 'in' },
-  { value: 'not_in', label: 'not in' },
-  { value: 'greater_than', label: 'greater than' },
-  { value: 'less_than', label: 'less than' },
-  { value: 'matches', label: 'matches (regex)' },
+const OPERATOR_GROUPS = [
+  {
+    label: 'Comparison',
+    operators: [
+      { value: 'equals', label: 'equals' },
+      { value: 'not_equals', label: 'not equals' },
+    ],
+  },
+  {
+    label: 'String',
+    operators: [
+      { value: 'contains', label: 'contains' },
+      { value: 'not_contains', label: 'not contains' },
+      { value: 'starts_with', label: 'starts with' },
+      { value: 'ends_with', label: 'ends with' },
+    ],
+  },
+  {
+    label: 'List',
+    operators: [
+      { value: 'in', label: 'in (comma-separated)' },
+      { value: 'not_in', label: 'not in (comma-separated)' },
+    ],
+  },
+  {
+    label: 'Numeric',
+    operators: [
+      { value: 'greater_than', label: '> greater than' },
+      { value: 'less_than', label: '< less than' },
+      { value: 'gte', label: '>= greater or equal' },
+      { value: 'lte', label: '<= less or equal' },
+    ],
+  },
+  {
+    label: 'Presence',
+    operators: [
+      { value: 'exists', label: 'exists' },
+      { value: 'not_exists', label: 'not exists' },
+    ],
+  },
+  {
+    label: 'Pattern',
+    operators: [
+      { value: 'matches', label: 'matches (regex)' },
+    ],
+  },
 ]
 
 const inputStyle = {
@@ -96,6 +132,9 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary }}>Targeting Rules</div>
+      <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 4 }}>
+        Rules are evaluated top to bottom — the first matching rule wins. If no rule matches, the default variant is served.
+      </div>
 
       {rules.length === 0 && (
         <div style={{ fontSize: 12, color: t.textMuted, fontStyle: 'italic' }}>
@@ -137,33 +176,46 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
             <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 6, fontFamily: t.fontMono, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Conditions
             </div>
+            <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.5, marginBottom: 6, fontStyle: 'italic' }}>
+              All conditions must match (AND logic). Attributes are properties from your SDK's evaluation context.
+            </div>
             {rule.conditions.map((cond, condIdx) => (
               <div key={condIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                 <input
                   style={inputStyle}
-                  placeholder="Attribute"
+                  placeholder="e.g. user_id, email, plan"
                   value={cond.attribute}
                   onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
                   onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
                 />
                 <select
-                  style={{ ...selectStyle, width: 130 }}
+                  style={{ ...selectStyle, width: 170 }}
                   value={cond.operator}
                   onChange={(e) => updateCondition(ruleIdx, condIdx, { operator: e.target.value })}
                 >
-                  {OPERATORS.map((op) => (
-                    <option key={op.value} value={op.value}>{op.label}</option>
+                  {OPERATOR_GROUPS.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.operators.map((op) => (
+                        <option key={op.value} value={op.value}>{op.label}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
-                <input
-                  style={inputStyle}
-                  placeholder="Value"
-                  value={String(cond.value ?? '')}
-                  onChange={(e) => updateCondition(ruleIdx, condIdx, { value: e.target.value })}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
-                />
+                {cond.operator !== 'exists' && cond.operator !== 'not_exists' && (
+                  <input
+                    style={inputStyle}
+                    placeholder={
+                      cond.operator === 'in' || cond.operator === 'not_in'
+                        ? 'comma-separated values'
+                        : 'Value'
+                    }
+                    value={String(cond.value ?? '')}
+                    onChange={(e) => updateCondition(ruleIdx, condIdx, { value: e.target.value })}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
+                  />
+                )}
                 {rule.conditions.length > 1 && (
                   <button
                     style={{
@@ -195,28 +247,33 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
           </div>
 
           {/* Serve variant */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 12, color: t.textSecondary, whiteSpace: 'nowrap' }}>Serve variant:</span>
-            {variants.length > 0 ? (
-              <select
-                style={selectStyle}
-                value={rule.variant}
-                onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}
-              >
-                {variants.map((v) => (
-                  <option key={v.key} value={v.key}>{v.key}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                style={{ ...inputStyle, flex: 'none', width: 130 }}
-                placeholder="Variant key"
-                value={rule.variant}
-                onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}
-                onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
-              />
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: t.textSecondary, whiteSpace: 'nowrap' }}>Serve variant:</span>
+              {variants.length > 0 ? (
+                <select
+                  style={selectStyle}
+                  value={rule.variant}
+                  onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}
+                >
+                  {variants.map((v) => (
+                    <option key={v.key} value={v.key}>{v.key}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  style={{ ...inputStyle, flex: 'none', width: 130 }}
+                  placeholder="Variant key"
+                  value={rule.variant}
+                  onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
+                />
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: t.textMuted, fontStyle: 'italic' }}>
+              The variant returned when this rule matches.
+            </div>
           </div>
 
           <RolloutSlider
