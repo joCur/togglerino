@@ -11,7 +11,9 @@ import EnvironmentsPage from './pages/EnvironmentsPage.tsx'
 import SDKKeysPage from './pages/SDKKeysPage.tsx'
 import AuditLogPage from './pages/AuditLogPage.tsx'
 import TeamPage from './pages/TeamPage.tsx'
-import Layout from './components/Layout.tsx'
+import OrgLayout from './components/OrgLayout.tsx'
+import ProjectLayout from './components/ProjectLayout.tsx'
+import ProjectSettingsPage from './pages/ProjectSettingsPage.tsx'
 
 const queryClient = new QueryClient()
 
@@ -62,17 +64,20 @@ function AuthRouter() {
 
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Navigate to="/projects" replace />} />
+      <Route element={<OrgLayout />}>
         <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/projects/:key" element={<ProjectDetailPage />} />
-        <Route path="/projects/:key/flags/:flag" element={<FlagDetailPage />} />
-        <Route path="/projects/:key/environments" element={<EnvironmentsPage />} />
-        <Route path="/projects/:key/environments/:env/sdk-keys" element={<SDKKeysPage />} />
-        <Route path="/projects/:key/audit-log" element={<AuditLogPage />} />
         <Route path="/settings/team" element={<TeamPage />} />
-        <Route path="*" element={<Navigate to="/projects" replace />} />
       </Route>
+      <Route path="/projects/:key" element={<ProjectLayout />}>
+        <Route index element={<ProjectDetailPage />} />
+        <Route path="flags/:flag" element={<FlagDetailPage />} />
+        <Route path="environments" element={<EnvironmentsPage />} />
+        <Route path="environments/:env/sdk-keys" element={<SDKKeysPage />} />
+        <Route path="audit-log" element={<AuditLogPage />} />
+        <Route path="settings" element={<ProjectSettingsPage />} />
+      </Route>
+      <Route path="/" element={<Navigate to="/projects" replace />} />
+      <Route path="*" element={<Navigate to="/projects" replace />} />
     </Routes>
   )
 }
