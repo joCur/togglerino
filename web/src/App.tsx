@@ -3,6 +3,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from './hooks/useAuth.ts'
 import SetupPage from './pages/SetupPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
+import ProjectsPage from './pages/ProjectsPage.tsx'
+import ProjectDetailPage from './pages/ProjectDetailPage.tsx'
+import FlagDetailPage from './pages/FlagDetailPage.tsx'
 import Layout from './components/Layout.tsx'
 
 const queryClient = new QueryClient()
@@ -48,10 +51,9 @@ function AuthRouter() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Navigate to="/projects" replace />} />
-        <Route
-          path="/projects"
-          element={<div>Projects page (coming next)</div>}
-        />
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/projects/:key" element={<ProjectDetailPage />} />
+        <Route path="/projects/:key/flags/:flag" element={<FlagDetailPage />} />
         <Route path="*" element={<Navigate to="/projects" replace />} />
       </Route>
     </Routes>
