@@ -98,6 +98,7 @@ func main() {
 	mux.Handle("POST /api/v1/auth/login", authLimiter.Middleware(http.HandlerFunc(authHandler.Login)))
 	mux.HandleFunc("POST /api/v1/auth/logout", authHandler.Logout)
 	mux.Handle("POST /api/v1/auth/accept-invite", authLimiter.Middleware(http.HandlerFunc(authHandler.AcceptInvite)))
+	mux.Handle("POST /api/v1/auth/reset-password", authLimiter.Middleware(http.HandlerFunc(authHandler.ResetPassword)))
 
 	// --- Session-authed routes (management API) ---
 	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionAuth))
@@ -108,6 +109,7 @@ func main() {
 	mux.Handle("POST /api/v1/management/users/invite", wrap(userHandler.Invite, sessionAuth, requireAdmin))
 	mux.Handle("GET /api/v1/management/users/invites", wrap(userHandler.ListInvites, sessionAuth, requireAdmin))
 	mux.Handle("DELETE /api/v1/management/users/{id}", wrap(userHandler.Delete, sessionAuth, requireAdmin))
+	mux.Handle("POST /api/v1/management/users/{id}/reset-password", wrap(http.HandlerFunc(userHandler.ResetPassword), sessionAuth, requireAdmin))
 
 	// Projects
 	mux.Handle("POST /api/v1/projects", wrap(projectHandler.Create, sessionAuth))

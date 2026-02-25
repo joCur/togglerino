@@ -87,6 +87,55 @@ func (h *UserHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// POST /api/v1/management/users/{id}/reset-password — generate a password reset token (admin-only)
+func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "user id is required")
+		return
+	}
+
+	// Verify the target user exists
+	user, err := h.users.FindByID(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	// Generate 32 random bytes, hex-encoded (same approach as Invite)
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	token := hex.EncodeToString(b)
+
+	currentUser := auth.UserFromContext(r.Context())
+	var createdBy *string
+	if currentUser != nil {
+		createdBy = &currentUser.ID
+	}
+
+	// Reuse the invites table to store the reset token
+	invite := &model.Invite{
+		Email:     user.Email,
+		Role:      user.Role,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		InvitedBy: createdBy,
+	}
+
+	if err := h.invites.Create(r.Context(), invite); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create reset token")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"token":      token,
+		"expires_at": invite.ExpiresAt,
+	})
+}
+
 // DELETE /api/v1/management/users/{id} — delete a user (cannot delete self)
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

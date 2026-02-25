@@ -85,6 +85,13 @@ func (s *UserStore) List(ctx context.Context) ([]model.User, error) {
 	return users, nil
 }
 
+func (s *UserStore) UpdatePassword(ctx context.Context, id, passwordHash string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2`,
+		passwordHash, id)
+	return err
+}
+
 func (s *UserStore) Delete(ctx context.Context, id string) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {

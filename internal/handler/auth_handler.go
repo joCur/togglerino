@@ -154,6 +154,72 @@ func (h *AuthHandler) Status(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// POST /api/v1/auth/reset-password — reset password using a token (public, rate-limited)
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Token == "" {
+		writeError(w, http.StatusBadRequest, "token is required")
+		return
+	}
+	if req.Password == "" {
+		writeError(w, http.StatusBadRequest, "password is required")
+		return
+	}
+	if len(req.Password) < 8 {
+		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+
+	invite, err := h.invites.FindByToken(r.Context(), req.Token)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "token not found")
+		return
+	}
+
+	if time.Now().After(invite.ExpiresAt) {
+		writeError(w, http.StatusGone, "token has expired")
+		return
+	}
+
+	// Atomically claim the token to prevent reuse
+	claimed, err := h.invites.MarkAccepted(r.Context(), invite.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to process reset token")
+		return
+	}
+	if !claimed {
+		writeError(w, http.StatusConflict, "token already used")
+		return
+	}
+
+	// Find the user by email from the invite record
+	user, err := h.users.FindByEmail(r.Context(), invite.Email)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	if err := h.users.UpdatePassword(r.Context(), user.ID, hash); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update password")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // POST /api/v1/auth/accept-invite — accept an invite and create a new user account
 func (h *AuthHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	var req struct {
