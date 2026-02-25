@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
@@ -18,63 +18,35 @@ interface FlagDetailResponse {
   environment_configs: FlagEnvironmentConfig[]
 }
 
-export default function FlagDetailPage() {
-  const { key, flag: flagKey } = useParams<{ key: string; flag: string }>()
+function ConfigEditor({
+  config,
+  flag,
+  envKey,
+  projectKey,
+  flagKey,
+}: {
+  config: FlagEnvironmentConfig | null
+  flag: Flag
+  envKey: string
+  projectKey: string
+  flagKey: string
+}) {
   const queryClient = useQueryClient()
-
-  const [selectedEnvKey, setSelectedEnvKey] = useState<string>('')
-  const [enabled, setEnabled] = useState(false)
-  const [defaultVariant, setDefaultVariant] = useState('')
-  const [variants, setVariants] = useState<Variant[]>([])
-  const [rules, setRules] = useState<TargetingRule[]>([])
+  const [enabled, setEnabled] = useState(config?.enabled ?? false)
+  const [defaultVariant, setDefaultVariant] = useState(config?.default_variant ?? '')
+  const [variants, setVariants] = useState<Variant[]>(config?.variants ?? [])
+  const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
   const [saved, setSaved] = useState(false)
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['projects', key, 'flags', flagKey],
-    queryFn: () => api.get<FlagDetailResponse>(`/projects/${key}/flags/${flagKey}`),
-    enabled: !!key && !!flagKey,
-  })
-
-  const { data: environments } = useQuery({
-    queryKey: ['projects', key, 'environments'],
-    queryFn: () => api.get<Environment[]>(`/projects/${key}/environments`),
-    enabled: !!key,
-  })
-
-  useEffect(() => {
-    if (environments && environments.length > 0 && !selectedEnvKey) {
-      setSelectedEnvKey(environments[0].key)
-    }
-  }, [environments, selectedEnvKey])
-
-  useEffect(() => {
-    if (!data || !environments || !selectedEnvKey) return
-    const env = environments.find((e) => e.key === selectedEnvKey)
-    if (!env) return
-    const cfg = data.environment_configs.find((c) => c.environment_id === env.id)
-    if (cfg) {
-      setEnabled(cfg.enabled)
-      setDefaultVariant(cfg.default_variant)
-      setVariants(cfg.variants ?? [])
-      setRules(cfg.targeting_rules ?? [])
-    } else {
-      setEnabled(false)
-      setDefaultVariant('')
-      setVariants([])
-      setRules([])
-    }
-    setSaved(false)
-  }, [data, environments, selectedEnvKey])
-
   const updateConfig = useMutation({
-    mutationFn: (config: {
+    mutationFn: (data: {
       enabled: boolean
       default_variant: string
       variants: Variant[]
       targeting_rules: TargetingRule[]
-    }) => api.put(`/projects/${key}/flags/${flagKey}/environments/${selectedEnvKey}`, config),
+    }) => api.put(`/projects/${projectKey}/flags/${flagKey}/environments/${envKey}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+      queryClient.invalidateQueries({ queryKey: ['projects', projectKey, 'flags', flagKey] })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     },
@@ -88,6 +60,230 @@ export default function FlagDetailPage() {
       targeting_rules: rules,
     })
   }
+
+  return (
+    <div
+      style={{
+        padding: 24,
+        borderRadius: t.radiusLg,
+        backgroundColor: t.bgSurface,
+        border: `1px solid ${t.border}`,
+      }}
+    >
+      {/* Toggle */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          marginBottom: 24,
+          padding: 16,
+          borderRadius: t.radiusMd,
+          backgroundColor: t.bgElevated,
+          border: `1px solid ${t.border}`,
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 26,
+            borderRadius: 13,
+            backgroundColor: enabled ? t.success : t.textMuted,
+            position: 'relative',
+            cursor: 'pointer',
+            transition: 'background-color 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: enabled ? `0 0 12px ${t.successBorder}` : 'none',
+            flexShrink: 0,
+          }}
+          onClick={() => setEnabled(!enabled)}
+        >
+          <div
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              backgroundColor: '#ffffff',
+              position: 'absolute',
+              top: 3,
+              left: enabled ? 25 : 3,
+              transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            }}
+          />
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 500, color: t.textPrimary }}>
+          {enabled ? 'Enabled' : 'Disabled'} in {envKey}
+        </span>
+      </div>
+
+      {/* Default Variant */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary, marginBottom: 10 }}>
+          Default Variant
+        </div>
+        {variants.length > 0 ? (
+          <select
+            style={{
+              padding: '8px 12px',
+              fontSize: 13,
+              border: `1px solid ${t.border}`,
+              borderRadius: t.radiusMd,
+              backgroundColor: t.bgInput,
+              color: t.textPrimary,
+              outline: 'none',
+              cursor: 'pointer',
+              minWidth: 160,
+              fontFamily: t.fontSans,
+            }}
+            value={defaultVariant}
+            onChange={(e) => setDefaultVariant(e.target.value)}
+          >
+            <option value="">-- Select --</option>
+            {variants.map((v) => (
+              <option key={v.key} value={v.key}>
+                {v.key}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            style={{
+              padding: '8px 12px',
+              fontSize: 13,
+              border: `1px solid ${t.border}`,
+              borderRadius: t.radiusMd,
+              backgroundColor: t.bgInput,
+              color: t.textPrimary,
+              outline: 'none',
+              minWidth: 200,
+              fontFamily: t.fontSans,
+              transition: 'border-color 200ms ease, box-shadow 200ms ease',
+            }}
+            placeholder="Variant key"
+            value={defaultVariant}
+            onChange={(e) => setDefaultVariant(e.target.value)}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = t.accentBorder
+              e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}`
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = t.border
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          />
+        )}
+      </div>
+
+      {/* Variants */}
+      <div style={{ marginBottom: 24 }}>
+        <VariantEditor
+          variants={variants}
+          flagType={flag.flag_type}
+          onChange={setVariants}
+        />
+      </div>
+
+      {/* Targeting Rules */}
+      <div style={{ marginBottom: 24 }}>
+        <RuleBuilder
+          rules={rules}
+          variants={variants}
+          onChange={setRules}
+        />
+      </div>
+
+      {/* Save */}
+      <button
+        style={{
+          padding: '10px 24px',
+          fontSize: 13,
+          fontWeight: 600,
+          border: 'none',
+          borderRadius: t.radiusMd,
+          background: `linear-gradient(135deg, ${t.accent}, #c07e4e)`,
+          color: '#ffffff',
+          cursor: updateConfig.isPending ? 'not-allowed' : 'pointer',
+          opacity: updateConfig.isPending ? 0.6 : 1,
+          fontFamily: t.fontSans,
+          transition: 'all 200ms ease',
+          boxShadow: '0 2px 10px rgba(212,149,106,0.15)',
+        }}
+        onClick={handleSave}
+        disabled={updateConfig.isPending}
+        onMouseEnter={(e) => {
+          if (!updateConfig.isPending) {
+            e.currentTarget.style.boxShadow = '0 4px 18px rgba(212,149,106,0.3)'
+            e.currentTarget.style.transform = 'translateY(-1px)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = '0 2px 10px rgba(212,149,106,0.15)'
+          e.currentTarget.style.transform = 'translateY(0)'
+        }}
+      >
+        {updateConfig.isPending ? 'Saving...' : 'Save Configuration'}
+      </button>
+
+      {saved && (
+        <div
+          style={{
+            padding: '10px 14px',
+            borderRadius: t.radiusMd,
+            backgroundColor: t.successSubtle,
+            border: `1px solid ${t.successBorder}`,
+            color: t.success,
+            fontSize: 13,
+            marginTop: 12,
+            animation: 'fadeIn 200ms ease',
+          }}
+        >
+          Configuration saved successfully.
+        </div>
+      )}
+      {updateConfig.error && (
+        <div
+          style={{
+            padding: '10px 14px',
+            borderRadius: t.radiusMd,
+            backgroundColor: t.dangerSubtle,
+            border: `1px solid ${t.dangerBorder}`,
+            color: t.danger,
+            fontSize: 13,
+            marginTop: 12,
+          }}
+        >
+          Failed to save: {updateConfig.error instanceof Error ? updateConfig.error.message : 'Unknown error'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function FlagDetailPage() {
+  const { key, flag: flagKey } = useParams<{ key: string; flag: string }>()
+
+  const [selectedEnvKey, setSelectedEnvKey] = useState<string>('')
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['projects', key, 'flags', flagKey],
+    queryFn: () => api.get<FlagDetailResponse>(`/projects/${key}/flags/${flagKey}`),
+    enabled: !!key && !!flagKey,
+  })
+
+  const { data: environments } = useQuery({
+    queryKey: ['projects', key, 'environments'],
+    queryFn: () => api.get<Environment[]>(`/projects/${key}/environments`),
+    enabled: !!key,
+  })
+
+  const effectiveEnvKey = selectedEnvKey || (environments?.[0]?.key ?? '')
+
+  const currentConfig = useMemo(() => {
+    if (!data || !environments || !effectiveEnvKey) return null
+    const env = environments.find((e) => e.key === effectiveEnvKey)
+    if (!env) return null
+    return data.environment_configs.find((c) => c.environment_id === env.id) ?? null
+  }, [data, environments, effectiveEnvKey])
 
   if (isLoading) {
     return (
@@ -211,7 +407,7 @@ export default function FlagDetailPage() {
         <>
           <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderBottom: `1px solid ${t.border}` }}>
             {environments.map((env) => {
-              const isActive = selectedEnvKey === env.key
+              const isActive = effectiveEnvKey === env.key
               return (
                 <button
                   key={env.key}
@@ -243,200 +439,14 @@ export default function FlagDetailPage() {
           </div>
 
           {/* Per-environment Config */}
-          <div
-            style={{
-              padding: 24,
-              borderRadius: t.radiusLg,
-              backgroundColor: t.bgSurface,
-              border: `1px solid ${t.border}`,
-            }}
-          >
-            {/* Toggle */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                marginBottom: 24,
-                padding: 16,
-                borderRadius: t.radiusMd,
-                backgroundColor: t.bgElevated,
-                border: `1px solid ${t.border}`,
-              }}
-            >
-              <div
-                style={{
-                  width: 48,
-                  height: 26,
-                  borderRadius: 13,
-                  backgroundColor: enabled ? t.success : t.textMuted,
-                  position: 'relative',
-                  cursor: 'pointer',
-                  transition: 'background-color 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: enabled ? `0 0 12px ${t.successBorder}` : 'none',
-                  flexShrink: 0,
-                }}
-                onClick={() => setEnabled(!enabled)}
-              >
-                <div
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: '50%',
-                    backgroundColor: '#ffffff',
-                    position: 'absolute',
-                    top: 3,
-                    left: enabled ? 25 : 3,
-                    transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                  }}
-                />
-              </div>
-              <span style={{ fontSize: 14, fontWeight: 500, color: t.textPrimary }}>
-                {enabled ? 'Enabled' : 'Disabled'} in {selectedEnvKey}
-              </span>
-            </div>
-
-            {/* Default Variant */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary, marginBottom: 10 }}>
-                Default Variant
-              </div>
-              {variants.length > 0 ? (
-                <select
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: 13,
-                    border: `1px solid ${t.border}`,
-                    borderRadius: t.radiusMd,
-                    backgroundColor: t.bgInput,
-                    color: t.textPrimary,
-                    outline: 'none',
-                    cursor: 'pointer',
-                    minWidth: 160,
-                    fontFamily: t.fontSans,
-                  }}
-                  value={defaultVariant}
-                  onChange={(e) => setDefaultVariant(e.target.value)}
-                >
-                  <option value="">-- Select --</option>
-                  {variants.map((v) => (
-                    <option key={v.key} value={v.key}>
-                      {v.key}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: 13,
-                    border: `1px solid ${t.border}`,
-                    borderRadius: t.radiusMd,
-                    backgroundColor: t.bgInput,
-                    color: t.textPrimary,
-                    outline: 'none',
-                    minWidth: 200,
-                    fontFamily: t.fontSans,
-                    transition: 'border-color 200ms ease, box-shadow 200ms ease',
-                  }}
-                  placeholder="Variant key"
-                  value={defaultVariant}
-                  onChange={(e) => setDefaultVariant(e.target.value)}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = t.accentBorder
-                    e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}`
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = t.border
-                    e.currentTarget.style.boxShadow = 'none'
-                  }}
-                />
-              )}
-            </div>
-
-            {/* Variants */}
-            <div style={{ marginBottom: 24 }}>
-              <VariantEditor
-                variants={variants}
-                flagType={flag.flag_type}
-                onChange={setVariants}
-              />
-            </div>
-
-            {/* Targeting Rules */}
-            <div style={{ marginBottom: 24 }}>
-              <RuleBuilder
-                rules={rules}
-                variants={variants}
-                onChange={setRules}
-              />
-            </div>
-
-            {/* Save */}
-            <button
-              style={{
-                padding: '10px 24px',
-                fontSize: 13,
-                fontWeight: 600,
-                border: 'none',
-                borderRadius: t.radiusMd,
-                background: `linear-gradient(135deg, ${t.accent}, #c07e4e)`,
-                color: '#ffffff',
-                cursor: updateConfig.isPending ? 'not-allowed' : 'pointer',
-                opacity: updateConfig.isPending ? 0.6 : 1,
-                fontFamily: t.fontSans,
-                transition: 'all 200ms ease',
-                boxShadow: '0 2px 10px rgba(212,149,106,0.15)',
-              }}
-              onClick={handleSave}
-              disabled={updateConfig.isPending}
-              onMouseEnter={(e) => {
-                if (!updateConfig.isPending) {
-                  e.currentTarget.style.boxShadow = '0 4px 18px rgba(212,149,106,0.3)'
-                  e.currentTarget.style.transform = 'translateY(-1px)'
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 10px rgba(212,149,106,0.15)'
-                e.currentTarget.style.transform = 'translateY(0)'
-              }}
-            >
-              {updateConfig.isPending ? 'Saving...' : 'Save Configuration'}
-            </button>
-
-            {saved && (
-              <div
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: t.radiusMd,
-                  backgroundColor: t.successSubtle,
-                  border: `1px solid ${t.successBorder}`,
-                  color: t.success,
-                  fontSize: 13,
-                  marginTop: 12,
-                  animation: 'fadeIn 200ms ease',
-                }}
-              >
-                Configuration saved successfully.
-              </div>
-            )}
-            {updateConfig.error && (
-              <div
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: t.radiusMd,
-                  backgroundColor: t.dangerSubtle,
-                  border: `1px solid ${t.dangerBorder}`,
-                  color: t.danger,
-                  fontSize: 13,
-                  marginTop: 12,
-                }}
-              >
-                Failed to save: {updateConfig.error instanceof Error ? updateConfig.error.message : 'Unknown error'}
-              </div>
-            )}
-          </div>
+          <ConfigEditor
+            key={effectiveEnvKey}
+            config={currentConfig}
+            flag={flag}
+            envKey={effectiveEnvKey}
+            projectKey={key!}
+            flagKey={flagKey!}
+          />
         </>
       )}
 

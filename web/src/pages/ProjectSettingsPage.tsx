@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
@@ -26,6 +26,102 @@ const cardStyle = {
   marginBottom: 24,
 }
 
+function GeneralSettings({ project, projectKey }: { project: Project; projectKey: string }) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState(project.name)
+  const [description, setDescription] = useState(project.description)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  const hasChanges = name !== project.name || description !== project.description
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { name: string; description: string }) =>
+      api.put<Project>(`/projects/${projectKey}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['projects', projectKey] })
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    },
+  })
+
+  const handleSave = () => {
+    if (!hasChanges) return
+    updateMutation.mutate({ name: name.trim(), description: description.trim() })
+  }
+
+  return (
+    <div style={cardStyle}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 18 }}>
+        General
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: t.fontMono }}>
+            Name
+          </label>
+          <input
+            style={inputStyle}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}` }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: t.fontMono }}>
+            Description
+          </label>
+          <textarea
+            style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}` }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            style={{
+              padding: '9px 18px',
+              fontSize: 13,
+              fontWeight: 600,
+              border: 'none',
+              borderRadius: t.radiusMd,
+              background: hasChanges ? `linear-gradient(135deg, ${t.accent}, #c07e4e)` : t.bgElevated,
+              color: hasChanges ? '#ffffff' : t.textMuted,
+              cursor: hasChanges ? 'pointer' : 'default',
+              fontFamily: t.fontSans,
+              transition: 'all 200ms ease',
+              boxShadow: hasChanges ? '0 2px 10px rgba(212,149,106,0.15)' : 'none',
+              opacity: updateMutation.isPending ? 0.7 : 1,
+            }}
+            disabled={!hasChanges || updateMutation.isPending}
+            onClick={handleSave}
+            onMouseEnter={(e) => { if (hasChanges) { e.currentTarget.style.boxShadow = '0 4px 18px rgba(212,149,106,0.3)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+            onMouseLeave={(e) => { if (hasChanges) { e.currentTarget.style.boxShadow = '0 2px 10px rgba(212,149,106,0.15)'; e.currentTarget.style.transform = 'translateY(0)' } }}
+          >
+            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+          </button>
+
+          {saveSuccess && (
+            <span style={{ fontSize: 13, color: t.success, animation: 'fadeIn 200ms ease' }}>Saved</span>
+          )}
+
+          {updateMutation.error && (
+            <span style={{ fontSize: 13, color: t.danger }}>
+              {updateMutation.error instanceof Error ? updateMutation.error.message : 'Failed to save'}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ProjectSettingsPage() {
   const { key } = useParams<{ key: string }>()
   const navigate = useNavigate()
@@ -37,32 +133,8 @@ export default function ProjectSettingsPage() {
     enabled: !!key,
   })
 
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [saveSuccess, setSaveSuccess] = useState(false)
-
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
-
-  useEffect(() => {
-    if (project) {
-      setName(project.name)
-      setDescription(project.description)
-    }
-  }, [project])
-
-  const hasChanges = project ? (name !== project.name || description !== project.description) : false
-
-  const updateMutation = useMutation({
-    mutationFn: (data: { name: string; description: string }) =>
-      api.put<Project>(`/projects/${key}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      queryClient.invalidateQueries({ queryKey: ['projects', key] })
-      setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 2000)
-    },
-  })
 
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`/projects/${key}`),
@@ -71,11 +143,6 @@ export default function ProjectSettingsPage() {
       navigate('/projects')
     },
   })
-
-  const handleSave = () => {
-    if (!hasChanges) return
-    updateMutation.mutate({ name: name.trim(), description: description.trim() })
-  }
 
   const handleDelete = () => {
     if (deleteConfirmInput !== key) return
@@ -110,74 +177,7 @@ export default function ProjectSettingsPage() {
       </div>
 
       {/* General Section */}
-      <div style={cardStyle}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 18 }}>
-          General
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: t.fontMono }}>
-              Name
-            </label>
-            <input
-              style={inputStyle}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}` }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: t.fontMono }}>
-              Description
-            </label>
-            <textarea
-              style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}` }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              style={{
-                padding: '9px 18px',
-                fontSize: 13,
-                fontWeight: 600,
-                border: 'none',
-                borderRadius: t.radiusMd,
-                background: hasChanges ? `linear-gradient(135deg, ${t.accent}, #c07e4e)` : t.bgElevated,
-                color: hasChanges ? '#ffffff' : t.textMuted,
-                cursor: hasChanges ? 'pointer' : 'default',
-                fontFamily: t.fontSans,
-                transition: 'all 200ms ease',
-                boxShadow: hasChanges ? '0 2px 10px rgba(212,149,106,0.15)' : 'none',
-                opacity: updateMutation.isPending ? 0.7 : 1,
-              }}
-              disabled={!hasChanges || updateMutation.isPending}
-              onClick={handleSave}
-              onMouseEnter={(e) => { if (hasChanges) { e.currentTarget.style.boxShadow = '0 4px 18px rgba(212,149,106,0.3)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
-              onMouseLeave={(e) => { if (hasChanges) { e.currentTarget.style.boxShadow = '0 2px 10px rgba(212,149,106,0.15)'; e.currentTarget.style.transform = 'translateY(0)' } }}
-            >
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-            </button>
-
-            {saveSuccess && (
-              <span style={{ fontSize: 13, color: t.success, animation: 'fadeIn 200ms ease' }}>Saved</span>
-            )}
-
-            {updateMutation.error && (
-              <span style={{ fontSize: 13, color: t.danger }}>
-                {updateMutation.error instanceof Error ? updateMutation.error.message : 'Failed to save'}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+      {project && <GeneralSettings key={`${project.name}|${project.description}`} project={project} projectKey={key!} />}
 
       {/* Members Section (placeholder) */}
       <div style={cardStyle}>
