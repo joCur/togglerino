@@ -41,6 +41,8 @@ docker compose up                          # Start PostgreSQL + togglerino local
 
 - `PORT` — HTTP port (default: 8080)
 - `DATABASE_URL` — PostgreSQL connection string (default: `postgres://togglerino:togglerino@localhost:5432/togglerino?sslmode=disable`)
+- `CORS_ORIGINS` — Comma-separated allowed origins (default: `*`)
+- `LOG_FORMAT` — Log format: `json` or `text` (default: `json`)
 
 ## Architecture
 
