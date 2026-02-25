@@ -19,17 +19,12 @@ func NewStreamHandler(hub *stream.Hub) *StreamHandler {
 	return &StreamHandler{hub: hub}
 }
 
-// Handle serves GET /api/v1/stream/{project}/{env} as an SSE endpoint.
+// Handle serves GET /api/v1/stream as an SSE endpoint.
 // Clients connect and receive flag_update events as they occur.
 func (h *StreamHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	projectKey := r.PathValue("project")
-	envKey := r.PathValue("env")
-
 	sdkKey := auth.SDKKeyFromContext(r.Context())
-	if sdkKey.ProjectKey != projectKey || sdkKey.EnvironmentKey != envKey {
-		writeError(w, http.StatusForbidden, "SDK key is not authorized for this project/environment")
-		return
-	}
+	projectKey := sdkKey.ProjectKey
+	envKey := sdkKey.EnvironmentKey
 
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")

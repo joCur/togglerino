@@ -139,9 +139,9 @@ func main() {
 	mux.Handle("GET /api/v1/projects/{key}/audit-log", wrap(auditHandler.List, sessionAuth))
 
 	// --- SDK-authed routes (client API) ---
-	mux.Handle("POST /api/v1/evaluate/{project}/{env}", wrap(evaluateHandler.EvaluateAll, sdkAuth))
-	mux.Handle("POST /api/v1/evaluate/{project}/{env}/{flag}", wrap(evaluateHandler.EvaluateSingle, sdkAuth))
-	mux.Handle("GET /api/v1/stream/{project}/{env}", wrap(streamHandler.Handle, sdkAuth))
+	mux.Handle("POST /api/v1/evaluate", wrap(evaluateHandler.EvaluateAll, sdkAuth))
+	mux.Handle("POST /api/v1/evaluate/{flag}", wrap(evaluateHandler.EvaluateSingle, sdkAuth))
+	mux.Handle("GET /api/v1/stream", wrap(streamHandler.Handle, sdkAuth))
 
 	// Serve the embedded React dashboard
 	distFS, err := fs.Sub(web.DistFS, "dist")
