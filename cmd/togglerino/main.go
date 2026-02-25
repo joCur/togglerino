@@ -116,7 +116,7 @@ func main() {
 	mux.Handle("GET /api/v1/projects", wrap(projectHandler.List, sessionAuth))
 	mux.Handle("GET /api/v1/projects/{key}", wrap(projectHandler.Get, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}", wrap(projectHandler.Update, sessionAuth))
-	mux.Handle("DELETE /api/v1/projects/{key}", wrap(projectHandler.Delete, sessionAuth))
+	mux.Handle("DELETE /api/v1/projects/{key}", wrap(projectHandler.Delete, sessionAuth, requireAdmin))
 
 	// Environments
 	mux.Handle("POST /api/v1/projects/{key}/environments", wrap(environmentHandler.Create, sessionAuth))
