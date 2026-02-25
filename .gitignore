@@ -1,0 +1,17 @@
+# Binaries
+/togglerino
+*.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Environment
+.env
+
+# Web build output (committed separately)
+web/node_modules/
