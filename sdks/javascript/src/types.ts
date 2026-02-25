@@ -66,5 +66,7 @@ export interface FlagChangeEvent {
  * - "ready": fired after initial flag fetch completes.
  * - "change": fired when a flag value changes (via SSE or polling).
  * - "error": fired on fetch/SSE errors.
+ * - "reconnecting": fired when scheduling an SSE reconnection attempt. Payload: { attempt: number, delay: number }.
+ * - "reconnected": fired when SSE successfully reconnects after a disconnection.
  */
-export type EventType = 'change' | 'error' | 'ready'
+export type EventType = 'change' | 'error' | 'ready' | 'reconnecting' | 'reconnected'

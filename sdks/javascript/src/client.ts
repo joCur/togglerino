@@ -54,6 +54,9 @@ export class Togglerino {
   private pollTimer: ReturnType<typeof setInterval> | null = null
   private sseAbortController: AbortController | null = null
   private initialized = false
+  private sseRetryCount = 0
+  private sseRetryTimeout: ReturnType<typeof setTimeout> | null = null
+  private readonly maxRetryDelay = 30000
 
   constructor(config: TogglerinoConfig) {
     this.config = {
@@ -156,6 +159,8 @@ export class Togglerino {
    * - "ready": no payload, fired after initialize() completes.
    * - "change": payload is FlagChangeEvent.
    * - "error": payload is Error.
+   * - "reconnecting": payload is { attempt: number, delay: number }, fired when scheduling SSE reconnect.
+   * - "reconnected": no payload, fired when SSE successfully reconnects after a disconnection.
    */
   on(event: EventType, listener: Listener): () => void {
     if (!this.listeners.has(event)) {
@@ -204,6 +209,12 @@ export class Togglerino {
       this.sseAbortController = null
     }
 
+    if (this.sseRetryTimeout) {
+      clearTimeout(this.sseRetryTimeout)
+      this.sseRetryTimeout = null
+    }
+
+    this.sseRetryCount = 0
     this.listeners.clear()
   }
 
@@ -272,14 +283,46 @@ export class Togglerino {
   // ---------------------------------------------------------------------------
 
   /**
+   * Calculate the next retry delay using exponential backoff.
+   * Sequence: 1s, 2s, 4s, 8s, 16s, 30s (capped).
+   */
+  private getRetryDelay(): number {
+    const delay = Math.min(1000 * Math.pow(2, this.sseRetryCount), this.maxRetryDelay)
+    this.sseRetryCount++
+    return delay
+  }
+
+  /**
+   * Schedule an SSE reconnection attempt with exponential backoff.
+   * Starts polling as a fallback while retrying.
+   */
+  private scheduleSSEReconnect(): void {
+    // Start polling as a fallback while we retry SSE
+    if (this.pollTimer === null) {
+      this.startPolling()
+    }
+
+    const delay = this.getRetryDelay()
+    this.emit('reconnecting', { attempt: this.sseRetryCount, delay })
+
+    this.sseRetryTimeout = setTimeout(() => {
+      this.sseRetryTimeout = null
+      this.startSSE()
+    }, delay)
+  }
+
+  /**
    * Start an SSE connection using fetch + ReadableStream.
    * This allows us to send an Authorization header (unlike native EventSource).
-   * Falls back to polling if SSE fails.
+   * On failure, schedules a reconnection attempt with exponential backoff
+   * and uses polling as a fallback in the meantime.
    */
   private async startSSE(): Promise<void> {
     const url = `${this.config.serverUrl}/api/v1/stream/${this.config.project}/${this.config.environment}`
 
     this.sseAbortController = new AbortController()
+
+    const wasReconnecting = this.sseRetryCount > 0
 
     try {
       const response = await fetch(url, {
@@ -291,24 +334,40 @@ export class Togglerino {
       })
 
       if (!response.ok || !response.body) {
-        // Fallback to polling
-        this.startPolling()
+        this.scheduleSSEReconnect()
         return
+      }
+
+      // SSE connection succeeded
+      if (wasReconnecting) {
+        this.emit('reconnected', undefined)
+      }
+      this.sseRetryCount = 0
+
+      // Stop polling fallback since SSE is connected
+      if (this.pollTimer !== null) {
+        clearInterval(this.pollTimer)
+        this.pollTimer = null
       }
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
 
-      // Process SSE stream in the background
-      this.processSSEStream(reader, decoder).catch(() => {
-        // On SSE failure, fall back to polling
-        if (this.pollTimer === null) {
-          this.startPolling()
+      // Process SSE stream in the background.
+      // When the stream ends (normally or via error), schedule reconnection.
+      this.processSSEStream(reader, decoder).then(
+        () => {
+          // Stream ended normally (server closed connection) — reconnect
+          this.scheduleSSEReconnect()
+        },
+        () => {
+          // Stream errored — reconnect
+          this.scheduleSSEReconnect()
         }
-      })
+      )
     } catch {
-      // SSE connection failed, fall back to polling
-      this.startPolling()
+      // SSE connection failed, schedule reconnection
+      this.scheduleSSEReconnect()
     }
   }
 

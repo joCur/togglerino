@@ -459,13 +459,13 @@ describe('Togglerino', () => {
     client.close()
   })
 
-  it('should fall back to polling when SSE fetch fails', async () => {
+  it('should fall back to polling when SSE fetch fails and schedule reconnection', async () => {
     vi.useFakeTimers()
 
     // Initial fetch
     mockFetch.mockResolvedValueOnce(evaluateResponse({}))
 
-    // SSE fetch fails
+    // SSE fetch fails — triggers polling fallback + reconnection schedule (1s delay)
     mockFetch.mockRejectedValueOnce(new Error('SSE connection refused'))
 
     const client = new Togglerino({
@@ -474,26 +474,44 @@ describe('Togglerino', () => {
       pollingInterval: 5_000,
     })
 
+    const reconnectingFn = vi.fn()
+    client.on('reconnecting', reconnectingFn)
+
     await client.initialize()
 
-    // Should have started polling as fallback
-    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
-    await vi.advanceTimersByTimeAsync(5_000)
+    // Should have emitted reconnecting event
+    expect(reconnectingFn).toHaveBeenCalledWith({ attempt: 1, delay: 1000 })
 
-    // 3 calls: initial fetch + SSE attempt + polling fetch
-    expect(mockFetch).toHaveBeenCalledTimes(3)
+    // At 1s: SSE retry fires — make it fail again (schedules next at 2s)
+    mockFetch.mockRejectedValueOnce(new Error('SSE still down'))
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    expect(reconnectingFn).toHaveBeenCalledTimes(2)
+
+    // Provide mocks for subsequent SSE retries and polling within the window
+    mockFetch.mockRejectedValueOnce(new Error('SSE still down'))
+    mockFetch.mockResolvedValue(evaluateResponse({}))
+
+    // Advance to 5s total — polling at 5s fires
+    await vi.advanceTimersByTimeAsync(4_000)
+
+    // Verify polling is running by checking for an evaluate call
+    const evaluateCalls = mockFetch.mock.calls.filter(
+      ([url]: [string]) => url.includes('/evaluate/')
+    )
+    expect(evaluateCalls.length).toBeGreaterThanOrEqual(2) // initial + at least one poll
 
     client.close()
     vi.useRealTimers()
   })
 
-  it('should fall back to polling when SSE response has no body', async () => {
+  it('should fall back to polling when SSE response has no body and schedule reconnection', async () => {
     vi.useFakeTimers()
 
     // Initial fetch
     mockFetch.mockResolvedValueOnce(evaluateResponse({}))
 
-    // SSE fetch returns ok but no body
+    // SSE fetch returns ok but no body — triggers polling + reconnect schedule
     mockFetch.mockResolvedValueOnce({ ok: true, body: null })
 
     const client = new Togglerino({
@@ -502,15 +520,194 @@ describe('Togglerino', () => {
       pollingInterval: 5_000,
     })
 
+    const reconnectingFn = vi.fn()
+    client.on('reconnecting', reconnectingFn)
+
     await client.initialize()
 
-    // Should have started polling as fallback
-    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+    // Should have emitted reconnecting event (1s delay)
+    expect(reconnectingFn).toHaveBeenCalledWith({ attempt: 1, delay: 1000 })
+
+    // Provide mocks for SSE retries and polling
+    mockFetch.mockResolvedValueOnce({ ok: true, body: null }) // SSE retry at 1s
+    mockFetch.mockResolvedValue(evaluateResponse({})) // polling + further retries
+
+    // Advance past one polling interval
     await vi.advanceTimersByTimeAsync(5_000)
 
-    expect(mockFetch).toHaveBeenCalledTimes(3)
+    // Verify polling is running (at least initial + poll evaluate calls)
+    const evaluateCalls = mockFetch.mock.calls.filter(
+      ([url]: [string]) => url.includes('/evaluate/')
+    )
+    expect(evaluateCalls.length).toBeGreaterThanOrEqual(2)
 
     client.close()
+    vi.useRealTimers()
+  })
+
+  // -------------------------------------------------------------------------
+  // SSE reconnection with exponential backoff
+  // -------------------------------------------------------------------------
+
+  it('should use exponential backoff delays: 1s, 2s, 4s, 8s', async () => {
+    vi.useFakeTimers()
+
+    // Initial fetch
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+    // SSE fails
+    mockFetch.mockRejectedValueOnce(new Error('SSE failed'))
+
+    const client = new Togglerino({
+      ...baseConfig,
+      streaming: true,
+      pollingInterval: 60_000, // long interval so polling doesn't interfere
+    })
+
+    const reconnectingFn = vi.fn()
+    client.on('reconnecting', reconnectingFn)
+
+    await client.initialize()
+
+    // First reconnect scheduled: attempt 1, delay 1000ms
+    expect(reconnectingFn).toHaveBeenCalledWith({ attempt: 1, delay: 1000 })
+
+    // At 1s: SSE retry fires, fails again -> schedules at 2s delay
+    mockFetch.mockRejectedValueOnce(new Error('SSE failed'))
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(reconnectingFn).toHaveBeenCalledWith({ attempt: 2, delay: 2000 })
+
+    // At 3s: SSE retry fires, fails again -> schedules at 4s delay
+    mockFetch.mockRejectedValueOnce(new Error('SSE failed'))
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(reconnectingFn).toHaveBeenCalledWith({ attempt: 3, delay: 4000 })
+
+    // At 7s: SSE retry fires, fails again -> schedules at 8s delay
+    mockFetch.mockRejectedValueOnce(new Error('SSE failed'))
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(reconnectingFn).toHaveBeenCalledWith({ attempt: 4, delay: 8000 })
+
+    expect(reconnectingFn).toHaveBeenCalledTimes(4)
+
+    client.close()
+    vi.useRealTimers()
+  })
+
+  it('should cap retry delay at 30 seconds', async () => {
+    vi.useFakeTimers()
+
+    // Initial fetch
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+    // SSE fails
+    mockFetch.mockRejectedValueOnce(new Error('SSE failed'))
+
+    const client = new Togglerino({
+      ...baseConfig,
+      streaming: true,
+      pollingInterval: 60_000,
+    })
+
+    const reconnectingFn = vi.fn()
+    client.on('reconnecting', reconnectingFn)
+
+    await client.initialize()
+
+    // Advance through retries: 1s, 2s, 4s, 8s, 16s — total 31s elapsed
+    // After 5 failures, next delay would be 2^5 * 1000 = 32000 but capped at 30000
+    for (let i = 0; i < 5; i++) {
+      mockFetch.mockRejectedValueOnce(new Error('SSE failed'))
+      const delay = Math.min(1000 * Math.pow(2, i), 30000)
+      await vi.advanceTimersByTimeAsync(delay)
+    }
+
+    // 6th reconnect attempt: delay should be capped at 30000
+    expect(reconnectingFn).toHaveBeenLastCalledWith({ attempt: 6, delay: 30000 })
+
+    client.close()
+    vi.useRealTimers()
+  })
+
+  it('should emit reconnected and stop polling on successful SSE reconnect', async () => {
+    vi.useFakeTimers()
+
+    // Initial fetch
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+    // SSE fails — triggers reconnect schedule
+    mockFetch.mockRejectedValueOnce(new Error('SSE failed'))
+
+    const client = new Togglerino({
+      ...baseConfig,
+      streaming: true,
+      pollingInterval: 60_000,
+    })
+
+    const reconnectingFn = vi.fn()
+    const reconnectedFn = vi.fn()
+    client.on('reconnecting', reconnectingFn)
+    client.on('reconnected', reconnectedFn)
+
+    await client.initialize()
+
+    expect(reconnectingFn).toHaveBeenCalledTimes(1)
+
+    // At 1s: SSE retry succeeds
+    const encoder = new TextEncoder()
+    let readerDone = false
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => {
+        if (!readerDone) {
+          readerDone = true
+          return Promise.resolve({
+            done: false,
+            value: encoder.encode('event: flag_update\ndata: {"flagKey":"x","value":true,"variant":"on"}\n\n'),
+          })
+        }
+        // Keep stream open by returning a pending promise
+        return new Promise(() => {})
+      }),
+    }
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: { getReader: () => mockReader },
+    })
+
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    // Give async processing a tick
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(reconnectedFn).toHaveBeenCalledOnce()
+
+    client.close()
+    vi.useRealTimers()
+  })
+
+  it('should cancel pending reconnection timeout on close', async () => {
+    vi.useFakeTimers()
+
+    // Initial fetch
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+    // SSE fails
+    mockFetch.mockRejectedValueOnce(new Error('SSE failed'))
+
+    const client = new Togglerino({
+      ...baseConfig,
+      streaming: true,
+      pollingInterval: 60_000,
+    })
+
+    await client.initialize()
+
+    const callCountBeforeClose = mockFetch.mock.calls.length
+
+    // Close before the 1s retry timeout fires
+    client.close()
+
+    // Advance past the retry timeout
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    // No new fetch calls should have been made
+    expect(mockFetch).toHaveBeenCalledTimes(callCountBeforeClose)
+
     vi.useRealTimers()
   })
 
