@@ -17,6 +17,7 @@ import (
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/handler"
 	"github.com/togglerino/togglerino/internal/logging"
+	"github.com/togglerino/togglerino/internal/ratelimit"
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
 	"github.com/togglerino/togglerino/migrations"
@@ -81,6 +82,7 @@ func main() {
 	// Middleware closures
 	sessionAuth := auth.SessionAuth(sessionStore, userStore)
 	sdkAuth := auth.SDKAuth(sdkKeyStore)
+	authLimiter := ratelimit.New(10, 60) // 10 requests per minute
 
 	// --- Public routes (no auth) ---
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -89,8 +91,8 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.HandleFunc("GET /api/v1/auth/status", authHandler.Status)
-	mux.HandleFunc("POST /api/v1/auth/setup", authHandler.Setup)
-	mux.HandleFunc("POST /api/v1/auth/login", authHandler.Login)
+	mux.Handle("POST /api/v1/auth/setup", authLimiter.Middleware(http.HandlerFunc(authHandler.Setup)))
+	mux.Handle("POST /api/v1/auth/login", authLimiter.Middleware(http.HandlerFunc(authHandler.Login)))
 	mux.HandleFunc("POST /api/v1/auth/logout", authHandler.Logout)
 
 	// --- Session-authed routes (management API) ---
