@@ -2,9 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
@@ -13,10 +15,11 @@ type FlagHandler struct {
 	flags        *store.FlagStore
 	projects     *store.ProjectStore
 	environments *store.EnvironmentStore
+	audit        *store.AuditStore
 }
 
-func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore) *FlagHandler {
-	return &FlagHandler{flags: flags, projects: projects, environments: environments}
+func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore) *FlagHandler {
+	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit}
 }
 
 // Create handles POST /api/v1/projects/{key}/flags
@@ -67,6 +70,21 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to create flag")
 		return
+	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		newVal, _ := json.Marshal(flag)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			Action:     "create",
+			EntityType: "flag",
+			EntityID:   flag.Key,
+			NewValue:   newVal,
+		}); err != nil {
+			fmt.Printf("warning: failed to record audit log: %v\n", err)
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, flag)
@@ -183,6 +201,23 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		oldVal, _ := json.Marshal(flag)
+		newVal, _ := json.Marshal(updated)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			Action:     "update",
+			EntityType: "flag",
+			EntityID:   flag.Key,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			fmt.Printf("warning: failed to record audit log: %v\n", err)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -215,6 +250,21 @@ func (h *FlagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.flags.Delete(r.Context(), flag.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete flag")
 		return
+	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		oldVal, _ := json.Marshal(flag)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			Action:     "delete",
+			EntityType: "flag",
+			EntityID:   flag.Key,
+			OldValue:   oldVal,
+		}); err != nil {
+			fmt.Printf("warning: failed to record audit log: %v\n", err)
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -280,6 +330,21 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update environment config")
 		return
+	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		newVal, _ := json.Marshal(cfg)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			Action:     "update",
+			EntityType: "flag_config",
+			EntityID:   flag.Key,
+			NewValue:   newVal,
+		}); err != nil {
+			fmt.Printf("warning: failed to record audit log: %v\n", err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, cfg)
