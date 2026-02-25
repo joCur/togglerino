@@ -14,6 +14,8 @@ import TeamPage from './pages/TeamPage.tsx'
 import OrgLayout from './components/OrgLayout.tsx'
 import ProjectLayout from './components/ProjectLayout.tsx'
 import ProjectSettingsPage from './pages/ProjectSettingsPage.tsx'
+import AcceptInvitePage from './pages/AcceptInvitePage.tsx'
+import ResetPasswordPage from './pages/ResetPasswordPage.tsx'
 
 const queryClient = new QueryClient()
 
@@ -86,7 +88,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AuthRouter />
+        <Routes>
+          <Route path="/invite/:token" element={<AcceptInvitePage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+          <Route path="*" element={<AuthRouter />} />
+        </Routes>
       </BrowserRouter>
     </QueryClientProvider>
   )
