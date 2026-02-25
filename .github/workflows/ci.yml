@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test-go:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: togglerino
+          POSTGRES_PASSWORD: togglerino
+          POSTGRES_DB: togglerino
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U togglerino"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgres://togglerino:togglerino@localhost:5432/togglerino?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend (required for go:embed)
+        run: cd web && npm ci && npm run build
+
+      - name: Run Go tests
+        run: go test ./...
+
+  test-sdks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Test JavaScript SDK
+        run: cd sdks/javascript && npm ci && npm test
+
+      - name: Test React SDK
+        run: cd sdks/react && npm ci && npm test
+
+  lint-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint frontend
+        run: cd web && npm ci && npm run lint
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test-go, test-sdks, lint-frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend
+        run: cd web && npm ci && npm run build
+
+      - name: Build Go binary
+        run: go build -o togglerino ./cmd/togglerino
