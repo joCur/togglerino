@@ -183,13 +183,21 @@ func (h *AuthHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if invite.AcceptedAt != nil {
-		writeError(w, http.StatusConflict, "invite already accepted")
+	if time.Now().After(invite.ExpiresAt) {
+		writeError(w, http.StatusGone, "invite has expired")
 		return
 	}
 
-	if time.Now().After(invite.ExpiresAt) {
-		writeError(w, http.StatusGone, "invite has expired")
+	// Atomically claim the invite. The conditional UPDATE ensures only one
+	// concurrent request can succeed, preventing the TOCTOU race where two
+	// requests both see accepted_at == nil before either marks it accepted.
+	claimed, err := h.invites.MarkAccepted(r.Context(), invite.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to mark invite accepted")
+		return
+	}
+	if !claimed {
+		writeError(w, http.StatusConflict, "invite already accepted")
 		return
 	}
 
@@ -202,11 +210,6 @@ func (h *AuthHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	_, err = h.users.Create(r.Context(), invite.Email, hash, invite.Role)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create user")
-		return
-	}
-
-	if err := h.invites.MarkAccepted(r.Context(), invite.ID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to mark invite accepted")
 		return
 	}
 

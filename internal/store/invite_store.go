@@ -44,13 +44,17 @@ func (s *InviteStore) FindByToken(ctx context.Context, token string) (*model.Inv
 	return &invite, nil
 }
 
-// MarkAccepted sets the accepted_at timestamp to now for the given invite.
-func (s *InviteStore) MarkAccepted(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx, `UPDATE invites SET accepted_at = now() WHERE id = $1`, id)
+// MarkAccepted atomically claims an invite by setting accepted_at to now,
+// but only if it has not already been accepted. Returns true if the row was
+// updated (i.e. the invite was successfully claimed), or false if the invite
+// was already accepted by a concurrent request.
+func (s *InviteStore) MarkAccepted(ctx context.Context, id string) (bool, error) {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE invites SET accepted_at = now() WHERE id = $1 AND accepted_at IS NULL`, id)
 	if err != nil {
-		return fmt.Errorf("marking invite accepted: %w", err)
+		return false, fmt.Errorf("marking invite accepted: %w", err)
 	}
-	return nil
+	return tag.RowsAffected() > 0, nil
 }
 
 // ListPending returns all invites that have not yet been accepted.
