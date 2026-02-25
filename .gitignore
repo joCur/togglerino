@@ -18,4 +18,7 @@ web/node_modules/
 .claude/settings.local.json
 .playwright-mcp
 
+# Worktrees
+.worktrees/
+
 /web/dist
