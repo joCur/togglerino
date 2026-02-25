@@ -61,3 +61,37 @@ func (s *UserStore) Count(ctx context.Context) (int, error) {
 	}
 	return count, nil
 }
+
+func (s *UserStore) List(ctx context.Context) ([]model.User, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, email, password_hash, role, created_at, updated_at FROM users ORDER BY created_at`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []model.User
+	for rows.Next() {
+		var u model.User
+		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning user: %w", err)
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating users: %w", err)
+	}
+	return users, nil
+}
+
+func (s *UserStore) Delete(ctx context.Context, id string) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("deleting user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("user not found")
+	}
+	return nil
+}
