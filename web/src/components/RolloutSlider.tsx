@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { t } from '../theme.ts'
 
 interface Props {
@@ -7,19 +8,20 @@ interface Props {
 
 export default function RolloutSlider({ value, onChange }: Props) {
   const enabled = value !== undefined
+  const checkboxId = useId()
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <input
           type="checkbox"
-          id="rollout-toggle"
+          id={checkboxId}
           style={{ cursor: 'pointer' }}
           checked={enabled}
           onChange={(e) => onChange(e.target.checked ? 100 : undefined)}
         />
         <label
-          htmlFor="rollout-toggle"
+          htmlFor={checkboxId}
           style={{ fontSize: 12, color: t.textSecondary, cursor: 'pointer' }}
         >
           Percentage rollout

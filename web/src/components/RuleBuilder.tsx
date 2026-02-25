@@ -192,7 +192,14 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
                 <select
                   style={{ ...selectStyle, width: 170 }}
                   value={cond.operator}
-                  onChange={(e) => updateCondition(ruleIdx, condIdx, { operator: e.target.value })}
+                  onChange={(e) => {
+                    const op = e.target.value
+                    const patch: Partial<Condition> = { operator: op }
+                    if (op === 'exists' || op === 'not_exists') {
+                      patch.value = ''
+                    }
+                    updateCondition(ruleIdx, condIdx, patch)
+                  }}
                 >
                   {OPERATOR_GROUPS.map((group) => (
                     <optgroup key={group.label} label={group.label}>
