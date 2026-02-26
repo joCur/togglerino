@@ -64,6 +64,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Key          string          `json:"key"`
 		Name         string          `json:"name"`
 		Description  string          `json:"description"`
+		ValueType    model.ValueType `json:"value_type"`
 		FlagType     model.FlagType  `json:"flag_type"`
 		DefaultValue json.RawMessage `json:"default_value"`
 		Tags         []string        `json:"tags"`
@@ -76,8 +77,11 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "key and name are required")
 		return
 	}
+	if req.ValueType == "" {
+		req.ValueType = model.ValueTypeBoolean
+	}
 	if req.FlagType == "" {
-		req.FlagType = model.FlagTypeBoolean
+		req.FlagType = model.FlagTypeRelease
 	}
 	if req.DefaultValue == nil {
 		req.DefaultValue = json.RawMessage(`false`)
@@ -86,7 +90,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Tags = []string{}
 	}
 
-	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.FlagType, req.DefaultValue, req.Tags)
+	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
 			writeError(w, http.StatusConflict, "flag key already exists for this project")
@@ -130,8 +134,10 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	tag := r.URL.Query().Get("tag")
 	search := r.URL.Query().Get("search")
+	lifecycleStatus := r.URL.Query().Get("lifecycle_status")
+	flagType := r.URL.Query().Get("flag_type")
 
-	flags, err := h.flags.ListByProject(r.Context(), project.ID, tag, search)
+	flags, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list flags")
 		return
@@ -210,16 +216,21 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name        string   `json:"name"`
-		Description string   `json:"description"`
-		Tags        []string `json:"tags"`
+		Name        string         `json:"name"`
+		Description string         `json:"description"`
+		Tags        []string       `json:"tags"`
+		FlagType    model.FlagType `json:"flag_type"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	updated, err := h.flags.Update(r.Context(), flag.ID, req.Name, req.Description, req.Tags)
+	flagTypeToUse := req.FlagType
+	if flagTypeToUse == "" {
+		flagTypeToUse = flag.FlagType
+	}
+	updated, err := h.flags.Update(r.Context(), flag.ID, req.Name, req.Description, req.Tags, flagTypeToUse)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update flag")
 		return
@@ -272,7 +283,7 @@ func (h *FlagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Guard: only archived flags can be deleted
-	if !flag.Archived {
+	if flag.LifecycleStatus != model.LifecycleArchived {
 		writeError(w, http.StatusConflict, "flag must be archived before it can be deleted")
 		return
 	}
@@ -339,7 +350,14 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := h.flags.SetArchived(r.Context(), flag.ID, req.Archived)
+	var status model.LifecycleStatus
+	if req.Archived {
+		status = model.LifecycleArchived
+	} else {
+		status = model.LifecycleActive
+	}
+
+	updated, err := h.flags.SetLifecycleStatus(r.Context(), flag.ID, status)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update flag archive status")
 		return
@@ -369,7 +387,7 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	// Refresh cache and broadcast for all environments
 	h.refreshAllEnvironments(r.Context(), projectKey, project.ID, flagKey, stream.Event{
 		Type:    "flag_update",
-		Value:   updated.Archived,
+		Value:   updated.LifecycleStatus == model.LifecycleArchived,
 		Variant: "",
 	})
 
@@ -465,4 +483,62 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 	})
 
 	writeJSON(w, http.StatusOK, cfg)
+}
+
+// SetStaleness handles PUT /api/v1/projects/{key}/flags/{flag}/staleness
+func (h *FlagHandler) SetStaleness(w http.ResponseWriter, r *http.Request) {
+	projectKey := r.PathValue("key")
+	flagKey := r.PathValue("flag")
+	if projectKey == "" || flagKey == "" {
+		writeError(w, http.StatusBadRequest, "project key and flag key are required")
+		return
+	}
+
+	project, err := h.projects.FindByKey(r.Context(), projectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	flag, err := h.flags.FindByKey(r.Context(), project.ID, flagKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "flag not found")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Status != "stale" {
+		writeError(w, http.StatusBadRequest, "only 'stale' status is accepted")
+		return
+	}
+
+	updated, err := h.flags.SetLifecycleStatus(r.Context(), flag.ID, model.LifecycleStale)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update staleness")
+		return
+	}
+
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		oldVal, _ := json.Marshal(flag)
+		newVal, _ := json.Marshal(updated)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			Action:     "staleness_change",
+			EntityType: "flag",
+			EntityID:   flag.Key,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
+
+	writeJSON(w, http.StatusOK, updated)
 }
