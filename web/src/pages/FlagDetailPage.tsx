@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
@@ -9,9 +9,14 @@ import type {
   Variant,
   TargetingRule,
 } from '../api/types.ts'
-import { t } from '../theme.ts'
 import VariantEditor from '../components/VariantEditor.tsx'
 import RuleBuilder from '../components/RuleBuilder.tsx'
+import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -62,60 +67,15 @@ function ConfigEditor({
   }
 
   return (
-    <div
-      style={{
-        padding: 24,
-        borderRadius: t.radiusLg,
-        backgroundColor: t.bgSurface,
-        border: `1px solid ${t.border}`,
-      }}
-    >
+    <div className="p-6 rounded-lg bg-card border">
       {/* Toggle */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 16,
-          marginBottom: 24,
-          padding: 16,
-          borderRadius: t.radiusMd,
-          backgroundColor: t.bgElevated,
-          border: `1px solid ${t.border}`,
-        }}
-      >
-        <div
-          style={{
-            width: 48,
-            height: 26,
-            borderRadius: 13,
-            backgroundColor: enabled ? t.success : t.textMuted,
-            position: 'relative',
-            cursor: 'pointer',
-            transition: 'background-color 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: enabled ? `0 0 12px ${t.successBorder}` : 'none',
-            flexShrink: 0,
-          }}
-          onClick={() => setEnabled(!enabled)}
-        >
-          <div
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: '50%',
-              backgroundColor: '#ffffff',
-              position: 'absolute',
-              top: 3,
-              left: enabled ? 25 : 3,
-              transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-            }}
-          />
-        </div>
+      <div className="flex items-start gap-4 mb-6 p-4 rounded-md bg-secondary/50 border">
+        <Switch checked={enabled} onCheckedChange={setEnabled} />
         <div>
-          <span style={{ fontSize: 14, fontWeight: 500, color: t.textPrimary }}>
+          <span className="text-sm font-medium text-foreground">
             {enabled ? 'Enabled' : 'Disabled'} in {envKey}
           </span>
-          <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginTop: 4 }}>
+          <div className="text-xs text-muted-foreground leading-relaxed mt-1">
             {enabled
               ? 'Targeting rules and variants are active. Users are evaluated against rules below.'
               : 'All SDK evaluations return the default variant. Targeting rules are ignored.'}
@@ -124,11 +84,11 @@ function ConfigEditor({
       </div>
 
       {/* Default Variant */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary, marginBottom: 4 }}>
+      <div className="mb-6">
+        <div className="text-[13px] font-medium text-foreground mb-1">
           Default Variant
         </div>
-        <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 10 }}>
+        <div className="text-xs text-muted-foreground leading-relaxed mb-2.5">
           {flag.flag_type === 'boolean'
             ? "The value returned when no targeting rule matches. For boolean flags, this is typically 'on' or 'off'."
             : flag.flag_type === 'string'
@@ -139,18 +99,7 @@ function ConfigEditor({
         </div>
         {variants.length > 0 ? (
           <select
-            style={{
-              padding: '8px 12px',
-              fontSize: 13,
-              border: `1px solid ${t.border}`,
-              borderRadius: t.radiusMd,
-              backgroundColor: t.bgInput,
-              color: t.textPrimary,
-              outline: 'none',
-              cursor: 'pointer',
-              minWidth: 160,
-              fontFamily: t.fontSans,
-            }}
+            className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[160px]"
             value={defaultVariant}
             onChange={(e) => setDefaultVariant(e.target.value)}
           >
@@ -162,36 +111,17 @@ function ConfigEditor({
             ))}
           </select>
         ) : (
-          <input
-            style={{
-              padding: '8px 12px',
-              fontSize: 13,
-              border: `1px solid ${t.border}`,
-              borderRadius: t.radiusMd,
-              backgroundColor: t.bgInput,
-              color: t.textPrimary,
-              outline: 'none',
-              minWidth: 200,
-              fontFamily: t.fontSans,
-              transition: 'border-color 200ms ease, box-shadow 200ms ease',
-            }}
+          <Input
+            className="min-w-[200px] max-w-[300px]"
             placeholder="Variant key"
             value={defaultVariant}
             onChange={(e) => setDefaultVariant(e.target.value)}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = t.accentBorder
-              e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}`
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = t.border
-              e.currentTarget.style.boxShadow = 'none'
-            }}
           />
         )}
       </div>
 
       {/* Variants */}
-      <div style={{ marginBottom: 24 }}>
+      <div className="mb-6">
         <VariantEditor
           variants={variants}
           flagType={flag.flag_type}
@@ -200,7 +130,7 @@ function ConfigEditor({
       </div>
 
       {/* Targeting Rules */}
-      <div style={{ marginBottom: 24 }}>
+      <div className="mb-6">
         <RuleBuilder
           rules={rules}
           variants={variants}
@@ -209,67 +139,21 @@ function ConfigEditor({
       </div>
 
       {/* Save */}
-      <button
-        style={{
-          padding: '10px 24px',
-          fontSize: 13,
-          fontWeight: 600,
-          border: 'none',
-          borderRadius: t.radiusMd,
-          background: `linear-gradient(135deg, ${t.accent}, #c07e4e)`,
-          color: '#ffffff',
-          cursor: updateConfig.isPending ? 'not-allowed' : 'pointer',
-          opacity: updateConfig.isPending ? 0.6 : 1,
-          fontFamily: t.fontSans,
-          transition: 'all 200ms ease',
-          boxShadow: '0 2px 10px rgba(212,149,106,0.15)',
-        }}
-        onClick={handleSave}
-        disabled={updateConfig.isPending}
-        onMouseEnter={(e) => {
-          if (!updateConfig.isPending) {
-            e.currentTarget.style.boxShadow = '0 4px 18px rgba(212,149,106,0.3)'
-            e.currentTarget.style.transform = 'translateY(-1px)'
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = '0 2px 10px rgba(212,149,106,0.15)'
-          e.currentTarget.style.transform = 'translateY(0)'
-        }}
-      >
+      <Button onClick={handleSave} disabled={updateConfig.isPending}>
         {updateConfig.isPending ? 'Saving...' : 'Save Configuration'}
-      </button>
+      </Button>
 
       {saved && (
-        <div
-          style={{
-            padding: '10px 14px',
-            borderRadius: t.radiusMd,
-            backgroundColor: t.successSubtle,
-            border: `1px solid ${t.successBorder}`,
-            color: t.success,
-            fontSize: 13,
-            marginTop: 12,
-            animation: 'fadeIn 200ms ease',
-          }}
-        >
-          Configuration saved successfully.
-        </div>
+        <Alert className="mt-3 bg-emerald-500/10 border-emerald-500/20 text-emerald-400 animate-[fadeIn_200ms_ease]">
+          <AlertDescription>Configuration saved successfully.</AlertDescription>
+        </Alert>
       )}
       {updateConfig.error && (
-        <div
-          style={{
-            padding: '10px 14px',
-            borderRadius: t.radiusMd,
-            backgroundColor: t.dangerSubtle,
-            border: `1px solid ${t.dangerBorder}`,
-            color: t.danger,
-            fontSize: 13,
-            marginTop: 12,
-          }}
-        >
-          Failed to save: {updateConfig.error instanceof Error ? updateConfig.error.message : 'Unknown error'}
-        </div>
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>
+            Failed to save: {updateConfig.error instanceof Error ? updateConfig.error.message : 'Unknown error'}
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   )
@@ -294,16 +178,9 @@ export default function FlagDetailPage() {
 
   const effectiveEnvKey = selectedEnvKey || (environments?.[0]?.key ?? '')
 
-  const currentConfig = useMemo(() => {
-    if (!data || !environments || !effectiveEnvKey) return null
-    const env = environments.find((e) => e.key === effectiveEnvKey)
-    if (!env) return null
-    return data.environment_configs.find((c) => c.environment_id === env.id) ?? null
-  }, [data, environments, effectiveEnvKey])
-
   if (isLoading) {
     return (
-      <div style={{ textAlign: 'center', padding: 64, color: t.textMuted, fontSize: 13, animation: 'shimmer 1.5s ease infinite' }}>
+      <div className="text-center py-16 text-muted-foreground/60 text-[13px] animate-pulse">
         Loading flag details...
       </div>
     )
@@ -311,108 +188,61 @@ export default function FlagDetailPage() {
 
   if (error || !data) {
     return (
-      <div
-        style={{
-          padding: '14px 18px',
-          borderRadius: t.radiusMd,
-          backgroundColor: t.dangerSubtle,
-          border: `1px solid ${t.dangerBorder}`,
-          color: t.danger,
-          fontSize: 13,
-        }}
-      >
-        Failed to load flag: {error instanceof Error ? error.message : 'Unknown error'}
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>
+          Failed to load flag: {error instanceof Error ? error.message : 'Unknown error'}
+        </AlertDescription>
+      </Alert>
     )
   }
 
   const flag = data.flag
 
   return (
-    <div style={{ animation: 'fadeIn 300ms ease' }}>
+    <div className="animate-[fadeIn_300ms_ease]">
       {/* Breadcrumb */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, fontSize: 13, color: t.textMuted }}>
-        <Link to="/projects" style={{ color: t.textSecondary, textDecoration: 'none', transition: 'color 200ms ease' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = t.textPrimary }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = t.textSecondary }}
-        >
+      <div className="flex items-center gap-2 mb-6 text-[13px] text-muted-foreground/60">
+        <Link to="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
           Projects
         </Link>
-        <span style={{ opacity: 0.4 }}>&rsaquo;</span>
-        <Link to={`/projects/${key}`} style={{ color: t.textSecondary, textDecoration: 'none', transition: 'color 200ms ease' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = t.textPrimary }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = t.textSecondary }}
-        >
+        <span className="opacity-40">&rsaquo;</span>
+        <Link to={`/projects/${key}`} className="text-muted-foreground hover:text-foreground transition-colors">
           {key}
         </Link>
-        <span style={{ opacity: 0.4 }}>&rsaquo;</span>
-        <span style={{ color: t.textPrimary, fontFamily: t.fontMono, fontSize: 12 }}>{flagKey}</span>
+        <span className="opacity-40">&rsaquo;</span>
+        <span className="text-foreground font-mono text-xs">{flagKey}</span>
       </div>
 
       {/* Flag Metadata Card */}
-      <div
-        style={{
-          padding: 24,
-          borderRadius: t.radiusLg,
-          backgroundColor: t.bgSurface,
-          border: `1px solid ${t.border}`,
-          marginBottom: 24,
-        }}
-      >
-        <div style={{ fontSize: 20, fontWeight: 600, color: t.textPrimary, marginBottom: 4, letterSpacing: '-0.3px' }}>
+      <div className="p-6 rounded-lg bg-card border mb-6">
+        <div className="text-xl font-semibold text-foreground mb-1 tracking-tight">
           {flag.name}
         </div>
-        <div style={{ fontSize: 13, fontFamily: t.fontMono, color: t.accent, marginBottom: 14, letterSpacing: '0.2px' }}>
+        <div className="text-[13px] font-mono text-[#d4956a] mb-3.5 tracking-wide">
           {flag.key}
         </div>
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 8 }}>
+        <div className="flex gap-6 flex-wrap mb-2">
           <div>
-            <div style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4, fontFamily: t.fontMono }}>
+            <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
               Type
             </div>
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '2px 10px',
-                borderRadius: 4,
-                fontSize: 12,
-                fontWeight: 500,
-                backgroundColor: t.accentSubtle,
-                color: t.accent,
-                fontFamily: t.fontMono,
-              }}
-            >
-              {flag.flag_type}
-            </span>
+            <Badge variant="secondary" className="font-mono text-xs">{flag.flag_type}</Badge>
           </div>
           {flag.tags && flag.tags.length > 0 && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4, fontFamily: t.fontMono }}>
+              <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                 Tags
               </div>
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div className="flex gap-1">
                 {flag.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    style={{
-                      display: 'inline-block',
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      fontSize: 11,
-                      backgroundColor: t.bgElevated,
-                      color: t.textSecondary,
-                      border: `1px solid ${t.border}`,
-                    }}
-                  >
-                    {tag}
-                  </span>
+                  <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
                 ))}
               </div>
             </div>
           )}
         </div>
         {flag.description && (
-          <div style={{ fontSize: 13, color: t.textSecondary, lineHeight: 1.6, marginTop: 8 }}>
+          <div className="text-[13px] text-muted-foreground leading-relaxed mt-2">
             {flag.description}
           </div>
         )}
@@ -420,54 +250,31 @@ export default function FlagDetailPage() {
 
       {/* Environment Tabs */}
       {environments && environments.length > 0 && (
-        <>
-          <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderBottom: `1px solid ${t.border}` }}>
-            {environments.map((env) => {
-              const isActive = effectiveEnvKey === env.key
-              return (
-                <button
-                  key={env.key}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: 13,
-                    fontWeight: isActive ? 500 : 400,
-                    color: isActive ? t.accent : t.textSecondary,
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    borderBottom: `2px solid ${isActive ? t.accent : 'transparent'}`,
-                    cursor: 'pointer',
-                    marginBottom: -1,
-                    fontFamily: t.fontSans,
-                    transition: 'all 200ms ease',
-                  }}
-                  onClick={() => setSelectedEnvKey(env.key)}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.color = t.textPrimary
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.color = t.textSecondary
-                  }}
-                >
-                  {env.name}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Per-environment Config */}
-          <ConfigEditor
-            key={effectiveEnvKey}
-            config={currentConfig}
-            flag={flag}
-            envKey={effectiveEnvKey}
-            projectKey={key!}
-            flagKey={flagKey!}
-          />
-        </>
+        <Tabs value={effectiveEnvKey} onValueChange={setSelectedEnvKey}>
+          <TabsList className="mb-6">
+            {environments.map((env) => (
+              <TabsTrigger key={env.key} value={env.key}>{env.name}</TabsTrigger>
+            ))}
+          </TabsList>
+          {environments.map((env) => {
+            const envConfig = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
+            return (
+              <TabsContent key={env.key} value={env.key}>
+                <ConfigEditor
+                  config={envConfig}
+                  flag={flag}
+                  envKey={env.key}
+                  projectKey={key!}
+                  flagKey={flagKey!}
+                />
+              </TabsContent>
+            )
+          })}
+        </Tabs>
       )}
 
       {(!environments || environments.length === 0) && (
-        <div style={{ padding: 32, textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
+        <div className="py-8 text-center text-muted-foreground/60 text-[13px]">
           No environments found for this project.
         </div>
       )}
