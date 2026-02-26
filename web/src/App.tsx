@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from './hooks/useAuth.ts'
-import { t } from './theme.ts'
 import SetupPage from './pages/SetupPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import ProjectsPage from './pages/ProjectsPage.tsx'
@@ -24,25 +23,13 @@ function AuthRouter() {
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          backgroundColor: t.bgBase,
-          color: t.textMuted,
-          fontFamily: t.fontSans,
-          fontSize: 14,
-          letterSpacing: '0.5px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="flex items-center justify-center h-screen text-muted-foreground text-sm tracking-wide">
+        <div className="flex items-center gap-3">
           <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
-            <rect width="20" height="12" rx="6" fill={t.accent} opacity="0.25" />
-            <circle cx="14" cy="6" r="4" fill={t.accent} style={{ animation: 'shimmer 1.5s ease infinite' }} />
+            <rect width="20" height="12" rx="6" fill="#d4956a" opacity="0.25" />
+            <circle cx="14" cy="6" r="4" fill="#d4956a" className="animate-pulse" />
           </svg>
-          <span style={{ animation: 'shimmer 1.5s ease infinite' }}>Loading...</span>
+          <span className="animate-pulse">Loading...</span>
         </div>
       </div>
     )
