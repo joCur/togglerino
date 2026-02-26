@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 
@@ -45,7 +46,11 @@ const themes = [
 ]
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, isThemeToggleEnabled } = useTheme()
+
+  if (!isThemeToggleEnabled) {
+    return <Navigate to="/projects" replace />
+  }
 
   return (
     <div className="max-w-2xl">
