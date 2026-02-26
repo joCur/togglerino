@@ -25,6 +25,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -54,6 +61,9 @@ function ConfigEditor({
   const [variants, setVariants] = useState<Variant[]>(config?.variants ?? [])
   const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
   const [saved, setSaved] = useState(false)
+  const [copySourceEnv, setCopySourceEnv] = useState<string | null>(null)
+
+  const otherEnvironments = environments.filter((e) => e.key !== envKey)
 
   const updateConfig = useMutation({
     mutationFn: (data: {
@@ -80,6 +90,25 @@ function ConfigEditor({
 
   return (
     <div className="p-6 rounded-lg bg-card border">
+      {/* Copy from environment */}
+      {otherEnvironments.length > 0 && (
+        <div className="flex items-center gap-3 mb-6 p-3 rounded-md bg-secondary/30 border border-dashed">
+          <div className="text-[13px] text-muted-foreground whitespace-nowrap">Copy from</div>
+          <Select onValueChange={(value) => setCopySourceEnv(value)}>
+            <SelectTrigger className="w-[180px]" size="sm">
+              <SelectValue placeholder="Select environment" />
+            </SelectTrigger>
+            <SelectContent>
+              {otherEnvironments.map((env) => (
+                <SelectItem key={env.key} value={env.key}>
+                  {env.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Toggle */}
       <div className="flex items-start gap-4 mb-6 p-4 rounded-md bg-secondary/50 border">
         <Switch checked={enabled} onCheckedChange={setEnabled} />
