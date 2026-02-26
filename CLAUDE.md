@@ -76,9 +76,11 @@ Key internal packages:
 
 ### Frontend (`web/`)
 
-React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Query for server state. Built output in `web/dist/` is embedded in the Go binary via `go:embed`.
+React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Query for server state. Built output in `web/dist/` is embedded in the Go binary via `go:embed`. Vite dev server proxies `/api` requests to `http://localhost:8090`.
 
-**Styling**: No CSS framework — uses inline styles with a custom design token system in `web/src/theme.ts` (exported as `t`). Tokens cover backgrounds (5 levels), borders, text, accent (amber `#d4956a`), success/danger colors, border-radius, and fonts (`Sora` sans-serif, `Fira Code` monospace).
+**Styling**: Tailwind CSS v4 (via `@tailwindcss/vite` plugin) + shadcn/ui (New York style, neutral base color). Dark-only theme with CSS custom properties defined in `web/src/index.css`. Uses `cn()` utility from `web/src/lib/utils.ts` (`clsx` + `tailwind-merge`). Path alias `@/` maps to `web/src/`. Accent color: amber `#d4956a`. Fonts: `Sora` sans-serif, `Fira Code` monospace.
+
+**UI components** (`web/src/components/ui/`): shadcn/ui components — alert, badge, button, card, dialog, input, label, select, switch, table, tabs, textarea. Built on Radix UI primitives + `class-variance-authority`. Add new components via `npx shadcn@latest add <component>`.
 
 **API client**: `web/src/api/client.ts` — thin `fetch` wrapper at `/api/v1`, sends `credentials: include` for session cookies.
 
