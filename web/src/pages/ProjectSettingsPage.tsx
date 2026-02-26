@@ -3,28 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type { Project } from '../api/types.ts'
-import { t } from '../theme.ts'
-
-const inputStyle = {
-  width: '100%',
-  padding: '9px 14px',
-  fontSize: 13,
-  fontFamily: t.fontSans,
-  color: t.textPrimary,
-  backgroundColor: t.bgInput,
-  border: `1px solid ${t.border}`,
-  borderRadius: t.radiusSm,
-  outline: 'none',
-  boxSizing: 'border-box' as const,
-}
-
-const cardStyle = {
-  padding: 24,
-  borderRadius: t.radiusLg,
-  backgroundColor: t.bgSurface,
-  border: `1px solid ${t.border}`,
-  marginBottom: 24,
-}
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card, CardContent } from '@/components/ui/card'
 
 function GeneralSettings({ project, projectKey }: { project: Project; projectKey: string }) {
   const queryClient = useQueryClient()
@@ -51,74 +35,51 @@ function GeneralSettings({ project, projectKey }: { project: Project; projectKey
   }
 
   return (
-    <div style={cardStyle}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 18 }}>
-        General
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: t.fontMono }}>
-            Name
-          </label>
-          <input
-            style={inputStyle}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}` }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none' }}
-          />
+    <Card className="mb-6">
+      <CardContent className="p-6">
+        <div className="text-sm font-semibold text-foreground mb-4">
+          General
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: t.fontMono }}>
-            Description
-          </label>
-          <textarea
-            style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.boxShadow = `0 0 0 3px ${t.accentSubtle}` }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none' }}
-          />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label className="font-mono text-[10px] uppercase tracking-wider">Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="font-mono text-[10px] uppercase tracking-wider">Description</Label>
+            <Textarea
+              className="min-h-[80px]"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges || updateMutation.isPending}
+            >
+              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+
+            {saveSuccess && (
+              <span className="text-[13px] text-emerald-400 animate-[fadeIn_200ms_ease]">Saved</span>
+            )}
+
+            {updateMutation.error && (
+              <span className="text-[13px] text-destructive">
+                {updateMutation.error instanceof Error ? updateMutation.error.message : 'Failed to save'}
+              </span>
+            )}
+          </div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            style={{
-              padding: '9px 18px',
-              fontSize: 13,
-              fontWeight: 600,
-              border: 'none',
-              borderRadius: t.radiusMd,
-              background: hasChanges ? `linear-gradient(135deg, ${t.accent}, #c07e4e)` : t.bgElevated,
-              color: hasChanges ? '#ffffff' : t.textMuted,
-              cursor: hasChanges ? 'pointer' : 'default',
-              fontFamily: t.fontSans,
-              transition: 'all 200ms ease',
-              boxShadow: hasChanges ? '0 2px 10px rgba(212,149,106,0.15)' : 'none',
-              opacity: updateMutation.isPending ? 0.7 : 1,
-            }}
-            disabled={!hasChanges || updateMutation.isPending}
-            onClick={handleSave}
-            onMouseEnter={(e) => { if (hasChanges) { e.currentTarget.style.boxShadow = '0 4px 18px rgba(212,149,106,0.3)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
-            onMouseLeave={(e) => { if (hasChanges) { e.currentTarget.style.boxShadow = '0 2px 10px rgba(212,149,106,0.15)'; e.currentTarget.style.transform = 'translateY(0)' } }}
-          >
-            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-          </button>
-
-          {saveSuccess && (
-            <span style={{ fontSize: 13, color: t.success, animation: 'fadeIn 200ms ease' }}>Saved</span>
-          )}
-
-          {updateMutation.error && (
-            <span style={{ fontSize: 13, color: t.danger }}>
-              {updateMutation.error instanceof Error ? updateMutation.error.message : 'Failed to save'}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -151,7 +112,7 @@ export default function ProjectSettingsPage() {
 
   if (isLoading) {
     return (
-      <div style={{ textAlign: 'center', padding: 64, color: t.textMuted, fontSize: 13, animation: 'shimmer 1.5s ease infinite' }}>
+      <div className="text-center py-16 text-muted-foreground/60 text-[13px] animate-pulse">
         Loading project settings...
       </div>
     )
@@ -159,20 +120,22 @@ export default function ProjectSettingsPage() {
 
   if (error) {
     return (
-      <div style={{ padding: '14px 18px', borderRadius: t.radiusMd, backgroundColor: t.dangerSubtle, border: `1px solid ${t.dangerBorder}`, color: t.danger, fontSize: 13 }}>
-        Failed to load project: {error instanceof Error ? error.message : 'Unknown error'}
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>
+          Failed to load project: {error instanceof Error ? error.message : 'Unknown error'}
+        </AlertDescription>
+      </Alert>
     )
   }
 
   return (
-    <div style={{ animation: 'fadeIn 300ms ease', maxWidth: 640 }}>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: t.textPrimary, marginBottom: 6, letterSpacing: '-0.3px' }}>
+    <div className="animate-[fadeIn_300ms_ease] max-w-[640px]">
+      <div className="mb-8">
+        <h1 className="text-[22px] font-semibold text-foreground mb-1.5 tracking-tight">
           Project Settings
         </h1>
-        <div style={{ fontSize: 13, color: t.textMuted }}>
-          Manage settings for <span style={{ fontFamily: t.fontMono, color: t.textSecondary }}>{key}</span>
+        <div className="text-[13px] text-muted-foreground/60">
+          Manage settings for <span className="font-mono text-muted-foreground">{key}</span>
         </div>
       </div>
 
@@ -180,104 +143,72 @@ export default function ProjectSettingsPage() {
       {project && <GeneralSettings key={`${project.name}|${project.description}`} project={project} projectKey={key!} />}
 
       {/* Members Section (placeholder) */}
-      <div style={cardStyle}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 12 }}>
-          Members
-        </div>
-        <div style={{ fontSize: 13, color: t.textMuted }}>
-          Project-level member management coming soon.
-        </div>
-      </div>
+      <Card className="mb-6">
+        <CardContent className="p-6">
+          <div className="text-sm font-semibold text-foreground mb-3">
+            Members
+          </div>
+          <div className="text-[13px] text-muted-foreground/60">
+            Project-level member management coming soon.
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Danger Zone */}
-      <div style={{ ...cardStyle, border: `1px solid ${t.dangerBorder}` }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: t.danger, marginBottom: 12 }}>
-          Danger Zone
-        </div>
-        <div style={{ fontSize: 13, color: t.textSecondary, marginBottom: 16, lineHeight: 1.6 }}>
-          Deleting this project is permanent and cannot be undone. All flags, environments, and SDK keys associated with this project will be removed.
-        </div>
-
-        {!showDeleteConfirm ? (
-          <button
-            style={{
-              padding: '9px 18px',
-              fontSize: 13,
-              fontWeight: 600,
-              border: `1px solid ${t.dangerBorder}`,
-              borderRadius: t.radiusMd,
-              backgroundColor: 'transparent',
-              color: t.danger,
-              cursor: 'pointer',
-              fontFamily: t.fontSans,
-              transition: 'all 200ms ease',
-            }}
-            onClick={() => setShowDeleteConfirm(true)}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = t.dangerSubtle }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-          >
-            Delete Project
-          </button>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeIn 200ms ease' }}>
-            <div style={{ fontSize: 13, color: t.textSecondary }}>
-              Type <span style={{ fontFamily: t.fontMono, color: t.danger, fontWeight: 600 }}>{key}</span> to confirm deletion:
-            </div>
-            <input
-              style={inputStyle}
-              value={deleteConfirmInput}
-              onChange={(e) => setDeleteConfirmInput(e.target.value)}
-              placeholder={key}
-              autoFocus
-              onFocus={(e) => { e.currentTarget.style.borderColor = t.dangerBorder; e.currentTarget.style.boxShadow = `0 0 0 3px ${t.dangerSubtle}` }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.boxShadow = 'none' }}
-            />
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button
-                style={{
-                  padding: '9px 18px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  border: `1px solid ${t.dangerBorder}`,
-                  borderRadius: t.radiusMd,
-                  backgroundColor: deleteConfirmInput === key ? t.danger : 'transparent',
-                  color: deleteConfirmInput === key ? '#ffffff' : t.textMuted,
-                  cursor: deleteConfirmInput === key ? 'pointer' : 'default',
-                  fontFamily: t.fontSans,
-                  transition: 'all 200ms ease',
-                  opacity: deleteMutation.isPending ? 0.7 : 1,
-                }}
-                disabled={deleteConfirmInput !== key || deleteMutation.isPending}
-                onClick={handleDelete}
-              >
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-              </button>
-              <button
-                style={{
-                  padding: '9px 18px',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  border: `1px solid ${t.border}`,
-                  borderRadius: t.radiusMd,
-                  backgroundColor: 'transparent',
-                  color: t.textSecondary,
-                  cursor: 'pointer',
-                  fontFamily: t.fontSans,
-                  transition: 'all 200ms ease',
-                }}
-                onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmInput('') }}
-              >
-                Cancel
-              </button>
-            </div>
-            {deleteMutation.error && (
-              <div style={{ padding: '10px 14px', borderRadius: t.radiusMd, backgroundColor: t.dangerSubtle, border: `1px solid ${t.dangerBorder}`, color: t.danger, fontSize: 13 }}>
-                {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Failed to delete project'}
-              </div>
-            )}
+      <Card className="border-destructive/25">
+        <CardContent className="p-6">
+          <div className="text-sm font-semibold text-destructive mb-3">
+            Danger Zone
           </div>
-        )}
-      </div>
+          <div className="text-[13px] text-muted-foreground leading-relaxed mb-4">
+            Deleting this project is permanent and cannot be undone. All flags, environments, and SDK keys associated with this project will be removed.
+          </div>
+
+          {!showDeleteConfirm ? (
+            <Button
+              variant="outline"
+              className="border-destructive/50 text-destructive hover:bg-destructive/10"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              Delete Project
+            </Button>
+          ) : (
+            <div className="flex flex-col gap-3 animate-[fadeIn_200ms_ease]">
+              <div className="text-[13px] text-muted-foreground">
+                Type <span className="font-mono text-destructive font-semibold">{key}</span> to confirm deletion:
+              </div>
+              <Input
+                value={deleteConfirmInput}
+                onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                placeholder={key}
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <Button
+                  variant="destructive"
+                  disabled={deleteConfirmInput !== key || deleteMutation.isPending}
+                  onClick={handleDelete}
+                >
+                  {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmInput('') }}
+                >
+                  Cancel
+                </Button>
+              </div>
+              {deleteMutation.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Failed to delete project'}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -1,104 +1,80 @@
 import { Outlet, NavLink, useParams } from 'react-router-dom'
 import Topbar from './Topbar.tsx'
 import ProjectSwitcher from './ProjectSwitcher.tsx'
-import { t } from '../theme.ts'
-
-const navLinkStyle = (isActive: boolean) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  padding: '8px 20px',
-  fontSize: 13,
-  fontWeight: isActive ? 500 : 400,
-  color: isActive ? t.textPrimary : t.textSecondary,
-  textDecoration: 'none' as const,
-  borderLeft: `2px solid ${isActive ? t.accent : 'transparent'}`,
-  backgroundColor: isActive ? t.accentSubtle : 'transparent',
-  transition: 'all 200ms ease',
-  fontFamily: t.fontSans,
-})
+import { cn } from '@/lib/utils'
 
 export default function ProjectLayout() {
   const { key } = useParams<{ key: string }>()
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
-        backgroundColor: t.bgBase,
-        color: t.textPrimary,
-        fontFamily: t.fontSans,
-      }}
-    >
+    <div className="flex flex-col min-h-screen">
       <Topbar>
         <ProjectSwitcher />
       </Topbar>
 
-      <div style={{ display: 'flex', flex: 1 }}>
+      <div className="flex flex-1">
         {/* Sidebar */}
-        <nav
-          style={{
-            width: 200,
-            backgroundColor: t.bgSurface,
-            borderRight: `1px solid ${t.border}`,
-            padding: '20px 0',
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0,
-          }}
-        >
-          <div
-            style={{
-              padding: '0 20px 10px',
-              fontSize: 10,
-              fontWeight: 500,
-              color: t.textMuted,
-              textTransform: 'uppercase',
-              letterSpacing: '1.2px',
-              fontFamily: t.fontMono,
-            }}
-          >
+        <nav className="w-[200px] bg-card border-r py-5 shrink-0 flex flex-col">
+          <div className="px-5 pb-2.5 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-[1.2px] font-mono">
             Project
           </div>
           <NavLink
             to={`/projects/${key}`}
             end
-            style={({ isActive }) => navLinkStyle(isActive)}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2.5 px-5 py-2 text-[13px] border-l-2 transition-all duration-200',
+                isActive
+                  ? 'font-medium text-foreground border-[#d4956a] bg-[#d4956a]/8'
+                  : 'font-normal text-muted-foreground border-transparent hover:text-foreground hover:bg-white/[0.03]'
+              )
+            }
           >
             Flags
           </NavLink>
           <NavLink
             to={`/projects/${key}/environments`}
-            style={({ isActive }) => navLinkStyle(isActive)}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2.5 px-5 py-2 text-[13px] border-l-2 transition-all duration-200',
+                isActive
+                  ? 'font-medium text-foreground border-[#d4956a] bg-[#d4956a]/8'
+                  : 'font-normal text-muted-foreground border-transparent hover:text-foreground hover:bg-white/[0.03]'
+              )
+            }
           >
             Environments
           </NavLink>
           <NavLink
             to={`/projects/${key}/audit-log`}
-            style={({ isActive }) => navLinkStyle(isActive)}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2.5 px-5 py-2 text-[13px] border-l-2 transition-all duration-200',
+                isActive
+                  ? 'font-medium text-foreground border-[#d4956a] bg-[#d4956a]/8'
+                  : 'font-normal text-muted-foreground border-transparent hover:text-foreground hover:bg-white/[0.03]'
+              )
+            }
           >
             Audit Log
           </NavLink>
           <NavLink
             to={`/projects/${key}/settings`}
-            style={({ isActive }) => navLinkStyle(isActive)}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2.5 px-5 py-2 text-[13px] border-l-2 transition-all duration-200',
+                isActive
+                  ? 'font-medium text-foreground border-[#d4956a] bg-[#d4956a]/8'
+                  : 'font-normal text-muted-foreground border-transparent hover:text-foreground hover:bg-white/[0.03]'
+              )
+            }
           >
             Settings
           </NavLink>
         </nav>
 
         {/* Main content */}
-        <main
-          style={{
-            flex: 1,
-            padding: 36,
-            overflowY: 'auto',
-            animation: 'fadeIn 300ms ease',
-          }}
-        >
+        <main className="flex-1 p-9 overflow-y-auto animate-[fadeIn_300ms_ease]">
           <Outlet />
         </main>
       </div>

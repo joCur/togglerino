@@ -1,5 +1,6 @@
 import type { TargetingRule, Variant, Condition } from '../api/types.ts'
-import { t } from '../theme.ts'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import RolloutSlider from './RolloutSlider.tsx'
 
 interface Props {
@@ -56,31 +57,6 @@ const OPERATOR_GROUPS = [
   },
 ]
 
-const inputStyle = {
-  padding: '7px 10px',
-  fontSize: 12,
-  border: `1px solid ${t.border}`,
-  borderRadius: t.radiusSm,
-  backgroundColor: t.bgInput,
-  color: t.textPrimary,
-  outline: 'none',
-  flex: 1,
-  fontFamily: t.fontSans,
-  transition: 'border-color 200ms ease',
-} as const
-
-const selectStyle = {
-  padding: '7px 10px',
-  fontSize: 12,
-  border: `1px solid ${t.border}`,
-  borderRadius: t.radiusSm,
-  backgroundColor: t.bgInput,
-  color: t.textPrimary,
-  outline: 'none',
-  cursor: 'pointer',
-  fontFamily: t.fontSans,
-} as const
-
 export default function RuleBuilder({ rules, variants, onChange }: Props) {
   const updateRule = (index: number, patch: Partial<TargetingRule>) => {
     const updated = [...rules]
@@ -130,14 +106,14 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary }}>Targeting Rules</div>
-      <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 4 }}>
+    <div className="flex flex-col gap-3.5">
+      <div className="text-[13px] font-medium text-foreground">Targeting Rules</div>
+      <div className="text-xs text-muted-foreground/60 leading-relaxed mb-1">
         Rules are evaluated top to bottom — the first matching rule wins. If no rule matches, the default variant is served.
       </div>
 
       {rules.length === 0 && (
-        <div style={{ fontSize: 12, color: t.textMuted, fontStyle: 'italic' }}>
+        <div className="text-xs text-muted-foreground/60 italic">
           No targeting rules. All users will receive the default variant.
         </div>
       )}
@@ -145,52 +121,40 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
       {rules.map((rule, ruleIdx) => (
         <div
           key={ruleIdx}
-          style={{
-            padding: 16,
-            borderRadius: t.radiusMd,
-            backgroundColor: t.bgElevated,
-            border: `1px solid ${t.border}`,
-          }}
+          className="p-4 rounded-md bg-secondary/50 border"
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: t.textSecondary, fontFamily: t.fontMono }}>
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-xs font-medium text-muted-foreground font-mono">
               Rule {ruleIdx + 1}
             </span>
-            <button
-              style={{
-                padding: '3px 10px', fontSize: 11, fontWeight: 500,
-                border: `1px solid ${t.dangerBorder}`, borderRadius: t.radiusSm,
-                backgroundColor: t.dangerSubtle, color: t.danger,
-                cursor: 'pointer', fontFamily: t.fontSans, transition: 'all 200ms ease',
-              }}
+            <Button
+              variant="destructive"
+              size="sm"
+              className="text-[11px] px-2.5 h-6"
               onClick={() => removeRule(ruleIdx)}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(242,116,116,0.15)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = t.dangerSubtle }}
             >
               Remove
-            </button>
+            </Button>
           </div>
 
           {/* Conditions */}
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 6, fontFamily: t.fontMono, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div className="mb-3">
+            <div className="text-[11px] text-muted-foreground/60 mb-1.5 font-mono uppercase tracking-wide">
               Conditions
             </div>
-            <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.5, marginBottom: 6, fontStyle: 'italic' }}>
+            <div className="text-[11px] text-muted-foreground/60 leading-relaxed mb-1.5 italic">
               All conditions must match (AND logic). Attributes are properties from your SDK's evaluation context.
             </div>
             {rule.conditions.map((cond, condIdx) => (
-              <div key={condIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <input
-                  style={inputStyle}
+              <div key={condIdx} className="flex items-center gap-1.5 mb-1.5">
+                <Input
+                  className="flex-1 text-xs"
                   placeholder="e.g. user_id, email, plan"
                   value={cond.attribute}
                   onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
                 />
                 <select
-                  style={{ ...selectStyle, width: 170 }}
+                  className="w-[170px] px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
                   value={cond.operator}
                   onChange={(e) => {
                     const op = e.target.value
@@ -210,8 +174,8 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
                   ))}
                 </select>
                 {cond.operator !== 'exists' && cond.operator !== 'not_exists' && (
-                  <input
-                    style={inputStyle}
+                  <Input
+                    className="flex-1 text-xs"
                     placeholder={
                       cond.operator === 'in' || cond.operator === 'not_in'
                         ? 'comma-separated values'
@@ -219,47 +183,37 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
                     }
                     value={String(cond.value ?? '')}
                     onChange={(e) => updateCondition(ruleIdx, condIdx, { value: e.target.value })}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
                   />
                 )}
                 {rule.conditions.length > 1 && (
-                  <button
-                    style={{
-                      padding: '3px 8px', fontSize: 11,
-                      border: `1px solid ${t.dangerBorder}`, borderRadius: 4,
-                      backgroundColor: 'transparent', color: t.danger,
-                      cursor: 'pointer', flexShrink: 0, fontFamily: t.fontSans,
-                    }}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-destructive h-7 px-2 text-[11px]"
                     onClick={() => removeCondition(ruleIdx, condIdx)}
                   >
                     x
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
-            <button
-              style={{
-                padding: '5px 12px', fontSize: 11, fontWeight: 500,
-                border: `1px solid ${t.border}`, borderRadius: t.radiusSm,
-                backgroundColor: 'transparent', color: t.textSecondary,
-                cursor: 'pointer', fontFamily: t.fontSans, transition: 'all 200ms ease',
-              }}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[11px] h-7"
               onClick={() => addCondition(ruleIdx)}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = t.borderHover; e.currentTarget.style.color = t.textPrimary }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textSecondary }}
             >
               + Add Condition
-            </button>
+            </Button>
           </div>
 
           {/* Serve variant */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 12, color: t.textSecondary, whiteSpace: 'nowrap' }}>Serve variant:</span>
+          <div className="flex flex-col gap-1 mb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Serve variant:</span>
               {variants.length > 0 ? (
                 <select
-                  style={selectStyle}
+                  className="px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
                   value={rule.variant}
                   onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}
                 >
@@ -268,17 +222,15 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
                   ))}
                 </select>
               ) : (
-                <input
-                  style={{ ...inputStyle, flex: 'none', width: 130 }}
+                <Input
+                  className="flex-none w-[130px] text-xs"
                   placeholder="Variant key"
                   value={rule.variant}
                   onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
                 />
               )}
             </div>
-            <div style={{ fontSize: 11, color: t.textMuted, fontStyle: 'italic' }}>
+            <div className="text-[11px] text-muted-foreground/60 italic">
               The variant returned when this rule matches.
             </div>
           </div>
@@ -290,20 +242,14 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
         </div>
       ))}
 
-      <button
-        style={{
-          padding: '7px 14px', fontSize: 12, fontWeight: 500,
-          border: `1px solid ${t.border}`, borderRadius: t.radiusMd,
-          backgroundColor: 'transparent', color: t.textSecondary,
-          cursor: 'pointer', alignSelf: 'flex-start', fontFamily: t.fontSans,
-          transition: 'all 200ms ease',
-        }}
+      <Button
+        variant="outline"
+        size="sm"
+        className="self-start"
         onClick={addRule}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.color = t.accent }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textSecondary }}
       >
         + Add Rule
-      </button>
+      </Button>
     </div>
   )
 }

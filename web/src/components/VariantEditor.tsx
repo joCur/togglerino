@@ -1,5 +1,7 @@
 import type { Variant } from '../api/types.ts'
-import { t } from '../theme.ts'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 interface Props {
   variants: Variant[]
@@ -19,19 +21,6 @@ function parseValue(raw: string, flagType: string): unknown {
   if (flagType === 'json') { try { return JSON.parse(raw) } catch { return raw } }
   return raw
 }
-
-const inputStyle = {
-  padding: '7px 10px',
-  fontSize: 12,
-  border: `1px solid ${t.border}`,
-  borderRadius: t.radiusSm,
-  backgroundColor: t.bgInput,
-  color: t.textPrimary,
-  outline: 'none',
-  flex: 1,
-  fontFamily: t.fontSans,
-  transition: 'border-color 200ms ease',
-} as const
 
 export default function VariantEditor({ variants, flagType, onChange }: Props) {
   const updateKey = (index: number, newKey: string) => {
@@ -68,9 +57,9 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 13, fontWeight: 500, color: t.textPrimary }}>Variants</div>
-      <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 4 }}>
+    <div className="flex flex-col gap-2">
+      <div className="text-[13px] font-medium text-foreground">Variants</div>
+      <div className="text-xs text-muted-foreground/60 leading-relaxed mb-1">
         {flagType === 'boolean'
           ? 'Define the on/off states for this flag. Each variant has a key (referenced in targeting rules) and a boolean value.'
           : flagType === 'string'
@@ -81,15 +70,13 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
       </div>
 
       {variants.length === 0 && (
-        <div style={{ fontSize: 12, color: t.textMuted, fontStyle: 'italic' }}>
+        <div className="text-xs text-muted-foreground/60 italic">
           {flagType === 'boolean' ? (
             <>
               No variants defined.{' '}
               <span
-                style={{ color: t.accent, cursor: 'pointer', fontStyle: 'normal', transition: 'color 200ms ease' }}
+                className="text-[#d4956a] cursor-pointer not-italic hover:text-[#e0a87a] transition-colors duration-200"
                 onClick={addDefaults}
-                onMouseEnter={(e) => { e.currentTarget.style.color = t.accentLight }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = t.accent }}
               >
                 Add boolean defaults
               </span>
@@ -101,18 +88,16 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
       )}
 
       {variants.map((v, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            style={{ ...inputStyle, flex: 'none', width: 110, fontFamily: t.fontMono }}
+        <div key={i} className="flex items-center gap-2">
+          <Input
+            className="flex-none w-[110px] font-mono text-xs"
             placeholder="Key"
             value={v.key}
             onChange={(e) => updateKey(i, e.target.value)}
-            onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
           />
           {flagType === 'boolean' ? (
             <select
-              style={{ ...inputStyle, cursor: 'pointer' }}
+              className="flex-1 px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
               value={String(v.value)}
               onChange={(e) => updateValue(i, e.target.value)}
             >
@@ -120,56 +105,40 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
               <option value="false">false</option>
             </select>
           ) : flagType === 'json' ? (
-            <textarea
-              style={{ ...inputStyle, minHeight: 32, resize: 'vertical', fontFamily: t.fontMono, fontSize: 11 }}
+            <Textarea
+              className="flex-1 min-h-[32px] resize-y font-mono text-[11px]"
               value={formatValue(v.value)}
               onChange={(e) => updateValue(i, e.target.value)}
               placeholder="JSON value"
-              onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
             />
           ) : (
-            <input
-              style={inputStyle}
+            <Input
+              className="flex-1 text-xs"
               type={flagType === 'number' ? 'number' : 'text'}
               placeholder="Value"
               value={formatValue(v.value)}
               onChange={(e) => updateValue(i, e.target.value)}
-              onFocus={(e) => { e.currentTarget.style.borderColor = t.accentBorder }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = t.border }}
             />
           )}
-          <button
-            style={{
-              padding: '5px 10px', fontSize: 11, fontWeight: 500,
-              border: `1px solid ${t.dangerBorder}`, borderRadius: t.radiusSm,
-              backgroundColor: t.dangerSubtle, color: t.danger,
-              cursor: 'pointer', flexShrink: 0, fontFamily: t.fontSans,
-              transition: 'all 200ms ease',
-            }}
+          <Button
+            variant="destructive"
+            size="sm"
+            className="shrink-0 text-[11px] px-2.5 h-7"
             onClick={() => remove(i)}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(242,116,116,0.15)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = t.dangerSubtle }}
           >
             Remove
-          </button>
+          </Button>
         </div>
       ))}
 
-      <button
-        style={{
-          padding: '7px 14px', fontSize: 12, fontWeight: 500,
-          border: `1px solid ${t.border}`, borderRadius: t.radiusMd,
-          backgroundColor: 'transparent', color: t.textSecondary,
-          cursor: 'pointer', alignSelf: 'flex-start', marginTop: 2,
-          fontFamily: t.fontSans, transition: 'all 200ms ease',
-        }}
+      <Button
+        variant="outline"
+        size="sm"
+        className="self-start mt-0.5"
         onClick={add}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = t.accentBorder; e.currentTarget.style.color = t.accent }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textSecondary }}
       >
         + Add Variant
-      </button>
+      </Button>
     </div>
   )
 }

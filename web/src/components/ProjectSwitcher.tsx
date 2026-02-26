@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type { Project } from '../api/types.ts'
-import { t } from '../theme.ts'
+import { cn } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
 
 export default function ProjectSwitcher() {
   const { key } = useParams<{ key: string }>()
@@ -55,48 +56,19 @@ export default function ProjectSwitcher() {
   }
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+    <div ref={containerRef} className="relative flex items-center">
       {/* Separator */}
-      <span
-        style={{
-          color: t.textMuted,
-          fontSize: 18,
-          fontWeight: 300,
-          marginRight: 12,
-          userSelect: 'none',
-        }}
-      >
-        /
-      </span>
+      <span className="text-muted-foreground/60 text-lg font-light mr-3 select-none">/</span>
 
       {/* Trigger button */}
       <button
         onClick={() => setOpen(!open)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '5px 10px',
-          fontSize: 13,
-          fontWeight: 500,
-          fontFamily: t.fontSans,
-          color: t.textPrimary,
-          backgroundColor: open ? t.bgElevated : 'transparent',
-          border: `1px solid ${open ? t.borderStrong : 'transparent'}`,
-          borderRadius: t.radiusSm,
-          cursor: 'pointer',
-          transition: 'all 200ms ease',
-        }}
-        onMouseEnter={(e) => {
-          if (!open) {
-            e.currentTarget.style.backgroundColor = t.bgHover
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!open) {
-            e.currentTarget.style.backgroundColor = 'transparent'
-          }
-        }}
+        className={cn(
+          'flex items-center gap-2 px-2.5 py-1.5 text-[13px] font-medium text-foreground border rounded-md cursor-pointer transition-all duration-200',
+          open
+            ? 'bg-[#1a1a1f] border-white/10'
+            : 'bg-transparent border-transparent hover:bg-white/[0.04]'
+        )}
       >
         <span>{currentProject?.name ?? key}</span>
         <svg
@@ -104,133 +76,58 @@ export default function ProjectSwitcher() {
           height="6"
           viewBox="0 0 10 6"
           fill="none"
-          style={{
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 200ms ease',
-          }}
+          className={cn('transition-transform duration-200', open && 'rotate-180')}
         >
           <path
             d="M1 1L5 5L9 1"
-            stroke={t.textSecondary}
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="text-muted-foreground"
           />
         </svg>
       </button>
 
       {/* Dropdown */}
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            marginTop: 6,
-            width: 260,
-            backgroundColor: t.bgSurface,
-            border: `1px solid ${t.borderStrong}`,
-            borderRadius: t.radiusLg,
-            boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
-            zIndex: 100,
-            overflow: 'hidden',
-          }}
-        >
+        <div className="absolute top-full left-0 mt-1.5 w-[260px] bg-card border border-white/10 rounded-lg shadow-[0_8px_30px_rgba(0,0,0,0.4)] z-[100] overflow-hidden">
           {/* Search input */}
-          <div style={{ padding: 8 }}>
-            <input
+          <div className="p-2">
+            <Input
               ref={searchInputRef}
               type="text"
               placeholder="Search projects..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 10px',
-                fontSize: 12,
-                fontFamily: t.fontSans,
-                color: t.textPrimary,
-                backgroundColor: t.bgInput,
-                border: `1px solid ${t.border}`,
-                borderRadius: t.radiusSm,
-                outline: 'none',
-                boxSizing: 'border-box',
-                transition: 'all 200ms ease',
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = t.accentBorder
-                e.currentTarget.style.boxShadow = `0 0 0 2px ${t.accentSubtle}`
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = t.border
-                e.currentTarget.style.boxShadow = 'none'
-              }}
+              className="text-xs"
             />
           </div>
 
           {/* Project list */}
-          <div
-            style={{
-              maxHeight: 240,
-              overflowY: 'auto',
-              padding: '0 4px 4px',
-            }}
-          >
+          <div className="max-h-60 overflow-y-auto px-1 pb-1">
             {filteredProjects.map((project) => {
               const isCurrent = project.key === key
               return (
                 <button
                   key={project.id}
                   onClick={() => handleSelect(project)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                    width: '100%',
-                    padding: '8px 10px',
-                    fontSize: 13,
-                    fontFamily: t.fontSans,
-                    color: isCurrent ? t.accent : t.textPrimary,
-                    backgroundColor: isCurrent ? t.accentSubtle : 'transparent',
-                    border: 'none',
-                    borderRadius: t.radiusSm,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'background-color 150ms ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isCurrent) {
-                      e.currentTarget.style.backgroundColor = t.bgHover
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isCurrent) {
-                      e.currentTarget.style.backgroundColor = 'transparent'
-                    }
-                  }}
+                  className={cn(
+                    'flex flex-col gap-0.5 w-full px-2.5 py-2 text-[13px] border-none rounded-md cursor-pointer text-left transition-colors duration-150',
+                    isCurrent
+                      ? 'text-[#d4956a] bg-[#d4956a]/8'
+                      : 'text-foreground bg-transparent hover:bg-white/[0.04]'
+                  )}
                 >
-                  <span style={{ fontWeight: 600 }}>{project.name}</span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontFamily: t.fontMono,
-                      color: t.textMuted,
-                    }}
-                  >
+                  <span className="font-semibold">{project.name}</span>
+                  <span className="text-[11px] font-mono text-muted-foreground/60">
                     {project.key}
                   </span>
                 </button>
               )
             })}
             {filteredProjects.length === 0 && (
-              <div
-                style={{
-                  padding: '12px 10px',
-                  fontSize: 12,
-                  color: t.textMuted,
-                  textAlign: 'center',
-                }}
-              >
+              <div className="py-3 px-2.5 text-xs text-muted-foreground/60 text-center">
                 No projects found
               </div>
             )}

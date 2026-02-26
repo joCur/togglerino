@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.ts'
-import { t } from '../theme.ts'
+import { Button } from '@/components/ui/button'
 
 interface TopbarProps {
   children?: ReactNode
@@ -19,92 +19,28 @@ export default function Topbar({ children }: TopbarProps) {
   }
 
   return (
-    <header
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 24px',
-        height: 52,
-        backgroundColor: t.bgSurface,
-        borderBottom: `1px solid ${t.border}`,
-        flexShrink: 0,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <Link
-          to="/projects"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            textDecoration: 'none',
-          }}
-        >
+    <header className="flex items-center justify-between px-6 h-[52px] bg-card border-b shrink-0">
+      <div className="flex items-center gap-4">
+        <Link to="/projects" className="flex items-center gap-2.5 no-underline">
           <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
-            <rect width="20" height="12" rx="6" fill={t.accent} opacity="0.25" />
-            <circle cx="14" cy="6" r="4" fill={t.accent} />
+            <rect width="20" height="12" rx="6" fill="#d4956a" opacity="0.25" />
+            <circle cx="14" cy="6" r="4" fill="#d4956a" />
           </svg>
-          <span
-            style={{
-              fontFamily: t.fontMono,
-              fontSize: 14,
-              fontWeight: 600,
-              color: t.accent,
-              letterSpacing: '0.5px',
-            }}
-          >
+          <span className="font-mono text-sm font-semibold text-[#d4956a] tracking-wide">
             togglerino
           </span>
         </Link>
         {children}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            backgroundColor: t.accentSubtle,
-            border: `1px solid ${t.accentBorder}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 11,
-            fontWeight: 600,
-            color: t.accent,
-            fontFamily: t.fontMono,
-          }}
-        >
+      <div className="flex items-center gap-3.5">
+        <div className="w-7 h-7 rounded-full bg-[#d4956a]/8 border border-[#d4956a]/20 flex items-center justify-center text-[11px] font-semibold text-[#d4956a] font-mono">
           {user?.email?.charAt(0).toUpperCase()}
         </div>
-        <span style={{ fontSize: 12, color: t.textSecondary }}>{user?.email}</span>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '5px 12px',
-            fontSize: 12,
-            fontWeight: 500,
-            fontFamily: t.fontSans,
-            border: `1px solid ${t.border}`,
-            borderRadius: t.radiusSm,
-            backgroundColor: 'transparent',
-            color: t.textSecondary,
-            cursor: 'pointer',
-            transition: 'all 200ms ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = t.borderHover
-            e.currentTarget.style.color = t.textPrimary
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = t.border
-            e.currentTarget.style.color = t.textSecondary
-          }}
-        >
+        <span className="text-xs text-muted-foreground">{user?.email}</span>
+        <Button variant="outline" size="sm" onClick={handleLogout}>
           Log out
-        </button>
+        </Button>
       </div>
     </header>
   )
