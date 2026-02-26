@@ -1,5 +1,4 @@
 import { useId } from 'react'
-import { t } from '../theme.ts'
 
 interface Props {
   value: number | undefined
@@ -12,27 +11,24 @@ export default function RolloutSlider({ value, onChange }: Props) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <div className="flex items-center gap-2 mb-2">
         <input
           type="checkbox"
           id={checkboxId}
-          style={{ cursor: 'pointer' }}
+          className="cursor-pointer"
           checked={enabled}
           onChange={(e) => onChange(e.target.checked ? 100 : undefined)}
         />
-        <label
-          htmlFor={checkboxId}
-          style={{ fontSize: 12, color: t.textSecondary, cursor: 'pointer' }}
-        >
+        <label htmlFor={checkboxId} className="text-xs text-muted-foreground cursor-pointer">
           Percentage rollout
         </label>
       </div>
       {enabled && (
         <>
-          <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 8 }}>
+          <div className="text-xs text-muted-foreground/60 leading-relaxed mb-2">
             Gradually roll out this variant to a percentage of users. Uses consistent hashing — the same user always gets the same result.
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="flex items-center gap-3">
             <input
               type="range"
               min={0}
@@ -40,18 +36,9 @@ export default function RolloutSlider({ value, onChange }: Props) {
               step={1}
               value={value}
               onChange={(e) => onChange(Number(e.target.value))}
-              style={{ flex: 1, cursor: 'pointer' }}
+              className="flex-1 cursor-pointer"
             />
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: t.accent,
-                minWidth: 40,
-                textAlign: 'right',
-                fontFamily: t.fontMono,
-              }}
-            >
+            <span className="text-[13px] font-semibold text-[#d4956a] min-w-[40px] text-right font-mono">
               {value}%
             </span>
           </div>
