@@ -193,7 +193,7 @@ func TestUnknownFlagStore_Dismiss(t *testing.T) {
 	flagID := flags[0].ID
 
 	// Dismiss it
-	err = ufs.Dismiss(ctx, flagID)
+	err = ufs.Dismiss(ctx, flagID, project.ID)
 	if err != nil {
 		t.Fatalf("Dismiss: %v", err)
 	}

@@ -2,11 +2,15 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/model"
 )
+
+// ErrNotFound is returned when a requested resource does not exist.
+var ErrNotFound = errors.New("not found")
 
 type UnknownFlagStore struct {
 	pool *pgxpool.Pool
@@ -73,16 +77,17 @@ func (s *UnknownFlagStore) ListByProject(ctx context.Context, projectID string) 
 }
 
 // Dismiss soft-deletes an unknown flag by setting dismissed_at.
-func (s *UnknownFlagStore) Dismiss(ctx context.Context, id string) error {
+// The projectID parameter ensures the flag belongs to the expected project.
+func (s *UnknownFlagStore) Dismiss(ctx context.Context, id, projectID string) error {
 	tag, err := s.pool.Exec(ctx,
-		`UPDATE unknown_flags SET dismissed_at = now() WHERE id = $1`,
-		id,
+		`UPDATE unknown_flags SET dismissed_at = now() WHERE id = $1 AND project_id = $2`,
+		id, projectID,
 	)
 	if err != nil {
 		return fmt.Errorf("dismissing unknown flag: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("unknown flag not found")
+		return ErrNotFound
 	}
 	return nil
 }
