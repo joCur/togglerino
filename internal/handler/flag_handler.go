@@ -37,11 +37,11 @@ func (h *FlagHandler) refreshAllEnvironments(ctx context.Context, projectKey, pr
 		slog.Warn("failed to list environments for cache refresh", "error", err)
 		return
 	}
+	event.FlagKey = flagKey
 	for _, env := range envs {
 		if err := h.cache.Refresh(ctx, h.pool, projectKey, env.Key); err != nil {
 			slog.Warn("failed to refresh cache", "project", projectKey, "env", env.Key, "error", err)
 		}
-		event.FlagKey = flagKey
 		h.hub.Broadcast(projectKey, env.Key, event)
 	}
 }

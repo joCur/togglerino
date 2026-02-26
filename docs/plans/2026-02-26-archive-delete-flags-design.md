@@ -37,7 +37,7 @@ Add `Type` field to `stream.Event`:
 ```go
 type Event struct {
     Type    string `json:"type"`    // "flag_update" or "flag_deleted"
-    FlagKey string `json:"flag_key"`
+    FlagKey string `json:"flagKey"`
     Value   any    `json:"value"`
     Variant string `json:"variant"`
 }

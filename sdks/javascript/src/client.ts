@@ -386,7 +386,7 @@ export class Togglerino {
    * Read and parse SSE events from a ReadableStream.
    * SSE format:
    *   event: flag_update
-   *   data: {"flag_key":"dark-mode","value":true,"variant":"on"}
+   *   data: {"flagKey":"dark-mode","value":true,"variant":"on"}
    *
    */
   private async processSSEStream(

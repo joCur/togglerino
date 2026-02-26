@@ -333,6 +333,21 @@ export default function FlagDetailPage() {
         )}
       </div>
 
+      {archiveMutation.error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>
+            Failed to update flag: {archiveMutation.error instanceof Error ? archiveMutation.error.message : 'Unknown error'}
+          </AlertDescription>
+        </Alert>
+      )}
+      {deleteMutation.error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>
+            Failed to delete flag: {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Unknown error'}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Environment Tabs */}
       {environments && environments.length > 0 && (
         <Tabs value={effectiveEnvKey} onValueChange={setSelectedEnvKey}>
