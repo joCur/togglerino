@@ -1,6 +1,7 @@
 import type { TargetingRule, Variant, Condition } from '../api/types.ts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import AttributeCombobox from './AttributeCombobox.tsx'
 import RolloutSlider from './RolloutSlider.tsx'
 
 interface Props {
@@ -147,11 +148,9 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
             </div>
             {rule.conditions.map((cond, condIdx) => (
               <div key={condIdx} className="flex items-center gap-1.5 mb-1.5">
-                <Input
-                  className="flex-1 text-xs"
-                  placeholder="e.g. user_id, email, plan"
+                <AttributeCombobox
                   value={cond.attribute}
-                  onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
+                  onChange={(val) => updateCondition(ruleIdx, condIdx, { attribute: val })}
                 />
                 <select
                   className="w-[170px] px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"

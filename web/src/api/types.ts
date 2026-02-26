@@ -85,3 +85,10 @@ export interface AuditEntry {
   new_value?: unknown
   created_at: string
 }
+
+export interface ContextAttribute {
+  id: string
+  project_id: string
+  name: string
+  last_seen_at: string
+}
