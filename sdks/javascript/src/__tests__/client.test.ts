@@ -265,6 +265,59 @@ describe('Togglerino', () => {
   })
 
   // -------------------------------------------------------------------------
+  // getContext
+  // -------------------------------------------------------------------------
+
+  it('should return the current context via getContext()', async () => {
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+
+    const client = new Togglerino(baseConfig)
+    await client.initialize()
+
+    expect(client.getContext()).toEqual({ userId: 'user-1', attributes: { plan: 'pro' } })
+
+    client.close()
+  })
+
+  it('should return updated context after updateContext()', async () => {
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+
+    const client = new Togglerino(baseConfig)
+    await client.initialize()
+
+    await client.updateContext({ userId: 'user-2' })
+
+    expect(client.getContext()).toEqual({ userId: 'user-2', attributes: { plan: 'pro' } })
+
+    client.close()
+  })
+
+  // -------------------------------------------------------------------------
+  // context_change event
+  // -------------------------------------------------------------------------
+
+  it('should emit context_change event when context is updated', async () => {
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+    mockFetch.mockResolvedValueOnce(evaluateResponse({}))
+
+    const client = new Togglerino(baseConfig)
+    await client.initialize()
+
+    const contextChangeFn = vi.fn()
+    client.on('context_change', contextChangeFn)
+
+    await client.updateContext({ userId: 'user-2', attributes: { plan: 'enterprise' } })
+
+    expect(contextChangeFn).toHaveBeenCalledWith({
+      userId: 'user-2',
+      attributes: { plan: 'enterprise' },
+    })
+
+    client.close()
+  })
+
+  // -------------------------------------------------------------------------
   // Event emitter
   // -------------------------------------------------------------------------
 

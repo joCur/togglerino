@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { type ReactNode } from 'react'
 import { TogglerioContext } from '../context'
-import { useFlag } from '../hooks'
+import { useFlag, useTogglerinoContext } from '../hooks'
 import { useTogglerino } from '../context'
-import type { FlagChangeEvent } from '@togglerino/sdk'
+import type { EvaluationContext, FlagChangeEvent } from '@togglerino/sdk'
 
 // ---------------------------------------------------------------------------
 // Mock client factory
@@ -30,6 +30,7 @@ function createMockClient() {
     initialize: vi.fn(() => Promise.resolve()),
     close: vi.fn(),
     updateContext: vi.fn(() => Promise.resolve()),
+    getContext: vi.fn(() => ({ userId: 'user-1', attributes: { plan: 'pro' } })),
     // Test helper: emit an event to all registered listeners
     emit(event: string, ...args: unknown[]) {
       listeners.get(event)?.forEach((fn) => fn(...args))
@@ -252,5 +253,65 @@ describe('useFlag', () => {
 
     // Should have subscribed again for the new key
     expect(client.on).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('useTogglerinoContext', () => {
+  let client: MockClient
+
+  beforeEach(() => {
+    client = createMockClient()
+  })
+
+  it('returns the current context from the client', () => {
+    const wrapper = createWrapper(client)
+    const { result } = renderHook(() => useTogglerinoContext(), { wrapper })
+
+    expect(result.current.context).toEqual({ userId: 'user-1', attributes: { plan: 'pro' } })
+  })
+
+  it('provides an updateContext function', () => {
+    const wrapper = createWrapper(client)
+    const { result } = renderHook(() => useTogglerinoContext(), { wrapper })
+
+    expect(typeof result.current.updateContext).toBe('function')
+  })
+
+  it('calls client.updateContext when updateContext is called', async () => {
+    const wrapper = createWrapper(client)
+    const { result } = renderHook(() => useTogglerinoContext(), { wrapper })
+
+    await act(async () => {
+      await result.current.updateContext({ userId: 'user-2' })
+    })
+
+    expect(client.updateContext).toHaveBeenCalledWith({ userId: 'user-2' })
+  })
+
+  it('updates context state when context_change event is emitted', () => {
+    const wrapper = createWrapper(client)
+    const { result } = renderHook(() => useTogglerinoContext(), { wrapper })
+
+    expect(result.current.context).toEqual({ userId: 'user-1', attributes: { plan: 'pro' } })
+
+    const newContext: EvaluationContext = { userId: 'user-2', attributes: { plan: 'enterprise' } }
+    client.getContext.mockReturnValue(newContext)
+
+    act(() => {
+      client.emit('context_change', newContext)
+    })
+
+    expect(result.current.context).toEqual(newContext)
+  })
+
+  it('unsubscribes from context_change on unmount', () => {
+    const wrapper = createWrapper(client)
+    const { unmount } = renderHook(() => useTogglerinoContext(), { wrapper })
+
+    expect(client._listeners.get('context_change')?.size).toBe(1)
+
+    unmount()
+
+    expect(client._listeners.get('context_change')?.size).toBe(0)
   })
 })

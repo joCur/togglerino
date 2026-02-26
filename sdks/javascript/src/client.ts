@@ -154,6 +154,7 @@ export class Togglerino {
    * Events:
    * - "ready": no payload, fired after initialize() completes.
    * - "change": payload is FlagChangeEvent.
+   * - "context_change": payload is EvaluationContext, fired after updateContext() completes.
    * - "error": payload is Error.
    * - "reconnecting": payload is { attempt: number, delay: number }, fired when scheduling SSE reconnect.
    * - "reconnected": no payload, fired when SSE successfully reconnects after a disconnection.
@@ -175,6 +176,18 @@ export class Togglerino {
   // ---------------------------------------------------------------------------
 
   /**
+   * Get the current evaluation context.
+   */
+  getContext(): EvaluationContext {
+    return {
+      ...this.config.context,
+      attributes: this.config.context.attributes
+        ? { ...this.config.context.attributes }
+        : undefined,
+    }
+  }
+
+  /**
    * Update the evaluation context and re-fetch all flags.
    * Useful when the user logs in / changes attributes.
    */
@@ -184,6 +197,7 @@ export class Togglerino {
       ...context,
     }
     await this.fetchFlags()
+    this.emit('context_change', this.getContext())
   }
 
   // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { FlagChangeEvent } from '@togglerino/sdk'
+import type { EvaluationContext, FlagChangeEvent } from '@togglerino/sdk'
 import { useTogglerino } from './context'
 
 export function useFlag(key: string, defaultValue: boolean): boolean
@@ -31,4 +31,24 @@ export function useFlag(key: string, defaultValue: unknown): unknown {
   }, [client, key, getCurrentValue])
 
   return value
+}
+
+export function useTogglerinoContext() {
+  const client = useTogglerino()
+
+  const [context, setContext] = useState<EvaluationContext>(() => client.getContext())
+
+  useEffect(() => {
+    const unsubscribe = client.on('context_change', (newContext: EvaluationContext) => {
+      setContext(newContext)
+    })
+    return unsubscribe
+  }, [client])
+
+  const updateContext = useCallback(
+    (ctx: Partial<EvaluationContext>) => client.updateContext(ctx),
+    [client]
+  )
+
+  return { context, updateContext }
 }
