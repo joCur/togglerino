@@ -166,7 +166,7 @@ function ConfigEditor({
       <div className="mb-6">
         <VariantEditor
           variants={variants}
-          flagType={flag.value_type}
+          valueType={flag.value_type}
           onChange={setVariants}
         />
       </div>
