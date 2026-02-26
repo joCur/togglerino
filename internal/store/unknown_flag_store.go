@@ -74,12 +74,15 @@ func (s *UnknownFlagStore) ListByProject(ctx context.Context, projectID string) 
 
 // Dismiss soft-deletes an unknown flag by setting dismissed_at.
 func (s *UnknownFlagStore) Dismiss(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx,
+	tag, err := s.pool.Exec(ctx,
 		`UPDATE unknown_flags SET dismissed_at = now() WHERE id = $1`,
 		id,
 	)
 	if err != nil {
 		return fmt.Errorf("dismissing unknown flag: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("unknown flag not found")
 	}
 	return nil
 }
