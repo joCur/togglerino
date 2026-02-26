@@ -330,7 +330,7 @@ export default function ProjectDetailPage() {
         open={modalOpen}
         projectKey={key!}
         initialKey={createFromKey}
-        onClose={() => { setModalOpen(false); setCreateFromKey('') }}
+        onClose={() => { setModalOpen(false); setCreateFromKey(''); queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] }) }}
       />
     </div>
   )
