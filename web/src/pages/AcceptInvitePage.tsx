@@ -45,7 +45,7 @@ export default function AcceptInvitePage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background bg-[radial-gradient(ellipse_60%_50%_at_50%_40%,rgba(212,149,106,0.04)_0%,transparent_70%)]">
-      <div className="w-full max-w-[400px] p-10 rounded-2xl bg-card border shadow-[0_8px_40px_rgba(0,0,0,0.4)] animate-[fadeInUp_400ms_ease]">
+      <div className="w-full max-w-[400px] p-10 rounded-2xl bg-card border shadow-lg animate-[fadeInUp_400ms_ease]">
         {/* Brand */}
         <div className="flex items-center justify-center gap-2.5 mb-2">
           <svg width="24" height="14" viewBox="0 0 24 14" fill="none">

@@ -66,8 +66,8 @@ export default function ProjectSwitcher() {
         className={cn(
           'flex items-center gap-2 px-2.5 py-1.5 text-[13px] font-medium text-foreground border rounded-md cursor-pointer transition-all duration-200',
           open
-            ? 'bg-[#1a1a1f] border-white/10'
-            : 'bg-transparent border-transparent hover:bg-white/[0.04]'
+            ? 'bg-muted border-border'
+            : 'bg-transparent border-transparent hover:bg-foreground/[0.04]'
         )}
       >
         <span>{currentProject?.name ?? key}</span>
@@ -91,7 +91,7 @@ export default function ProjectSwitcher() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-[260px] bg-card border border-white/10 rounded-lg shadow-[0_8px_30px_rgba(0,0,0,0.4)] z-[100] overflow-hidden">
+        <div className="absolute top-full left-0 mt-1.5 w-[260px] bg-card border rounded-lg shadow-lg z-[100] overflow-hidden">
           {/* Search input */}
           <div className="p-2">
             <Input
@@ -116,7 +116,7 @@ export default function ProjectSwitcher() {
                     'flex flex-col gap-0.5 w-full px-2.5 py-2 text-[13px] border-none rounded-md cursor-pointer text-left transition-colors duration-150',
                     isCurrent
                       ? 'text-[#d4956a] bg-[#d4956a]/8'
-                      : 'text-foreground bg-transparent hover:bg-white/[0.04]'
+                      : 'text-foreground bg-transparent hover:bg-foreground/[0.04]'
                   )}
                 >
                   <span className="font-semibold">{project.name}</span>
