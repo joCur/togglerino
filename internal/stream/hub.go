@@ -4,7 +4,8 @@ import "sync"
 
 // Event represents a flag change event sent to SSE clients.
 type Event struct {
-	FlagKey string `json:"flag_key"`
+	Type    string `json:"type"`
+	FlagKey string `json:"flagKey"`
 	Value   any    `json:"value"`
 	Variant string `json:"variant"`
 }

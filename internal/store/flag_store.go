@@ -157,6 +157,23 @@ func (s *FlagStore) Update(ctx context.Context, flagID, name, description string
 	return &f, nil
 }
 
+// SetArchived sets the archived status of a flag.
+func (s *FlagStore) SetArchived(ctx context.Context, flagID string, archived bool) (*model.Flag, error) {
+	var f model.Flag
+	err := s.pool.QueryRow(ctx,
+		`UPDATE flags SET archived=$2, updated_at=NOW() WHERE id=$1
+		 RETURNING id, project_id, key, name, description, flag_type, default_value, tags, archived, created_at, updated_at`,
+		flagID, archived,
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.FlagType, &f.DefaultValue, &f.Tags, &f.Archived, &f.CreatedAt, &f.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("setting flag archived status: %w", err)
+	}
+	if f.Tags == nil {
+		f.Tags = []string{}
+	}
+	return &f, nil
+}
+
 // Delete deletes a flag by ID (cascades to environment configs).
 func (s *FlagStore) Delete(ctx context.Context, flagID string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM flags WHERE id = $1`, flagID)

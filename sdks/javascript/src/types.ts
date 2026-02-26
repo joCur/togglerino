@@ -56,12 +56,20 @@ export interface FlagChangeEvent {
 }
 
 /**
+ * SSE event emitted when a flag is deleted.
+ */
+export interface FlagDeletedEvent {
+  flagKey: string
+}
+
+/**
  * Events emitted by the Togglerino client.
  * - "ready": fired after initial flag fetch completes.
  * - "change": fired when a flag value changes (via SSE or polling).
+ * - "deleted": fired when a flag is deleted (via SSE). Payload is FlagDeletedEvent.
  * - "context_change": fired after updateContext() completes. Payload is EvaluationContext.
  * - "error": fired on fetch/SSE errors.
  * - "reconnecting": fired when scheduling an SSE reconnection attempt. Payload: { attempt: number, delay: number }.
  * - "reconnected": fired when SSE successfully reconnects after a disconnection.
  */
-export type EventType = 'change' | 'context_change' | 'error' | 'ready' | 'reconnecting' | 'reconnected'
+export type EventType = 'change' | 'deleted' | 'context_change' | 'error' | 'ready' | 'reconnecting' | 'reconnected'

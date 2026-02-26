@@ -510,6 +510,61 @@ describe('Togglerino', () => {
     client.close()
   })
 
+  it('should handle flag_deleted SSE events by removing the flag', async () => {
+    // Initial fetch
+    mockFetch.mockResolvedValueOnce(
+      evaluateResponse({
+        'delete-me': { value: true, variant: 'on', reason: 'default' },
+        'keep-me': { value: false, variant: 'off', reason: 'default' },
+      })
+    )
+
+    // Create a mock ReadableStream that emits a flag_deleted event then closes
+    const sseData =
+      'event: flag_deleted\ndata: {"flagKey":"delete-me"}\n\n'
+    const encoder = new TextEncoder()
+    let readerDone = false
+
+    const mockStream = new ReadableStream({
+      pull(controller) {
+        if (!readerDone) {
+          readerDone = true
+          controller.enqueue(encoder.encode(sseData))
+        } else {
+          controller.close()
+        }
+      },
+    })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: mockStream,
+    } as unknown as Response)
+
+    const client = new Togglerino({
+      ...baseConfig,
+      streaming: true,
+    })
+
+    const deletedEvents: unknown[] = []
+    client.on('deleted', (e) => deletedEvents.push(e))
+
+    await client.initialize()
+
+    // Wait for SSE to be processed
+    await new Promise((r) => setTimeout(r, 50))
+
+    // The deleted flag should be gone
+    expect(client.getDetail('delete-me')).toBeUndefined()
+    // The other flag should still be there
+    expect(client.getDetail('keep-me')).toEqual({ value: false, variant: 'off', reason: 'default' })
+    // Deleted event should have been emitted
+    expect(deletedEvents).toHaveLength(1)
+    expect(deletedEvents[0]).toEqual({ flagKey: 'delete-me' })
+
+    client.close()
+  })
+
   it('should fall back to polling when SSE fetch fails and schedule reconnection', async () => {
     vi.useFakeTimers()
 
