@@ -17,7 +17,15 @@ interface Props {
   onClose: () => void
 }
 
-const FLAG_TYPES = [
+const FLAG_PURPOSES = [
+  { value: 'release', label: 'Release', description: 'Deploy new features', lifetime: '40 days' },
+  { value: 'experiment', label: 'Experiment', description: 'A/B testing', lifetime: '40 days' },
+  { value: 'operational', label: 'Operational', description: 'Technical migration', lifetime: '7 days' },
+  { value: 'kill-switch', label: 'Kill Switch', description: 'Graceful degradation', lifetime: 'Permanent' },
+  { value: 'permission', label: 'Permission', description: 'Access control', lifetime: 'Permanent' },
+]
+
+const VALUE_TYPES = [
   { value: 'boolean', label: 'Boolean' },
   { value: 'string', label: 'String' },
   { value: 'number', label: 'Number' },
@@ -35,6 +43,7 @@ export default function CreateFlagModal({ open, projectKey, onClose }: Props) {
   const [keyManual, setKeyManual] = useState(false)
   const [description, setDescription] = useState('')
   const [flagType, setFlagType] = useState('boolean')
+  const [flagPurpose, setFlagPurpose] = useState('release')
   const [defaultValue, setDefaultValue] = useState<string>('false')
   const [boolValue, setBoolValue] = useState(false)
   const [tags, setTags] = useState('')
@@ -42,7 +51,7 @@ export default function CreateFlagModal({ open, projectKey, onClose }: Props) {
   const mutation = useMutation({
     mutationFn: (data: {
       key: string; name: string; description: string
-      flag_type: string; default_value: unknown; tags: string[]
+      value_type: string; flag_type: string; default_value: unknown; tags: string[]
     }) => api.post<Flag>(`/projects/${projectKey}/flags`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', projectKey, 'flags'] })
@@ -52,7 +61,7 @@ export default function CreateFlagModal({ open, projectKey, onClose }: Props) {
 
   const resetAndClose = () => {
     setName(''); setKey(''); setKeyManual(false); setDescription('')
-    setFlagType('boolean'); setDefaultValue('false'); setBoolValue(false); setTags('')
+    setFlagType('boolean'); setFlagPurpose('release'); setDefaultValue('false'); setBoolValue(false); setTags('')
     mutation.reset(); onClose()
   }
 
@@ -81,7 +90,13 @@ export default function CreateFlagModal({ open, projectKey, onClose }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const parsedTags = tags.split(',').map((tag) => tag.trim()).filter(Boolean)
-    mutation.mutate({ key, name, description, flag_type: flagType, default_value: getDefaultValueParsed(), tags: parsedTags })
+    mutation.mutate({
+      key, name, description,
+      value_type: flagType,
+      flag_type: flagPurpose,
+      default_value: getDefaultValueParsed(),
+      tags: parsedTags,
+    })
   }
 
   const errorMsg = mutation.error instanceof Error ? mutation.error.message : ''
@@ -116,13 +131,33 @@ export default function CreateFlagModal({ open, projectKey, onClose }: Props) {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Type</Label>
+              <Label>Flag Purpose</Label>
+              <Select value={flagPurpose} onValueChange={setFlagPurpose}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FLAG_PURPOSES.map((fp) => (
+                    <SelectItem key={fp.value} value={fp.value}>
+                      <span>{fp.label}</span>
+                      <span className="ml-2 text-muted-foreground text-xs">{fp.lifetime}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="text-xs text-muted-foreground">
+                {FLAG_PURPOSES.find(fp => fp.value === flagPurpose)?.description}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Value Type</Label>
               <Select value={flagType} onValueChange={handleTypeChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FLAG_TYPES.map((ft) => (
+                  {VALUE_TYPES.map((ft) => (
                     <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
                   ))}
                 </SelectContent>

@@ -131,11 +131,11 @@ function ConfigEditor({
           Default Variant
         </div>
         <div className="text-xs text-muted-foreground leading-relaxed mb-2.5">
-          {flag.flag_type === 'boolean'
+          {flag.value_type === 'boolean'
             ? "The value returned when no targeting rule matches. For boolean flags, this is typically 'on' or 'off'."
-            : flag.flag_type === 'string'
+            : flag.value_type === 'string'
             ? 'The string value returned when no targeting rule matches.'
-            : flag.flag_type === 'number'
+            : flag.value_type === 'number'
             ? 'The numeric value returned when no targeting rule matches.'
             : 'The JSON payload returned when no targeting rule matches.'}
         </div>
@@ -166,7 +166,7 @@ function ConfigEditor({
       <div className="mb-6">
         <VariantEditor
           variants={variants}
-          flagType={flag.flag_type}
+          flagType={flag.value_type}
           onChange={setVariants}
         />
       </div>
@@ -276,6 +276,14 @@ export default function FlagDetailPage() {
     },
   })
 
+  const stalenessMutation = useMutation({
+    mutationFn: () => api.put(`/projects/${key}/flags/${flagKey}/staleness`, { status: 'stale' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
+    },
+  })
+
   const effectiveEnvKey = selectedEnvKey || (environments?.[0]?.key ?? '')
 
   if (isLoading) {
@@ -317,7 +325,7 @@ export default function FlagDetailPage() {
       <div className="p-6 rounded-lg bg-card border mb-6">
         <div className="text-xl font-semibold text-foreground mb-1 tracking-tight">
           {flag.name}
-          {flag.archived && (
+          {flag.lifecycle_status === 'archived' && (
             <Badge variant="secondary" className="ml-2 text-xs align-middle">Archived</Badge>
           )}
         </div>
@@ -329,7 +337,29 @@ export default function FlagDetailPage() {
             <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
               Type
             </div>
-            <Badge variant="secondary" className="font-mono text-xs">{flag.flag_type}</Badge>
+            <Badge variant="secondary" className="font-mono text-xs">{flag.value_type}</Badge>
+          </div>
+          <div>
+            <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+              Purpose
+            </div>
+            <Badge variant="secondary" className="text-xs capitalize">{flag.flag_type}</Badge>
+          </div>
+          <div>
+            <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+              Status
+            </div>
+            <Badge
+              variant="secondary"
+              className={`text-xs ${
+                flag.lifecycle_status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                flag.lifecycle_status === 'potentially_stale' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                flag.lifecycle_status === 'stale' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                'bg-muted text-muted-foreground'
+              }`}
+            >
+              {flag.lifecycle_status.replace(/_/g, ' ')}
+            </Badge>
           </div>
           {flag.tags && flag.tags.length > 0 && (
             <div>
@@ -356,7 +386,7 @@ export default function FlagDetailPage() {
         <div className="font-mono text-[10px] font-medium text-destructive uppercase tracking-wider mb-3">
           Danger Zone
         </div>
-        {flag.archived ? (
+        {flag.lifecycle_status === 'archived' ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
@@ -383,20 +413,41 @@ export default function FlagDetailPage() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[13px] font-medium text-foreground">Archive this flag</div>
-              <div className="text-xs text-muted-foreground">
-                Archived flags return default values and are excluded from evaluation.
+          <div className="flex flex-col gap-3">
+            {flag.lifecycle_status === 'potentially_stale' && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[13px] font-medium text-foreground">Mark as stale</div>
+                    <div className="text-xs text-muted-foreground">Signal that this flag should be removed from code.</div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                    onClick={() => stalenessMutation.mutate()}
+                    disabled={stalenessMutation.isPending}
+                  >
+                    {stalenessMutation.isPending ? 'Marking...' : 'Mark as Stale'}
+                  </Button>
+                </div>
+                <div className="border-t border-destructive/20" />
+              </>
+            )}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[13px] font-medium text-foreground">Archive this flag</div>
+                <div className="text-xs text-muted-foreground">
+                  Archived flags return default values and are excluded from evaluation.
+                </div>
               </div>
+              <Button
+                variant="outline"
+                className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                onClick={() => setArchiveDialogOpen(true)}
+              >
+                Archive Flag
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              className="border-destructive/50 text-destructive hover:bg-destructive/10"
-              onClick={() => setArchiveDialogOpen(true)}
-            >
-              Archive Flag
-            </Button>
           </div>
         )}
       </div>
