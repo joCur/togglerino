@@ -57,6 +57,7 @@ func main() {
 	sdkKeyStore := store.NewSDKKeyStore(pool)
 	flagStore := store.NewFlagStore(pool)
 	auditStore := store.NewAuditStore(pool)
+	unknownFlagStore := store.NewUnknownFlagStore(pool)
 
 	// 5. Initialize cache, engine, hub
 	cache := evaluation.NewCache()
@@ -74,9 +75,10 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
-	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool)
+	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
-	evaluateHandler := handler.NewEvaluateHandler(cache, engine)
+	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore)
+	unknownFlagHandler := handler.NewUnknownFlagHandler(unknownFlagStore, projectStore)
 	streamHandler := handler.NewStreamHandler(hub)
 
 	// 8. Set up HTTP router
@@ -135,6 +137,10 @@ func main() {
 	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Delete, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/archive", wrap(flagHandler.Archive, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth))
+
+	// Unknown flags
+	mux.Handle("GET /api/v1/projects/{key}/unknown-flags", wrap(unknownFlagHandler.List, sessionAuth))
+	mux.Handle("DELETE /api/v1/projects/{key}/unknown-flags/{id}", wrap(unknownFlagHandler.Dismiss, sessionAuth))
 
 	// Audit log
 	mux.Handle("GET /api/v1/projects/{key}/audit-log", wrap(auditHandler.List, sessionAuth))
