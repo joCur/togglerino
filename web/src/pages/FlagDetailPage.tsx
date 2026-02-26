@@ -199,7 +199,7 @@ function ConfigEditor({
       )}
 
       {/* Copy Config Confirmation Dialog */}
-      <Dialog open={copySourceEnv !== null} onOpenChange={(open) => { if (!open) setCopySourceEnv(null) }}>
+      <Dialog open={copySourceEnv !== null} onOpenChange={(open) => { if (!open) { setCopySourceEnv(null); setCopyKey((k) => k + 1) } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Copy configuration?</DialogTitle>
