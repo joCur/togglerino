@@ -76,7 +76,8 @@ func main() {
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
 	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
-	evaluateHandler := handler.NewEvaluateHandler(cache, engine)
+	contextAttributeStore := store.NewContextAttributeStore(pool)
+	evaluateHandler := handler.NewEvaluateHandler(cache, engine, contextAttributeStore)
 	streamHandler := handler.NewStreamHandler(hub)
 
 	// 8. Set up HTTP router
