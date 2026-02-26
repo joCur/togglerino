@@ -25,6 +25,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -37,12 +44,16 @@ function ConfigEditor({
   envKey,
   projectKey,
   flagKey,
+  allConfigs,
+  environments,
 }: {
   config: FlagEnvironmentConfig | null
   flag: Flag
   envKey: string
   projectKey: string
   flagKey: string
+  allConfigs: FlagEnvironmentConfig[]
+  environments: Environment[]
 }) {
   const queryClient = useQueryClient()
   const [enabled, setEnabled] = useState(config?.enabled ?? false)
@@ -50,6 +61,10 @@ function ConfigEditor({
   const [variants, setVariants] = useState<Variant[]>(config?.variants ?? [])
   const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
   const [saved, setSaved] = useState(false)
+  const [copySourceEnv, setCopySourceEnv] = useState<string | null>(null)
+  const [copyKey, setCopyKey] = useState(0)
+
+  const otherEnvironments = environments.filter((e) => e.key !== envKey)
 
   const updateConfig = useMutation({
     mutationFn: (data: {
@@ -76,6 +91,25 @@ function ConfigEditor({
 
   return (
     <div className="p-6 rounded-lg bg-card border">
+      {/* Copy from environment */}
+      {otherEnvironments.length > 0 && (
+        <div className="flex items-center gap-3 mb-6 p-3 rounded-md bg-secondary/30 border border-dashed">
+          <div className="text-[13px] text-muted-foreground whitespace-nowrap">Copy from</div>
+          <Select key={copyKey} onValueChange={(value) => setCopySourceEnv(value)}>
+            <SelectTrigger className="w-[180px]" size="sm">
+              <SelectValue placeholder="Select environment" />
+            </SelectTrigger>
+            <SelectContent>
+              {otherEnvironments.map((env) => (
+                <SelectItem key={env.key} value={env.key}>
+                  {env.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Toggle */}
       <div className="flex items-start gap-4 mb-6 p-4 rounded-md bg-secondary/50 border">
         <Switch checked={enabled} onCheckedChange={setEnabled} />
@@ -163,6 +197,40 @@ function ConfigEditor({
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Copy Config Confirmation Dialog */}
+      <Dialog open={copySourceEnv !== null} onOpenChange={(open) => { if (!open) { setCopySourceEnv(null); setCopyKey((k) => k + 1) } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy configuration?</DialogTitle>
+            <DialogDescription>
+              This will replace the current variants, targeting rules, and default variant
+              in <span className="font-semibold text-foreground">{envKey}</span> with
+              the configuration from <span className="font-semibold text-foreground">{copySourceEnv}</span>.
+              The enabled/disabled state will not change.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCopySourceEnv(null); setCopyKey((k) => k + 1) }}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              if (!copySourceEnv) return
+              const sourceEnv = environments.find((e) => e.key === copySourceEnv)
+              if (!sourceEnv) return
+              const sourceConfig = allConfigs.find((c) => c.environment_id === sourceEnv.id)
+              if (!sourceConfig) return
+              setVariants(structuredClone(sourceConfig.variants ?? []))
+              setRules(structuredClone(sourceConfig.targeting_rules ?? []))
+              setDefaultVariant(sourceConfig.default_variant ?? '')
+              setCopySourceEnv(null)
+              setCopyKey((k) => k + 1)
+            }}>
+              Copy Configuration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -366,6 +434,8 @@ export default function FlagDetailPage() {
                   envKey={env.key}
                   projectKey={key!}
                   flagKey={flagKey!}
+                  allConfigs={data.environment_configs}
+                  environments={environments}
                 />
               </TabsContent>
             )
