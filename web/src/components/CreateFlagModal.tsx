@@ -15,6 +15,7 @@ interface Props {
   open: boolean
   projectKey: string
   onClose: () => void
+  initialKey?: string
 }
 
 const FLAG_TYPES = [
@@ -28,11 +29,11 @@ function slugify(text: string): string {
   return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
-export default function CreateFlagModal({ open, projectKey, onClose }: Props) {
+export default function CreateFlagModal({ open, projectKey, onClose, initialKey }: Props) {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
-  const [key, setKey] = useState('')
-  const [keyManual, setKeyManual] = useState(false)
+  const [key, setKey] = useState(initialKey ?? '')
+  const [keyManual, setKeyManual] = useState(!!initialKey)
   const [description, setDescription] = useState('')
   const [flagType, setFlagType] = useState('boolean')
   const [defaultValue, setDefaultValue] = useState<string>('false')
