@@ -4,5 +4,6 @@ export type {
   EvaluationContext,
   EvaluationResult,
   FlagChangeEvent,
+  FlagDeletedEvent,
   EventType,
 } from './types'
