@@ -45,7 +45,7 @@ jobs:
             PGPASSWORD=togglerino psql -h localhost -U togglerino -d togglerino -f "$f"
           done
 
-      - name: Build SDKs (required for web file: references)
+      - name: "Build SDKs (required for web file: references)"
         run: |
           cd sdks/javascript && npm ci && npm run build
           cd ../react && npm ci && npm run build
@@ -80,7 +80,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Build SDKs (required for web file: references)
+      - name: "Build SDKs (required for web file: references)"
         run: |
           cd sdks/javascript && npm ci && npm run build
           cd ../react && npm ci && npm run build
@@ -102,7 +102,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Build SDKs (required for web file: references)
+      - name: "Build SDKs (required for web file: references)"
         run: |
           cd sdks/javascript && npm ci && npm run build
           cd ../react && npm ci && npm run build
