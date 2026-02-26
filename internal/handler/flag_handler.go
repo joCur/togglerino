@@ -358,6 +358,7 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		slog.Warn("failed to refresh cache", "error", err)
 	}
 	h.hub.Broadcast(projectKey, envKey, stream.Event{
+		Type:    "flag_update",
 		FlagKey: flagKey,
 		Value:   cfg.Enabled,
 		Variant: cfg.DefaultVariant,
