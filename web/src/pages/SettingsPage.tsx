@@ -1,4 +1,4 @@
-import { useTheme } from '@/components/ThemeProvider'
+import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 
 const themes = [

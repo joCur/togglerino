@@ -1,16 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useFlag } from '@togglerino/react'
-
-type Theme = 'dark' | 'light' | 'system'
-
-interface ThemeContextValue {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-  resolvedTheme: 'dark' | 'light'
-  isThemeToggleEnabled: boolean
-}
-
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
+import { ThemeContext, type Theme } from '@/hooks/useTheme'
 
 const STORAGE_KEY = 'togglerino-theme'
 
@@ -33,37 +23,27 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return isValidTheme(defaultTheme) ? defaultTheme as Theme : 'dark'
   })
 
-  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>(() => {
-    if (!isThemeToggleEnabled) return 'dark'
-    return theme === 'system' ? getSystemTheme() : theme
-  })
+  const [systemTheme, setSystemTheme] = useState<'dark' | 'light'>(getSystemTheme)
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme)
     localStorage.setItem(STORAGE_KEY, newTheme)
   }
 
-  // When feature flag is off, force dark
+  // Listen for OS theme changes
   useEffect(() => {
-    if (!isThemeToggleEnabled) {
-      setResolvedTheme('dark')
-      return
-    }
-    if (theme === 'system') {
-      setResolvedTheme(getSystemTheme())
-    } else {
-      setResolvedTheme(theme)
-    }
-  }, [isThemeToggleEnabled, theme])
-
-  // Listen for OS theme changes when in "system" mode
-  useEffect(() => {
-    if (!isThemeToggleEnabled || theme !== 'system') return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = (e: MediaQueryListEvent) => setResolvedTheme(e.matches ? 'dark' : 'light')
+    const handler = (e: MediaQueryListEvent) => setSystemTheme(e.matches ? 'dark' : 'light')
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
-  }, [isThemeToggleEnabled, theme])
+  }, [])
+
+  // Derive resolvedTheme from state (no useEffect + setState needed)
+  const resolvedTheme: 'dark' | 'light' = !isThemeToggleEnabled
+    ? 'dark'
+    : theme === 'system'
+      ? systemTheme
+      : theme
 
   // Apply .dark class to <html>
   useEffect(() => {
@@ -80,10 +60,4 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       {children}
     </ThemeContext.Provider>
   )
-}
-
-export function useTheme() {
-  const ctx = useContext(ThemeContext)
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider')
-  return ctx
 }
