@@ -196,6 +196,39 @@ function ConfigEditor({
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Copy Config Confirmation Dialog */}
+      <Dialog open={copySourceEnv !== null} onOpenChange={(open) => { if (!open) setCopySourceEnv(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy configuration?</DialogTitle>
+            <DialogDescription>
+              This will replace the current variants, targeting rules, and default variant
+              in <span className="font-semibold text-foreground">{envKey}</span> with
+              the configuration from <span className="font-semibold text-foreground">{copySourceEnv}</span>.
+              The enabled/disabled state will not change.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopySourceEnv(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              if (!copySourceEnv) return
+              const sourceEnv = environments.find((e) => e.key === copySourceEnv)
+              if (!sourceEnv) return
+              const sourceConfig = allConfigs.find((c) => c.environment_id === sourceEnv.id)
+              if (!sourceConfig) return
+              setVariants(sourceConfig.variants ?? [])
+              setRules(sourceConfig.targeting_rules ?? [])
+              setDefaultVariant(sourceConfig.default_variant ?? '')
+              setCopySourceEnv(null)
+            }}>
+              Copy Configuration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
