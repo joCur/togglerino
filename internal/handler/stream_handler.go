@@ -57,7 +57,11 @@ func (h *StreamHandler) Handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			data, _ := json.Marshal(event)
-			fmt.Fprintf(w, "event: flag_update\ndata: %s\n\n", data)
+			eventName := event.Type
+			if eventName == "" {
+				eventName = "flag_update"
+			}
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventName, data)
 			flusher.Flush()
 		}
 	}

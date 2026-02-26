@@ -163,9 +163,16 @@ export default function ProjectDetailPage() {
                   onClick={() => navigate(`/projects/${key}/flags/${flag.key}`)}
                 >
                   <TableCell>
-                    <span className="font-mono text-xs text-[#d4956a] tracking-wide">{flag.key}</span>
+                    <span className={`font-mono text-xs text-[#d4956a] tracking-wide ${flag.archived ? 'opacity-50' : ''}`}>{flag.key}</span>
                   </TableCell>
-                  <TableCell className="text-[13px] text-foreground">{flag.name}</TableCell>
+                  <TableCell className="text-[13px] text-foreground">
+                    <span className={flag.archived ? 'opacity-50' : ''}>
+                      {flag.name}
+                    </span>
+                    {flag.archived && (
+                      <Badge variant="secondary" className="ml-2 text-[10px]">Archived</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="font-mono text-[11px]">{flag.flag_type}</Badge>
                   </TableCell>

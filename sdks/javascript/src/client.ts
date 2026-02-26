@@ -3,6 +3,7 @@ import type {
   EvaluationContext,
   EvaluationResult,
   FlagChangeEvent,
+  FlagDeletedEvent,
   EventType,
 } from './types'
 
@@ -385,7 +386,7 @@ export class Togglerino {
    * Read and parse SSE events from a ReadableStream.
    * SSE format:
    *   event: flag_update
-   *   data: {"flag_key":"dark-mode","value":true,"variant":"on"}
+   *   data: {"flagKey":"dark-mode","value":true,"variant":"on"}
    *
    */
   private async processSSEStream(
@@ -427,7 +428,20 @@ export class Togglerino {
       // Lines starting with ":" are comments (keepalives), ignore them
     }
 
-    if (eventType !== 'flag_update' || !data) return
+    if (!data) return
+
+    if (eventType === 'flag_deleted') {
+      try {
+        const event: FlagDeletedEvent = JSON.parse(data)
+        this.flags.delete(event.flagKey)
+        this.emit('deleted', event)
+      } catch {
+        // Ignore malformed SSE data
+      }
+      return
+    }
+
+    if (eventType !== 'flag_update') return
 
     try {
       const event: FlagChangeEvent = JSON.parse(data)
