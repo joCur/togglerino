@@ -62,6 +62,7 @@ function ConfigEditor({
   const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
   const [saved, setSaved] = useState(false)
   const [copySourceEnv, setCopySourceEnv] = useState<string | null>(null)
+  const [copyKey, setCopyKey] = useState(0)
 
   const otherEnvironments = environments.filter((e) => e.key !== envKey)
 
@@ -94,7 +95,7 @@ function ConfigEditor({
       {otherEnvironments.length > 0 && (
         <div className="flex items-center gap-3 mb-6 p-3 rounded-md bg-secondary/30 border border-dashed">
           <div className="text-[13px] text-muted-foreground whitespace-nowrap">Copy from</div>
-          <Select onValueChange={(value) => setCopySourceEnv(value)}>
+          <Select key={copyKey} onValueChange={(value) => setCopySourceEnv(value)}>
             <SelectTrigger className="w-[180px]" size="sm">
               <SelectValue placeholder="Select environment" />
             </SelectTrigger>
@@ -210,7 +211,7 @@ function ConfigEditor({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCopySourceEnv(null)}>
+            <Button variant="outline" onClick={() => { setCopySourceEnv(null); setCopyKey((k) => k + 1) }}>
               Cancel
             </Button>
             <Button onClick={() => {
@@ -219,10 +220,11 @@ function ConfigEditor({
               if (!sourceEnv) return
               const sourceConfig = allConfigs.find((c) => c.environment_id === sourceEnv.id)
               if (!sourceConfig) return
-              setVariants(sourceConfig.variants ?? [])
-              setRules(sourceConfig.targeting_rules ?? [])
+              setVariants(structuredClone(sourceConfig.variants ?? []))
+              setRules(structuredClone(sourceConfig.targeting_rules ?? []))
               setDefaultVariant(sourceConfig.default_variant ?? '')
               setCopySourceEnv(null)
+              setCopyKey((k) => k + 1)
             }}>
               Copy Configuration
             </Button>
