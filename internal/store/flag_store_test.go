@@ -424,6 +424,55 @@ func TestFlagStore_GetAllEnvironmentConfigs(t *testing.T) {
 	}
 }
 
+func TestFlagStore_SetArchived(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("flagarchive")
+	project, err := ps.Create(ctx, projKey, "Archive Project", "test")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+
+	_, err = es.Create(ctx, project.ID, "dev", "Development")
+	if err != nil {
+		t.Fatalf("creating env: %v", err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, "archive-me", "Archive Me", "test", model.FlagTypeBoolean, json.RawMessage(`false`), []string{})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if flag.Archived {
+		t.Fatal("expected newly created flag to not be archived")
+	}
+
+	// Archive
+	archived, err := fs.SetArchived(ctx, flag.ID, true)
+	if err != nil {
+		t.Fatalf("SetArchived(true): %v", err)
+	}
+	if !archived.Archived {
+		t.Error("expected Archived to be true")
+	}
+	if archived.ID != flag.ID {
+		t.Errorf("ID: got %q, want %q", archived.ID, flag.ID)
+	}
+
+	// Unarchive
+	unarchived, err := fs.SetArchived(ctx, flag.ID, false)
+	if err != nil {
+		t.Fatalf("SetArchived(false): %v", err)
+	}
+	if unarchived.Archived {
+		t.Error("expected Archived to be false")
+	}
+}
+
 func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 	pool := testPool(t)
 	ps := store.NewProjectStore(pool)
