@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add light/dark/system theme switching to the web dashboard, gated by Togglerino feature flags (`enable-theme-toggle` boolean + `default-theme` string).
+**Goal:** Add light/dark/system theme switching to the web dashboard, gated by Togglerino feature flags (`enable-theme-toggle` boolean + `theme-default` string).
 
 **Architecture:** Install `@togglerino/sdk` and `@togglerino/react` as local deps in `web/`. Wrap app with `TogglerioProvider` → `ThemeProvider`. CSS restructured from always-dark to class-based (`dark` class on `<html>`). New `/settings` route with theme picker, conditionally shown via feature flag.
 
@@ -324,7 +324,7 @@ function isValidTheme(value: string): value is Theme {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const isThemeToggleEnabled = useFlag('enable-theme-toggle', false)
-  const defaultTheme = useFlag('default-theme', 'dark')
+  const defaultTheme = useFlag('theme-default', 'dark')
 
   const [theme, setThemeState] = useState<Theme>(() => {
     if (!isThemeToggleEnabled) return 'dark'
@@ -747,7 +747,7 @@ On `flags.curth.dev`, ensure `enable-theme-toggle` is `false`. Verify:
 
 **Step 3: Test with flag enabled**
 
-On `flags.curth.dev`, set `enable-theme-toggle` to `true` and `default-theme` to `dark`. Verify:
+On `flags.curth.dev`, set `enable-theme-toggle` to `true` and `theme-default` to `dark`. Verify:
 - [ ] "Settings" link appears in sidebar
 - [ ] Settings page shows three theme cards
 - [ ] Clicking "Light" switches to light theme immediately
@@ -757,9 +757,9 @@ On `flags.curth.dev`, set `enable-theme-toggle` to `true` and `default-theme` to
 - [ ] Refreshing the page preserves the selected theme (localStorage)
 - [ ] Sidebar, topbar, cards, tables, buttons all look correct in light mode
 
-**Step 4: Test `default-theme` flag**
+**Step 4: Test `theme-default` flag**
 
-Clear localStorage (`localStorage.removeItem('togglerino-theme')`). Change `default-theme` to `light` on the server. Reload — app should start in light mode.
+Clear localStorage (`localStorage.removeItem('togglerino-theme')`). Change `theme-default` to `light` on the server. Reload — app should start in light mode.
 
 **Step 5: Final build check**
 

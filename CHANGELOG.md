@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0](https://github.com/joCur/togglerino/compare/v0.4.0...v0.5.0) (2026-02-26)
+
+
+### Features
+
+* add archive handler, guard delete behind archived, fix cache/SSE on delete ([f3d492a](https://github.com/joCur/togglerino/commit/f3d492a96f358491c36f282e8d7fbe260495f7fb))
+* add FlagStore.SetArchived method ([b07158b](https://github.com/joCur/togglerino/commit/b07158b8b3df5a399ff3ca70326f79ba7e68f75d))
+* add Type field to SSE Event for event name routing ([7c4fad3](https://github.com/joCur/togglerino/commit/7c4fad35fc7ebdf9354acebd939d17a16782d93f))
+* archive and delete feature flags ([c04b355](https://github.com/joCur/togglerino/commit/c04b3555d3f54396fe478fb487ccac8b6d1e1675))
+* **sdk:** handle flag_deleted SSE events ([2945cbf](https://github.com/joCur/togglerino/commit/2945cbf3b064e2820f6967c82e1f296a41c5fe71))
+* **web:** add archive/unarchive/delete UI on flag detail page ([6f9c5b3](https://github.com/joCur/togglerino/commit/6f9c5b3e9f8eef3ab35f74d5b4700a2b5d8d2f8d))
+* **web:** show archived badge in flag list ([cb209e7](https://github.com/joCur/togglerino/commit/cb209e707d452f01dde2f98ac11ce93873082246))
+
+
+### Bug Fixes
+
+* address code review feedback ([2439f0d](https://github.com/joCur/togglerino/commit/2439f0dbb98963e69fa2ca7fb4f323c2c2edab42))
+* use camelCase for SSE event JSON fields and restore accidentally deleted docs ([77bbfbf](https://github.com/joCur/togglerino/commit/77bbfbfbe519ed67a5ca44af2b94fd29b5e61f7b))
+
 ## [0.4.0](https://github.com/joCur/togglerino/compare/v0.3.0...v0.4.0) (2026-02-26)
 
 
