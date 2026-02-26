@@ -59,8 +59,9 @@ export interface FlagChangeEvent {
  * Events emitted by the Togglerino client.
  * - "ready": fired after initial flag fetch completes.
  * - "change": fired when a flag value changes (via SSE or polling).
+ * - "context_change": fired after updateContext() completes. Payload is EvaluationContext.
  * - "error": fired on fetch/SSE errors.
  * - "reconnecting": fired when scheduling an SSE reconnection attempt. Payload: { attempt: number, delay: number }.
  * - "reconnected": fired when SSE successfully reconnects after a disconnection.
  */
-export type EventType = 'change' | 'error' | 'ready' | 'reconnecting' | 'reconnected'
+export type EventType = 'change' | 'context_change' | 'error' | 'ready' | 'reconnecting' | 'reconnected'
