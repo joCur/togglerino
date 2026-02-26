@@ -2,7 +2,13 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth.ts'
 import { api } from '../api/client.ts'
-import { t } from '../theme.ts'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card, CardContent } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 interface SafeUser {
   id: string
@@ -27,36 +33,6 @@ interface InviteResponse {
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
-}
-
-const labelStyle = {
-  fontSize: 10,
-  fontWeight: 500,
-  color: t.textMuted,
-  textTransform: 'uppercase' as const,
-  letterSpacing: '0.8px',
-  minWidth: 70,
-  fontFamily: t.fontMono,
-}
-
-const inputStyle = {
-  padding: '8px 12px',
-  fontSize: 13,
-  border: `1px solid ${t.border}`,
-  borderRadius: t.radiusMd,
-  backgroundColor: t.bgInput,
-  color: t.textPrimary,
-  outline: 'none',
-  fontFamily: t.fontSans,
-  transition: 'border-color 200ms ease',
-} as const
-
-const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
-  e.currentTarget.style.borderColor = t.accentBorder
-}
-
-const handleInputBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
-  e.currentTarget.style.borderColor = t.border
 }
 
 export default function TeamPage() {
@@ -124,396 +100,245 @@ export default function TeamPage() {
   const isAdmin = user?.role === 'admin'
 
   return (
-    <div style={{ animation: 'fadeIn 300ms ease' }}>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: t.textPrimary, marginBottom: 6, letterSpacing: '-0.3px' }}>
+    <div className="animate-[fadeIn_300ms_ease]">
+      <div className="mb-8">
+        <h1 className="text-[22px] font-semibold text-foreground mb-1.5 tracking-tight">
           Team Management
         </h1>
-        <div style={{ fontSize: 13, color: t.textMuted }}>
+        <div className="text-[13px] text-muted-foreground/60">
           Manage your team members and their roles.
         </div>
       </div>
 
       {/* Your Account */}
-      <div
-        style={{
-          padding: 24,
-          borderRadius: t.radiusLg,
-          backgroundColor: t.bgSurface,
-          border: `1px solid ${t.border}`,
-          marginBottom: 20,
-        }}
-      >
-        <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 18 }}>
-          Your Account
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={labelStyle}>Email</span>
-            <span style={{ fontSize: 13, color: t.textPrimary }}>{user?.email}</span>
+      <Card className="mb-5">
+        <CardContent className="p-6">
+          <div className="text-sm font-semibold text-foreground mb-4">
+            Your Account
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={labelStyle}>Role</span>
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '3px 10px',
-                borderRadius: 4,
-                fontSize: 11,
-                fontWeight: 500,
-                backgroundColor: user?.role === 'admin' ? t.accentSubtle : t.bgElevated,
-                color: user?.role === 'admin' ? t.accent : t.textSecondary,
-                border: `1px solid ${user?.role === 'admin' ? t.accentBorder : t.border}`,
-                fontFamily: t.fontMono,
-                letterSpacing: '0.2px',
-              }}
-            >
-              {user?.role || 'member'}
-            </span>
+          <div className="flex flex-col gap-3.5">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider min-w-[70px]">Email</span>
+              <span className="text-[13px] text-foreground">{user?.email}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider min-w-[70px]">Role</span>
+              <Badge
+                variant={user?.role === 'admin' ? 'secondary' : 'outline'}
+                className="font-mono text-[11px]"
+              >
+                {user?.role || 'member'}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider min-w-[70px]">Joined</span>
+              <span className="text-[13px] text-muted-foreground">
+                {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '--'}
+              </span>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={labelStyle}>Joined</span>
-            <span style={{ fontSize: 13, color: t.textSecondary }}>
-              {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '--'}
-            </span>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Invite Team Member */}
       {isAdmin && (
-        <div
-          style={{
-            padding: 24,
-            borderRadius: t.radiusLg,
-            backgroundColor: t.bgSurface,
-            border: `1px solid ${t.border}`,
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 18 }}>
-            Invite Team Member
-          </div>
-
-          <form onSubmit={handleInvite} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 200 }}>
-              <label style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: t.fontMono }}>
-                Email
-              </label>
-              <input
-                style={inputStyle}
-                type="email"
-                placeholder="colleague@example.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                required
-                onFocus={handleInputFocus}
-                onBlur={handleInputBlur}
-              />
+        <Card className="mb-5">
+          <CardContent className="p-6">
+            <div className="text-sm font-semibold text-foreground mb-4">
+              Invite Team Member
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 120 }}>
-              <label style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', fontFamily: t.fontMono }}>
-                Role
-              </label>
-              <select
-                style={{
-                  ...inputStyle,
-                  cursor: 'pointer',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234c4c56' d='M3 5l3 3 3-3'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 10px center',
-                  paddingRight: 28,
-                }}
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as 'admin' | 'member')}
-                onFocus={handleInputFocus}
-                onBlur={handleInputBlur}
-              >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <button
-              type="submit"
-              disabled={inviteMutation.isPending}
-              style={{
-                padding: '8px 18px',
-                fontSize: 13,
-                fontWeight: 600,
-                border: 'none',
-                borderRadius: t.radiusMd,
-                background: `linear-gradient(135deg, ${t.accent}, #c07e4e)`,
-                color: '#ffffff',
-                cursor: inviteMutation.isPending ? 'not-allowed' : 'pointer',
-                fontFamily: t.fontSans,
-                transition: 'all 200ms ease',
-                boxShadow: '0 2px 10px rgba(212,149,106,0.15)',
-                opacity: inviteMutation.isPending ? 0.7 : 1,
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={(e) => {
-                if (!inviteMutation.isPending) {
-                  e.currentTarget.style.boxShadow = '0 4px 18px rgba(212,149,106,0.3)'
-                  e.currentTarget.style.transform = 'translateY(-1px)'
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 10px rgba(212,149,106,0.15)'
-                e.currentTarget.style.transform = 'translateY(0)'
-              }}
-            >
-              {inviteMutation.isPending ? 'Sending...' : 'Send Invite'}
-            </button>
-          </form>
 
-          {inviteMutation.error && (
-            <div style={{ padding: '10px 14px', borderRadius: t.radiusMd, backgroundColor: t.dangerSubtle, border: `1px solid ${t.dangerBorder}`, color: t.danger, fontSize: 13, marginTop: 16 }}>
-              {inviteMutation.error instanceof Error ? inviteMutation.error.message : 'Failed to send invite'}
-            </div>
-          )}
-
-          {inviteLink && (
-            <div
-              style={{
-                marginTop: 16,
-                padding: 16,
-                borderRadius: t.radiusMd,
-                backgroundColor: t.successSubtle,
-                border: `1px solid ${t.successBorder}`,
-                animation: 'fadeIn 200ms ease',
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 500, color: t.success, marginBottom: 10 }}>
-                Invite sent! Share this link with the team member:
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  readOnly
-                  value={inviteLink}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    fontSize: 12,
-                    fontFamily: t.fontMono,
-                    border: `1px solid ${t.successBorder}`,
-                    borderRadius: t.radiusSm,
-                    backgroundColor: t.bgBase,
-                    color: t.textPrimary,
-                    outline: 'none',
-                  }}
-                  onClick={(e) => e.currentTarget.select()}
+            <form onSubmit={handleInvite} className="flex gap-3 items-end flex-wrap">
+              <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                <Label className="font-mono text-[10px] uppercase tracking-wider">Email</Label>
+                <Input
+                  type="email"
+                  placeholder="colleague@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  required
                 />
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  style={{
-                    padding: '8px 14px',
-                    fontSize: 12,
-                    fontWeight: 500,
-                    border: `1px solid ${t.successBorder}`,
-                    borderRadius: t.radiusSm,
-                    backgroundColor: 'transparent',
-                    color: copiedLink ? t.success : t.textSecondary,
-                    cursor: 'pointer',
-                    fontFamily: t.fontSans,
-                    transition: 'all 200ms ease',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {copiedLink ? 'Copied!' : 'Copy'}
-                </button>
               </div>
-            </div>
-          )}
-        </div>
+              <div className="flex flex-col gap-1.5 min-w-[120px]">
+                <Label className="font-mono text-[10px] uppercase tracking-wider">Role</Label>
+                <select
+                  className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as 'admin' | 'member')}
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <Button type="submit" disabled={inviteMutation.isPending}>
+                {inviteMutation.isPending ? 'Sending...' : 'Send Invite'}
+              </Button>
+            </form>
+
+            {inviteMutation.error && (
+              <Alert variant="destructive" className="mt-4">
+                <AlertDescription>
+                  {inviteMutation.error instanceof Error ? inviteMutation.error.message : 'Failed to send invite'}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {inviteLink && (
+              <div className="mt-4 p-4 rounded-md bg-emerald-500/10 border border-emerald-500/20 animate-[fadeIn_200ms_ease]">
+                <div className="text-[13px] font-medium text-emerald-400 mb-2.5">
+                  Invite sent! Share this link with the team member:
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    readOnly
+                    value={inviteLink}
+                    className="flex-1 font-mono text-xs"
+                    onClick={(e) => e.currentTarget.select()}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyLink}
+                  >
+                    {copiedLink ? 'Copied!' : 'Copy'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Team Members */}
-      <div
-        style={{
-          padding: 24,
-          borderRadius: t.radiusLg,
-          backgroundColor: t.bgSurface,
-          border: `1px solid ${t.border}`,
-          marginBottom: 20,
-        }}
-      >
-        <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 18 }}>
-          Team Members
-        </div>
+      <Card className="mb-5">
+        <CardContent className="p-6">
+          <div className="text-sm font-semibold text-foreground mb-4">
+            Team Members
+          </div>
 
-        {membersLoading ? (
-          <div style={{ textAlign: 'center', padding: 32, color: t.textMuted, fontSize: 13, animation: 'shimmer 1.5s ease infinite' }}>
-            Loading members...
-          </div>
-        ) : !members || members.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 32, color: t.textMuted, fontSize: 13 }}>
-            No team members found.
-          </div>
-        ) : (
-          <div style={{ borderRadius: t.radiusMd, border: `1px solid ${t.border}`, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Email', 'Role', 'Joined', ...(isAdmin ? ['Actions'] : [])].map((h) => (
-                    <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgElevated, fontFamily: t.fontMono }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((member) => (
-                  <tr
-                    key={member.id}
-                    style={{ borderBottom: `1px solid ${t.border}`, transition: 'background-color 200ms ease' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = t.accentSubtle }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                  >
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: t.textPrimary }}>
-                      {member.email}
-                      {member.id === user?.id && (
-                        <span style={{ marginLeft: 8, fontSize: 11, color: t.textMuted, fontStyle: 'italic' }}>
-                          (you)
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          padding: '2px 8px',
-                          borderRadius: 4,
-                          fontSize: 11,
-                          fontWeight: 500,
-                          backgroundColor: member.role === 'admin' ? t.accentSubtle : t.bgElevated,
-                          color: member.role === 'admin' ? t.accent : t.textSecondary,
-                          border: `1px solid ${member.role === 'admin' ? t.accentBorder : t.border}`,
-                          fontFamily: t.fontMono,
-                          letterSpacing: '0.2px',
-                        }}
-                      >
-                        {member.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: t.textSecondary }}>
-                      {formatDate(member.created_at)}
-                    </td>
-                    {isAdmin && (
-                      <td style={{ padding: '12px 16px' }}>
-                        {member.id !== user?.id && (
-                          <button
-                            style={{
-                              padding: '4px 10px',
-                              fontSize: 12,
-                              fontWeight: 500,
-                              border: `1px solid ${t.dangerBorder}`,
-                              borderRadius: t.radiusSm,
-                              backgroundColor: 'transparent',
-                              color: t.danger,
-                              cursor: 'pointer',
-                              fontFamily: t.fontSans,
-                              transition: 'all 200ms ease',
-                            }}
-                            onClick={() => handleDelete(member)}
-                            disabled={deleteMutation.isPending}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = t.dangerSubtle }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                          >
-                            Remove
-                          </button>
+          {membersLoading ? (
+            <div className="text-center py-8 text-muted-foreground/60 text-[13px] animate-pulse">
+              Loading members...
+            </div>
+          ) : !members || members.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground/60 text-[13px]">
+              No team members found.
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Email</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Role</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Joined</TableHead>
+                    {isAdmin && <TableHead className="font-mono text-[11px] uppercase tracking-wider">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.map((member) => (
+                    <TableRow key={member.id} className="transition-colors hover:bg-[#d4956a]/8">
+                      <TableCell className="text-[13px] text-foreground">
+                        {member.email}
+                        {member.id === user?.id && (
+                          <span className="ml-2 text-[11px] text-muted-foreground italic">(you)</span>
                         )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={member.role === 'admin' ? 'secondary' : 'outline'}
+                          className="font-mono text-[11px]"
+                        >
+                          {member.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-muted-foreground">
+                        {formatDate(member.created_at)}
+                      </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          {member.id !== user?.id && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7 border-destructive/50 text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDelete(member)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-        {deleteMutation.error && (
-          <div style={{ padding: '10px 14px', borderRadius: t.radiusMd, backgroundColor: t.dangerSubtle, border: `1px solid ${t.dangerBorder}`, color: t.danger, fontSize: 13, marginTop: 16 }}>
-            {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Failed to remove member'}
-          </div>
-        )}
-      </div>
+          {deleteMutation.error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertDescription>
+                {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Failed to remove member'}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pending Invites */}
       {isAdmin && (
-        <div
-          style={{
-            padding: 24,
-            borderRadius: t.radiusLg,
-            backgroundColor: t.bgSurface,
-            border: `1px solid ${t.border}`,
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 18 }}>
-            Pending Invites
-          </div>
+        <Card className="mb-5">
+          <CardContent className="p-6">
+            <div className="text-sm font-semibold text-foreground mb-4">
+              Pending Invites
+            </div>
 
-          {invitesLoading ? (
-            <div style={{ textAlign: 'center', padding: 32, color: t.textMuted, fontSize: 13, animation: 'shimmer 1.5s ease infinite' }}>
-              Loading invites...
-            </div>
-          ) : !invites || invites.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 32, color: t.textMuted, fontSize: 13 }}>
-              No pending invites.
-            </div>
-          ) : (
-            <div style={{ borderRadius: t.radiusMd, border: `1px solid ${t.border}`, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['Email', 'Role', 'Expires'].map((h) => (
-                      <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', borderBottom: `1px solid ${t.border}`, backgroundColor: t.bgElevated, fontFamily: t.fontMono }}>
-                        {h}
-                      </th>
+            {invitesLoading ? (
+              <div className="text-center py-8 text-muted-foreground/60 text-[13px] animate-pulse">
+                Loading invites...
+              </div>
+            ) : !invites || invites.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground/60 text-[13px]">
+                No pending invites.
+              </div>
+            ) : (
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-wider">Email</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-wider">Role</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-wider">Expires</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invites.map((invite) => (
+                      <TableRow key={invite.id} className="transition-colors hover:bg-[#d4956a]/8">
+                        <TableCell className="text-[13px] text-foreground">
+                          {invite.email}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={invite.role === 'admin' ? 'secondary' : 'outline'}
+                            className="font-mono text-[11px]"
+                          >
+                            {invite.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-[13px] text-muted-foreground">
+                          {formatDate(invite.expires_at)}
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {invites.map((invite) => (
-                    <tr
-                      key={invite.id}
-                      style={{ borderBottom: `1px solid ${t.border}`, transition: 'background-color 200ms ease' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = t.accentSubtle }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                    >
-                      <td style={{ padding: '12px 16px', fontSize: 13, color: t.textPrimary }}>
-                        {invite.email}
-                      </td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            padding: '2px 8px',
-                            borderRadius: 4,
-                            fontSize: 11,
-                            fontWeight: 500,
-                            backgroundColor: invite.role === 'admin' ? t.accentSubtle : t.bgElevated,
-                            color: invite.role === 'admin' ? t.accent : t.textSecondary,
-                            border: `1px solid ${invite.role === 'admin' ? t.accentBorder : t.border}`,
-                            fontFamily: t.fontMono,
-                            letterSpacing: '0.2px',
-                          }}
-                        >
-                          {invite.role}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 16px', fontSize: 13, color: t.textSecondary }}>
-                        {formatDate(invite.expires_at)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   )
