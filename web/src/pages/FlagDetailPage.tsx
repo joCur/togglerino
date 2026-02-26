@@ -37,12 +37,16 @@ function ConfigEditor({
   envKey,
   projectKey,
   flagKey,
+  allConfigs,
+  environments,
 }: {
   config: FlagEnvironmentConfig | null
   flag: Flag
   envKey: string
   projectKey: string
   flagKey: string
+  allConfigs: FlagEnvironmentConfig[]
+  environments: Environment[]
 }) {
   const queryClient = useQueryClient()
   const [enabled, setEnabled] = useState(config?.enabled ?? false)
@@ -366,6 +370,8 @@ export default function FlagDetailPage() {
                   envKey={env.key}
                   projectKey={key!}
                   flagKey={flagKey!}
+                  allConfigs={data.environment_configs}
+                  environments={environments}
                 />
               </TabsContent>
             )
