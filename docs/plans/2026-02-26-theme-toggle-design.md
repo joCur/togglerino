@@ -22,7 +22,7 @@ Add `@togglerino/react` (and `@togglerino/sdk`) as dependencies in `web/`. Wrap 
 
 Priority order (highest first):
 
-1. User's explicit choice in `localStorage` (`theme` key)
+1. User's explicit choice in `localStorage` (`togglerino-theme` key)
 2. `default-theme` flag value
 3. Fallback: `"dark"`
 
