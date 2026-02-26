@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/joCur/togglerino/compare/v0.3.0...v0.4.0) (2026-02-26)
+
+
+### Features
+
+* add useTogglerinoContext hook for reactive context updates ([#8](https://github.com/joCur/togglerino/issues/8)) ([9821897](https://github.com/joCur/togglerino/commit/9821897de0cec979d2c8fd6367e2c95abe119852))
+
+
+### Bug Fixes
+
+* **ci:** include refactor commits in release-please changelog ([16dc40b](https://github.com/joCur/togglerino/commit/16dc40bde404bf6b9815e45474a1c9e574148163))
+* **ci:** make release workflow depend on CI passing ([96024ef](https://github.com/joCur/togglerino/commit/96024ef7d36b357f8193724b6397b0c0037306c1))
+
+
+### Code Refactoring
+
+* **web:** migrate to Tailwind CSS v4 + shadcn/ui ([#7](https://github.com/joCur/togglerino/issues/7)) ([a0b2f83](https://github.com/joCur/togglerino/commit/a0b2f8380e83eda90cd946b5c21f1fe9b3fd38fe))
+
 ## [0.3.0](https://github.com/joCur/togglerino/compare/v0.2.1...v0.3.0) (2026-02-25)
 
 
