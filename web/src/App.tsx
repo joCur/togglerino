@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TogglerioProvider } from '@togglerino/react'
+import { ThemeProvider } from './components/ThemeProvider.tsx'
 import { useAuth } from './hooks/useAuth.ts'
 import SetupPage from './pages/SetupPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
@@ -80,15 +81,17 @@ function AuthRouter() {
 function App() {
   return (
     <TogglerioProvider config={togglerinoConfig}>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/invite/:token" element={<AcceptInvitePage />} />
-            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-            <Route path="*" element={<AuthRouter />} />
-          </Routes>
-        </BrowserRouter>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/invite/:token" element={<AcceptInvitePage />} />
+              <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+              <Route path="*" element={<AuthRouter />} />
+            </Routes>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
     </TogglerioProvider>
   )
 }
