@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
   --color-background: var(--background);
@@ -45,11 +45,50 @@
 }
 
 /*
- * Dark-only app — define dark values directly in :root.
+ * Light theme — default when no .dark class on <html>.
  * Based on shadcn neutral palette with warm accent adjustments.
  */
 :root {
   --radius: 0.625rem;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.961 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.961 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.961 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0 0 0 / 10%);
+  --input: oklch(0 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.975 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.961 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/*
+ * Dark theme — applied when .dark class is on <html>.
+ * Original dark-only values from the initial design.
+ */
+.dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.178 0 0);
@@ -120,16 +159,24 @@ body::after {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
+  background: oklch(0 0 0 / 6%);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: oklch(0 0 0 / 12%);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(1 0 0 / 6%);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(1 0 0 / 12%);
 }
 
 /* ── Selection ── */
 ::selection {
   background: rgba(212, 149, 106, 0.25);
+}
+.dark ::selection {
   color: #fff;
 }
 
@@ -160,9 +207,12 @@ input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: oklch(0 0 0 / 8%);
   border-radius: 2px;
   outline: none;
+}
+.dark input[type='range'] {
+  background: oklch(1 0 0 / 8%);
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -194,11 +244,18 @@ input[type='checkbox'] {
 
 /* ── Placeholder ── */
 ::placeholder {
-  color: rgba(255, 255, 255, 0.18);
+  color: oklch(0 0 0 / 18%);
+}
+.dark ::placeholder {
+  color: oklch(1 0 0 / 18%);
 }
 
 /* ── Option styling ── */
 option {
+  background: #fff;
+  color: #1a1a1e;
+}
+.dark option {
   background: #111114;
   color: #e4e4e8;
 }

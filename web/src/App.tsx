@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { TogglerinoProvider } from '@togglerino/react'
+import { TogglerioProvider } from '@togglerino/react'
 import { useAuth } from './hooks/useAuth.ts'
 import SetupPage from './pages/SetupPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
@@ -79,7 +79,7 @@ function AuthRouter() {
 
 function App() {
   return (
-    <TogglerinoProvider config={togglerinoConfig}>
+    <TogglerioProvider config={togglerinoConfig}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
@@ -89,7 +89,7 @@ function App() {
           </Routes>
         </BrowserRouter>
       </QueryClientProvider>
-    </TogglerinoProvider>
+    </TogglerioProvider>
   )
 }
 
