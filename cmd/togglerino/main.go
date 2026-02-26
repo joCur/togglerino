@@ -77,6 +77,7 @@ func main() {
 	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
 	contextAttributeStore := store.NewContextAttributeStore(pool)
+	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
 	evaluateHandler := handler.NewEvaluateHandler(cache, engine, contextAttributeStore)
 	streamHandler := handler.NewStreamHandler(hub)
 
@@ -139,6 +140,9 @@ func main() {
 
 	// Audit log
 	mux.Handle("GET /api/v1/projects/{key}/audit-log", wrap(auditHandler.List, sessionAuth))
+
+	// Context attributes
+	mux.Handle("GET /api/v1/projects/{key}/context-attributes", wrap(contextAttributeHandler.List, sessionAuth))
 
 	// --- SDK-authed routes (client API) ---
 	mux.Handle("POST /api/v1/evaluate", wrap(evaluateHandler.EvaluateAll, sdkAuth))
