@@ -9,7 +9,7 @@ Add light/dark/system theme switching to the Togglerino web dashboard, controlle
 Two flags on `flags.curth.dev` (SDK key: `sdk_37e55bbb1ae453f80d0d97b253a551a8`):
 
 1. **`enable-theme-toggle`** (boolean, default: `false`) — Gates feature visibility. When off, settings nav item and page are hidden, app stays dark-only.
-2. **`default-theme`** (string: `"dark"` | `"light"` | `"system"`) — Sets the default theme for users who haven't made a choice. Only relevant when the toggle is enabled.
+2. **`theme-default`** (string: `"dark"` | `"light"` | `"system"`) — Sets the default theme for users who haven't made a choice. Only relevant when the toggle is enabled.
 
 ## SDK Integration
 
@@ -23,7 +23,7 @@ Add `@togglerino/react` (and `@togglerino/sdk`) as dependencies in `web/`. Wrap 
 Priority order (highest first):
 
 1. User's explicit choice in `localStorage` (`togglerino-theme` key)
-2. `default-theme` flag value
+2. `theme-default` flag value
 3. Fallback: `"dark"`
 
 For `"system"` mode, use `window.matchMedia('(prefers-color-scheme: dark)')` with a listener for OS-level changes.
@@ -42,7 +42,7 @@ shadcn/ui components already include `dark:` variant classes, so they'll work au
 
 New React context provider (`web/src/components/ThemeProvider.tsx`):
 
-- Reads `useFlag('enable-theme-toggle', false)` and `useFlag('default-theme', 'dark')`
+- Reads `useFlag('enable-theme-toggle', false)` and `useFlag('theme-default', 'dark')`
 - Manages resolved theme state
 - Toggles `.dark` class on `document.documentElement`
 - Listens to `prefers-color-scheme` media query when mode is `"system"`

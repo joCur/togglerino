@@ -14,7 +14,7 @@ function isValidTheme(value: string): value is Theme {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const isThemeToggleEnabled = useFlag('enable-theme-toggle', false)
-  const defaultTheme = useFlag('default-theme', 'dark')
+  const defaultTheme = useFlag('theme-default', 'dark')
 
   // User's explicit preference (from localStorage or setTheme calls)
   const [userTheme, setUserTheme] = useState<Theme | null>(() => {
