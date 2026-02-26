@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type {
@@ -17,6 +17,14 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -176,6 +184,30 @@ export default function FlagDetailPage() {
     enabled: !!key,
   })
 
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
+  const archiveMutation = useMutation({
+    mutationFn: (archived: boolean) =>
+      api.put<Flag>(`/projects/${key}/flags/${flagKey}/archive`, { archived }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
+      setArchiveDialogOpen(false)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/projects/${key}/flags/${flagKey}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
+      navigate(`/projects/${key}`)
+    },
+  })
+
   const effectiveEnvKey = selectedEnvKey || (environments?.[0]?.key ?? '')
 
   if (isLoading) {
@@ -217,6 +249,9 @@ export default function FlagDetailPage() {
       <div className="p-6 rounded-lg bg-card border mb-6">
         <div className="text-xl font-semibold text-foreground mb-1 tracking-tight">
           {flag.name}
+          {flag.archived && (
+            <Badge variant="secondary" className="ml-2 text-xs align-middle">Archived</Badge>
+          )}
         </div>
         <div className="text-[13px] font-mono text-[#d4956a] mb-3.5 tracking-wide">
           {flag.key}
@@ -244,6 +279,56 @@ export default function FlagDetailPage() {
         {flag.description && (
           <div className="text-[13px] text-muted-foreground leading-relaxed mt-2">
             {flag.description}
+          </div>
+        )}
+      </div>
+
+      {/* Danger Zone */}
+      <div className="p-6 rounded-lg border border-destructive/30 mb-6">
+        <div className="font-mono text-[10px] font-medium text-destructive uppercase tracking-wider mb-3">
+          Danger Zone
+        </div>
+        {flag.archived ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[13px] font-medium text-foreground">Unarchive this flag</div>
+                <div className="text-xs text-muted-foreground">Restore this flag so it can be evaluated again.</div>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => archiveMutation.mutate(false)}
+                disabled={archiveMutation.isPending}
+              >
+                {archiveMutation.isPending ? 'Unarchiving...' : 'Unarchive'}
+              </Button>
+            </div>
+            <div className="border-t border-destructive/20" />
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[13px] font-medium text-foreground">Delete this flag permanently</div>
+                <div className="text-xs text-muted-foreground">This action cannot be undone.</div>
+              </div>
+              <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+                Delete Flag
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[13px] font-medium text-foreground">Archive this flag</div>
+              <div className="text-xs text-muted-foreground">
+                Archived flags return default values and are excluded from evaluation.
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              className="border-destructive/50 text-destructive hover:bg-destructive/10"
+              onClick={() => setArchiveDialogOpen(true)}
+            >
+              Archive Flag
+            </Button>
           </div>
         )}
       </div>
@@ -278,6 +363,56 @@ export default function FlagDetailPage() {
           No environments found for this project.
         </div>
       )}
+
+      {/* Archive Confirmation Dialog */}
+      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive {flag.name}?</DialogTitle>
+            <DialogDescription>
+              Archived flags return default values and are excluded from targeting evaluation.
+              You can unarchive it later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchiveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => archiveMutation.mutate(true)}
+              disabled={archiveMutation.isPending}
+            >
+              {archiveMutation.isPending ? 'Archiving...' : 'Archive'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permanently delete {flag.name}?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the flag and all its environment configurations.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
