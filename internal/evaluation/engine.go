@@ -18,7 +18,7 @@ func NewEngine() *Engine {
 // Returns the evaluation result with value, variant key, and reason.
 func (e *Engine) Evaluate(flag *model.Flag, config *model.FlagEnvironmentConfig, ctx *model.EvaluationContext) *model.EvaluationResult {
 	// 1. If flag is archived, return default value with reason "archived".
-	if flag.Archived {
+	if flag.LifecycleStatus == model.LifecycleArchived {
 		return &model.EvaluationResult{
 			Value:   rawToAny(flag.DefaultValue),
 			Variant: "",

@@ -40,7 +40,7 @@ const baseFlagQuery = `
 SELECT
     p.key AS project_key,
     e.key AS env_key,
-    f.id, f.project_id, f.key, f.name, f.description, f.flag_type, f.default_value, f.tags, f.archived, f.created_at, f.updated_at,
+    f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at,
     fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant, fec.variants, fec.targeting_rules, fec.updated_at
 FROM flags f
 JOIN projects p ON p.id = f.project_id
@@ -166,10 +166,12 @@ func scanFlagRow(row rowScanner) (projectKey, envKey string, fd FlagData, err er
 		&fd.Flag.Key,
 		&fd.Flag.Name,
 		&fd.Flag.Description,
+		&fd.Flag.ValueType,
 		&fd.Flag.FlagType,
 		&fd.Flag.DefaultValue,
 		&fd.Flag.Tags,
-		&fd.Flag.Archived,
+		&fd.Flag.LifecycleStatus,
+		&fd.Flag.LifecycleStatusChangedAt,
 		&fd.Flag.CreatedAt,
 		&fd.Flag.UpdatedAt,
 		// FlagEnvironmentConfig fields
