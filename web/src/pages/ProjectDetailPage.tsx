@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag } from '../api/types.ts'
+import { useFlag } from '@togglerino/react'
 import CreateFlagModal from '../components/CreateFlagModal.tsx'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +36,7 @@ export default function ProjectDetailPage() {
   const [tagFilter, setTagFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [createFromKey, setCreateFromKey] = useState('')
+  const unknownFlagsEnabled = useFlag('unknown-flags', false)
 
   const { data: flags, isLoading: flagsLoading, error: flagsError } = useQuery({
     queryKey: ['projects', key, 'flags'],
@@ -73,7 +75,7 @@ export default function ProjectDetailPage() {
   const { data: unknownFlags } = useQuery({
     queryKey: ['projects', key, 'unknown-flags'],
     queryFn: () => api.get<UnknownFlag[]>(`/projects/${key}/unknown-flags`),
-    enabled: !!key,
+    enabled: !!key && unknownFlagsEnabled,
   })
 
   const dismissMutation = useMutation({
@@ -145,14 +147,16 @@ export default function ProjectDetailPage() {
       <Tabs defaultValue="flags">
         <TabsList variant="line">
           <TabsTrigger value="flags">Flags</TabsTrigger>
-          <TabsTrigger value="unknown">
-            Unknown Flags
-            {unknownFlags && unknownFlags.length > 0 && (
-              <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
-                {unknownFlags.length}
-              </Badge>
-            )}
-          </TabsTrigger>
+          {unknownFlagsEnabled && (
+            <TabsTrigger value="unknown">
+              Unknown Flags
+              {unknownFlags && unknownFlags.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                  {unknownFlags.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="flags">
@@ -256,7 +260,7 @@ export default function ProjectDetailPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="unknown">
+        {unknownFlagsEnabled && <TabsContent value="unknown">
           {!unknownFlags || unknownFlags.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-[15px] font-medium text-foreground mb-1.5">No unknown flags detected</div>
@@ -322,7 +326,7 @@ export default function ProjectDetailPage() {
               </Table>
             </div>
           )}
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
 
       <CreateFlagModal
