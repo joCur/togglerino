@@ -100,6 +100,23 @@ const (
 	OpMatches     Operator = "matches"
 )
 
+// ValidValueTypes is the set of all valid value types.
+var ValidValueTypes = map[ValueType]bool{
+	ValueTypeBoolean: true,
+	ValueTypeString:  true,
+	ValueTypeNumber:  true,
+	ValueTypeJSON:    true,
+}
+
+// ValidFlagTypes is the set of all valid flag types.
+var ValidFlagTypes = map[FlagType]bool{
+	FlagTypeRelease:     true,
+	FlagTypeExperiment:  true,
+	FlagTypeOperational: true,
+	FlagTypeKillSwitch:  true,
+	FlagTypePermission:  true,
+}
+
 type EvaluationContext struct {
 	UserID     string         `json:"user_id"`
 	Attributes map[string]any `json:"attributes"`

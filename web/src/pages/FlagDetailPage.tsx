@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { cn } from '@/lib/utils'
 import { api } from '../api/client.ts'
 import type {
   Flag,
@@ -351,12 +352,13 @@ export default function FlagDetailPage() {
             </div>
             <Badge
               variant="secondary"
-              className={`text-xs ${
-                flag.lifecycle_status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                flag.lifecycle_status === 'potentially_stale' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                flag.lifecycle_status === 'stale' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                'bg-muted text-muted-foreground'
-              }`}
+              className={cn(
+                'text-xs',
+                flag.lifecycle_status === 'active' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                flag.lifecycle_status === 'potentially_stale' && 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                flag.lifecycle_status === 'stale' && 'bg-red-500/10 text-red-400 border-red-500/20',
+                flag.lifecycle_status === 'archived' && 'bg-muted text-muted-foreground',
+              )}
             >
               {flag.lifecycle_status.replace(/_/g, ' ')}
             </Badge>

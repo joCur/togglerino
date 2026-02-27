@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/model"
@@ -67,9 +66,20 @@ func (h *ProjectSettingsHandler) Update(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+
+	for k, v := range req.FlagLifetimes {
+		if !model.ValidFlagTypes[k] {
+			writeError(w, http.StatusBadRequest, "invalid flag type key: "+string(k))
+			return
+		}
+		if v != nil && *v <= 0 {
+			writeError(w, http.StatusBadRequest, "flag lifetime for "+string(k)+" must be a positive integer")
+			return
+		}
 	}
 
 	settings, err := h.settings.Upsert(r.Context(), project.ID, req.FlagLifetimes)

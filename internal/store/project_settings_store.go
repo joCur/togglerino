@@ -37,7 +37,9 @@ func (s *ProjectSettingsStore) Get(ctx context.Context, projectID string) (*mode
 		FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
 	}
 	if len(settingsJSON) > 0 {
-		json.Unmarshal(settingsJSON, &raw)
+		if err := json.Unmarshal(settingsJSON, &raw); err != nil {
+			return nil, fmt.Errorf("unmarshaling project settings: %w", err)
+		}
 	}
 	ps.FlagLifetimes = raw.FlagLifetimes
 	return &ps, nil
@@ -70,7 +72,9 @@ func (s *ProjectSettingsStore) Upsert(ctx context.Context, projectID string, fla
 	var raw struct {
 		FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
 	}
-	json.Unmarshal(returnedJSON, &raw)
+	if err := json.Unmarshal(returnedJSON, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshaling upserted settings: %w", err)
+	}
 	ps.FlagLifetimes = raw.FlagLifetimes
 	return &ps, nil
 }
@@ -93,7 +97,9 @@ func (s *ProjectSettingsStore) GetAll(ctx context.Context) (map[string]*model.Pr
 		var raw struct {
 			FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
 		}
-		json.Unmarshal(settingsJSON, &raw)
+		if err := json.Unmarshal(settingsJSON, &raw); err != nil {
+			return nil, fmt.Errorf("unmarshaling project settings row: %w", err)
+		}
 		ps.FlagLifetimes = raw.FlagLifetimes
 		result[ps.ProjectID] = &ps
 	}

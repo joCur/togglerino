@@ -83,6 +83,14 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.FlagType == "" {
 		req.FlagType = model.FlagTypeRelease
 	}
+	if !model.ValidValueTypes[req.ValueType] {
+		writeError(w, http.StatusBadRequest, "invalid value_type: must be one of boolean, string, number, json")
+		return
+	}
+	if !model.ValidFlagTypes[req.FlagType] {
+		writeError(w, http.StatusBadRequest, "invalid flag_type: must be one of release, experiment, operational, kill-switch, permission")
+		return
+	}
 	if req.DefaultValue == nil {
 		req.DefaultValue = json.RawMessage(`false`)
 	}
@@ -229,6 +237,9 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 	flagTypeToUse := req.FlagType
 	if flagTypeToUse == "" {
 		flagTypeToUse = flag.FlagType
+	} else if !model.ValidFlagTypes[flagTypeToUse] {
+		writeError(w, http.StatusBadRequest, "invalid flag_type: must be one of release, experiment, operational, kill-switch, permission")
+		return
 	}
 	updated, err := h.flags.Update(r.Context(), flag.ID, req.Name, req.Description, req.Tags, flagTypeToUse)
 	if err != nil {
