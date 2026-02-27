@@ -152,9 +152,6 @@ func jsonEqual(a, b any) bool {
 	return string(aj) == string(bj)
 }
 
-// Stub — replaced in Task 6
-func (c *Client) runPolling(ctx context.Context) { <-ctx.Done() }
-
 // Typed On* callback methods
 
 // OnChange registers a callback invoked when a flag's value changes.
