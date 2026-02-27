@@ -1,21 +1,5 @@
-# Stage 1: Build SDKs (required for web file: references)
-FROM node:20-alpine AS sdk-builder
-WORKDIR /app/sdks/javascript
-COPY sdks/javascript/package.json sdks/javascript/package-lock.json ./
-RUN npm ci
-COPY sdks/javascript/ ./
-RUN npm run build
-
-WORKDIR /app/sdks/react
-COPY sdks/react/package.json sdks/react/package-lock.json ./
-RUN npm ci
-COPY sdks/react/ ./
-RUN npm run build
-
-# Stage 2: Build React dashboard
+# Stage 1: Build React dashboard
 FROM node:20-alpine AS web-builder
-WORKDIR /app
-COPY --from=sdk-builder /app/sdks ./sdks
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
