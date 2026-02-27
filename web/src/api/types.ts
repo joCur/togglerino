@@ -97,3 +97,10 @@ export interface UnknownFlag {
   environment_key: string
   environment_name: string
 }
+
+export interface ContextAttribute {
+  id: string
+  project_id: string
+  name: string
+  last_seen_at: string
+}

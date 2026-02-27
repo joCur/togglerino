@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/joCur/togglerino/compare/v0.5.0...v0.6.0) (2026-02-27)
+
+
+### Features
+
+* **web:** copy flag config between environments ([#12](https://github.com/joCur/togglerino/issues/12)) ([683f83a](https://github.com/joCur/togglerino/commit/683f83ae9fead3e62831644567a5e30abd172d87))
+
+
+### Bug Fixes
+
+* **ci:** quote step names containing YAML-special colon character ([f62d162](https://github.com/joCur/togglerino/commit/f62d162da4a694c35f2485de3cde4dfd785b22d6))
+
 ## [0.5.0](https://github.com/joCur/togglerino/compare/v0.4.0...v0.5.0) (2026-02-26)
 
 
