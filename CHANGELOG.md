@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/joCur/togglerino/compare/v0.7.0...v0.7.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* correct repository URL in SDK package.json for OIDC provenance ([#21](https://github.com/joCur/togglerino/issues/21)) ([9c77539](https://github.com/joCur/togglerino/commit/9c77539be5821586102b49437a1a194cf6ba25d3))
+
 ## [0.7.0](https://github.com/joCur/togglerino/compare/v0.6.0...v0.7.0) (2026-02-27)
 
 
