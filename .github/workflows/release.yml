@@ -18,6 +18,10 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      sdk--release_created: ${{ steps.release.outputs['sdks/javascript--release_created'] }}
+      sdk--tag_name: ${{ steps.release.outputs['sdks/javascript--tag_name'] }}
+      react--release_created: ${{ steps.release.outputs['sdks/react--release_created'] }}
+      react--tag_name: ${{ steps.release.outputs['sdks/react--tag_name'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -52,3 +56,37 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  publish-sdks:
+    runs-on: ubuntu-latest
+    needs: release-please
+    if: >-
+      needs.release-please.outputs['sdk--release_created'] == 'true' ||
+      needs.release-please.outputs['react--release_created'] == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish @togglerino/sdk
+        if: needs.release-please.outputs['sdk--release_created'] == 'true'
+        working-directory: sdks/javascript
+        run: |
+          npm ci
+          npm run build
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @togglerino/react
+        if: needs.release-please.outputs['react--release_created'] == 'true'
+        working-directory: sdks/react
+        run: |
+          npm ci
+          npm run build
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
