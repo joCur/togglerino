@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/joCur/togglerino/compare/v0.6.0...v0.7.0) (2026-02-27)
+
+
+### Features
+
+* context attribute autocomplete in rule builder ([#14](https://github.com/joCur/togglerino/issues/14)) ([3712eb1](https://github.com/joCur/togglerino/commit/3712eb1de3fe297a4e988292b70a64b273ab8e30))
+* track and surface unknown flags from SDK evaluations ([#15](https://github.com/joCur/togglerino/issues/15)) ([e60a0a7](https://github.com/joCur/togglerino/commit/e60a0a708196f01f83519b363e79ff9e72e72379))
+
 ## [0.6.0](https://github.com/joCur/togglerino/compare/v0.5.0...v0.6.0) (2026-02-27)
 
 
