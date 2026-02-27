@@ -1,6 +1,6 @@
 {
   "name": "@togglerino/react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React bindings for togglerino feature flags",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -8,9 +8,6 @@
   "files": [
     "dist"
   ],
-  "dependencies": {
-    "@togglerino/sdk": "file:../javascript"
-  },
   "peerDependencies": {
     "@togglerino/sdk": ">=0.1.0",
     "react": ">=18.0.0"
@@ -27,9 +24,15 @@
     "sdk"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/togglerino/togglerino",
+    "directory": "sdks/react"
+  },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@togglerino/sdk": "^0.1.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "jsdom": "^28.1.0",
