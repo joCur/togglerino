@@ -68,6 +68,19 @@ jobs:
       - name: Test React SDK
         run: cd sdks/react && npm ci && npm test
 
+  test-go-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Run Go SDK tests
+        working-directory: sdks/go
+        run: go test -v -race -timeout 60s ./...
+
   lint-frontend:
     runs-on: ubuntu-latest
     steps:
@@ -82,7 +95,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [test-go, test-sdks, lint-frontend]
+    needs: [test-go, test-sdks, test-go-sdk, lint-frontend]
     steps:
       - uses: actions/checkout@v4
 
