@@ -58,17 +58,6 @@ export default function VariantEditor({ variants, valueType, onChange }: Props) 
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="text-[13px] font-medium text-foreground">Variants</div>
-      <div className="text-xs text-muted-foreground/60 leading-relaxed mb-1">
-        {valueType === 'boolean'
-          ? 'Define the on/off states for this flag. Each variant has a key (referenced in targeting rules) and a boolean value.'
-          : valueType === 'string'
-          ? 'Define the possible string values this flag can return. Each variant has a key (referenced in targeting rules) and a string value.'
-          : valueType === 'number'
-          ? 'Define the possible numeric values this flag can return. Each variant has a key (referenced in targeting rules) and a number value.'
-          : 'Define the possible JSON payloads this flag can return. Each variant has a key (referenced in targeting rules) and a JSON value.'}
-      </div>
-
       {variants.length === 0 && (
         <div className="text-xs text-muted-foreground/60 italic">
           {valueType === 'boolean' ? (
