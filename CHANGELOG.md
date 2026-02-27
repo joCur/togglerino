@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/joCur/togglerino/compare/v0.7.1...v0.8.0) (2026-02-27)
+
+
+### Features
+
+* add flag types, lifecycle status, and staleness tracking ([#18](https://github.com/joCur/togglerino/issues/18)) ([831f11d](https://github.com/joCur/togglerino/commit/831f11dffa98ca7bb17383be86a4ca38bed7a7c3))
+
 ## [0.7.1](https://github.com/joCur/togglerino/compare/v0.7.0...v0.7.1) (2026-02-27)
 
 
