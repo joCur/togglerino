@@ -15,12 +15,13 @@ import (
 type EvaluateHandler struct {
 	cache        *evaluation.Cache
 	engine       *evaluation.Engine
+	unknownFlags *store.UnknownFlagStore
 	contextAttrs *store.ContextAttributeStore
 }
 
 // NewEvaluateHandler creates a new EvaluateHandler.
-func NewEvaluateHandler(cache *evaluation.Cache, engine *evaluation.Engine, contextAttrs *store.ContextAttributeStore) *EvaluateHandler {
-	return &EvaluateHandler{cache: cache, engine: engine, contextAttrs: contextAttrs}
+func NewEvaluateHandler(cache *evaluation.Cache, engine *evaluation.Engine, unknownFlags *store.UnknownFlagStore, contextAttrs *store.ContextAttributeStore) *EvaluateHandler {
+	return &EvaluateHandler{cache: cache, engine: engine, unknownFlags: unknownFlags, contextAttrs: contextAttrs}
 }
 
 type evaluateRequest struct {
@@ -78,6 +79,12 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 
 	fd, ok := h.cache.GetFlag(sdkKey.ProjectKey, sdkKey.EnvironmentKey, flagKey)
 	if !ok {
+		// Best-effort unknown flag tracking
+		go func() {
+			if err := h.unknownFlags.Upsert(context.Background(), sdkKey.ProjectID, sdkKey.EnvironmentID, flagKey); err != nil {
+				slog.Warn("failed to track unknown flag", "flag_key", flagKey, "error", err)
+			}
+		}()
 		writeError(w, http.StatusNotFound, "flag not found")
 		return
 	}

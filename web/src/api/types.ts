@@ -86,6 +86,18 @@ export interface AuditEntry {
   created_at: string
 }
 
+export interface UnknownFlag {
+  id: string
+  project_id: string
+  environment_id: string
+  flag_key: string
+  request_count: number
+  first_seen_at: string
+  last_seen_at: string
+  environment_key: string
+  environment_name: string
+}
+
 export interface ContextAttribute {
   id: string
   project_id: string

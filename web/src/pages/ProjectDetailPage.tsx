@@ -1,21 +1,42 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag } from '../api/types.ts'
+import { useFlag } from '@togglerino/react'
 import CreateFlagModal from '../components/CreateFlagModal.tsx'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSecs = Math.floor(diffMs / 1000)
+  const diffMins = Math.floor(diffSecs / 60)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffSecs < 60) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 30) return `${diffDays}d ago`
+  return date.toLocaleDateString()
+}
 
 export default function ProjectDetailPage() {
   const { key } = useParams<{ key: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [tagFilter, setTagFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [createFromKey, setCreateFromKey] = useState('')
+  const unknownFlagsEnabled = useFlag('unknown-flags', false)
 
   const { data: flags, isLoading: flagsLoading, error: flagsError } = useQuery({
     queryKey: ['projects', key, 'flags'],
@@ -49,6 +70,19 @@ export default function ProjectDetailPage() {
       return configMap
     },
     enabled: !!flags && flags.length > 0,
+  })
+
+  const { data: unknownFlags } = useQuery({
+    queryKey: ['projects', key, 'unknown-flags'],
+    queryFn: () => api.get<UnknownFlag[]>(`/projects/${key}/unknown-flags`),
+    enabled: !!key && unknownFlagsEnabled,
+  })
+
+  const dismissMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/projects/${key}/unknown-flags/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] })
+    },
   })
 
   const allTags = useMemo(() => {
@@ -110,109 +144,198 @@ export default function ProjectDetailPage() {
         <Button onClick={() => setModalOpen(true)}>Create Flag</Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2.5 mb-5">
-        <Input
-          className="flex-1 max-w-[300px]"
-          placeholder="Search flags..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        {allTags.length > 0 && (
-          <select
-            className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
-            value={tagFilter}
-            onChange={(e) => setTagFilter(e.target.value)}
-          >
-            <option value="">All Tags</option>
-            {allTags.map((tag) => (
-              <option key={tag} value={tag}>{tag}</option>
-            ))}
-          </select>
-        )}
-      </div>
+      <Tabs defaultValue="flags">
+        <TabsList variant="line">
+          <TabsTrigger value="flags">Flags</TabsTrigger>
+          {unknownFlagsEnabled && (
+            <TabsTrigger value="unknown">
+              Unknown Flags
+              {unknownFlags && unknownFlags.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                  {unknownFlags.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-      {filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-[15px] font-medium text-foreground mb-1.5">
-            {flags && flags.length > 0 ? 'No flags match your filters' : 'No flags yet'}
+        <TabsContent value="flags">
+          {/* Filters */}
+          <div className="flex gap-2.5 mb-5 mt-5">
+            <Input
+              className="flex-1 max-w-[300px]"
+              placeholder="Search flags..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {allTags.length > 0 && (
+              <select
+                className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+              >
+                <option value="">All Tags</option>
+                {allTags.map((tag) => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
+              </select>
+            )}
           </div>
-          <div className="text-[13px] text-muted-foreground/60">
-            {flags && flags.length > 0
-              ? 'Try adjusting your search or tag filter.'
-              : 'Create your first feature flag to get started.'}
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-lg border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider">Key</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider">Name</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider">Type</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider">Tags</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider">Environments</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((flag) => (
-                <TableRow
-                  key={flag.id}
-                  className="cursor-pointer transition-colors hover:bg-[#d4956a]/8"
-                  onClick={() => navigate(`/projects/${key}/flags/${flag.key}`)}
-                >
-                  <TableCell>
-                    <span className={`font-mono text-xs text-[#d4956a] tracking-wide ${flag.archived ? 'opacity-50' : ''}`}>{flag.key}</span>
-                  </TableCell>
-                  <TableCell className="text-[13px] text-foreground">
-                    <span className={flag.archived ? 'opacity-50' : ''}>
-                      {flag.name}
-                    </span>
-                    {flag.archived && (
-                      <Badge variant="secondary" className="ml-2 text-[10px]">Archived</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="font-mono text-[11px]">{flag.flag_type}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {flag.tags?.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      {environments?.map((env) => {
-                        const enabled = getEnvStatus(flag.key, env.id)
-                        return (
-                          <span key={env.id} className="inline-flex items-center gap-1 whitespace-nowrap">
-                            <span
-                              className={`inline-block w-[7px] h-[7px] rounded-full transition-all duration-300 ${
-                                enabled
-                                  ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]'
-                                  : 'bg-muted-foreground/60'
-                              }`}
-                            />
-                            <span className="text-[11px] text-muted-foreground/60">{env.name}</span>
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+
+          {filtered.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-[15px] font-medium text-foreground mb-1.5">
+                {flags && flags.length > 0 ? 'No flags match your filters' : 'No flags yet'}
+              </div>
+              <div className="text-[13px] text-muted-foreground/60">
+                {flags && flags.length > 0
+                  ? 'Try adjusting your search or tag filter.'
+                  : 'Create your first feature flag to get started.'}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Key</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Name</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Type</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Tags</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Environments</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((flag) => (
+                    <TableRow
+                      key={flag.id}
+                      className="cursor-pointer transition-colors hover:bg-[#d4956a]/8"
+                      onClick={() => navigate(`/projects/${key}/flags/${flag.key}`)}
+                    >
+                      <TableCell>
+                        <span className={`font-mono text-xs text-[#d4956a] tracking-wide ${flag.archived ? 'opacity-50' : ''}`}>{flag.key}</span>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-foreground">
+                        <span className={flag.archived ? 'opacity-50' : ''}>
+                          {flag.name}
+                        </span>
+                        {flag.archived && (
+                          <Badge variant="secondary" className="ml-2 text-[10px]">Archived</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="font-mono text-[11px]">{flag.flag_type}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {flag.tags?.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-2">
+                          {environments?.map((env) => {
+                            const enabled = getEnvStatus(flag.key, env.id)
+                            return (
+                              <span key={env.id} className="inline-flex items-center gap-1 whitespace-nowrap">
+                                <span
+                                  className={`inline-block w-[7px] h-[7px] rounded-full transition-all duration-300 ${
+                                    enabled
+                                      ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]'
+                                      : 'bg-muted-foreground/60'
+                                  }`}
+                                />
+                                <span className="text-[11px] text-muted-foreground/60">{env.name}</span>
+                              </span>
+                            )
+                          })}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+
+        {unknownFlagsEnabled && <TabsContent value="unknown">
+          {!unknownFlags || unknownFlags.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-[15px] font-medium text-foreground mb-1.5">No unknown flags detected</div>
+              <div className="text-[13px] text-muted-foreground/60">
+                Unknown flags appear here when your SDKs try to evaluate flags that don't exist in this project.
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border overflow-hidden mt-5">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Flag Key</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Environment</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Requests</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">First Seen</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Last Seen</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {unknownFlags.map((uf) => (
+                    <TableRow key={uf.id}>
+                      <TableCell>
+                        <span className="font-mono text-xs text-[#d4956a] tracking-wide">{uf.flag_key}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-[11px]">{uf.environment_name}</Badge>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-foreground tabular-nums">
+                        {uf.request_count.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-[13px] text-muted-foreground/60">
+                        {formatRelativeTime(uf.first_seen_at)}
+                      </TableCell>
+                      <TableCell className="text-[13px] text-muted-foreground/60">
+                        {formatRelativeTime(uf.last_seen_at)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-[11px] h-7"
+                            onClick={() => { setCreateFromKey(uf.flag_key); setModalOpen(true) }}
+                          >
+                            Create Flag
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-[11px] h-7 text-muted-foreground"
+                            onClick={() => dismissMutation.mutate(uf.id)}
+                            disabled={dismissMutation.isPending && dismissMutation.variables === uf.id}
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>}
+      </Tabs>
 
       <CreateFlagModal
+        key={createFromKey}
         open={modalOpen}
         projectKey={key!}
-        onClose={() => setModalOpen(false)}
+        initialKey={createFromKey}
+        onClose={() => { setModalOpen(false); setCreateFromKey('') }}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] })}
       />
     </div>
   )
