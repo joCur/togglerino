@@ -1,0 +1,15 @@
+## .NET build artifacts
+bin/
+obj/
+
+## NuGet
+*.nupkg
+*.snupkg
+
+## User-specific files
+*.user
+*.suo
+
+## JetBrains Rider
+.idea/
+*.sln.iml
