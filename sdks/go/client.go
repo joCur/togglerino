@@ -152,9 +152,8 @@ func jsonEqual(a, b any) bool {
 	return string(aj) == string(bj)
 }
 
-// Stubs — replaced in Tasks 5 and 6
-func (c *Client) runSSE(ctx context.Context)     { <-ctx.Done() }
-func (c *Client) runPolling(ctx context.Context)  { <-ctx.Done() }
+// Stub — replaced in Task 6
+func (c *Client) runPolling(ctx context.Context) { <-ctx.Done() }
 
 // Typed On* callback methods
 
