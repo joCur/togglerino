@@ -34,7 +34,7 @@ func TestFlagStore_Create(t *testing.T) {
 	}
 
 	defaultValue := json.RawMessage(`false`)
-	flag, err := fs.Create(ctx, project.ID, "dark-mode", "Dark Mode", "Toggle dark mode", model.FlagTypeBoolean, defaultValue, []string{"ui", "frontend"})
+	flag, err := fs.Create(ctx, project.ID, "dark-mode", "Dark Mode", "Toggle dark mode", model.ValueTypeBoolean, model.FlagTypeRelease, defaultValue, []string{"ui", "frontend"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -54,14 +54,14 @@ func TestFlagStore_Create(t *testing.T) {
 	if flag.Description != "Toggle dark mode" {
 		t.Errorf("Description: got %q, want %q", flag.Description, "Toggle dark mode")
 	}
-	if flag.FlagType != model.FlagTypeBoolean {
-		t.Errorf("FlagType: got %q, want %q", flag.FlagType, model.FlagTypeBoolean)
+	if flag.ValueType != model.ValueTypeBoolean {
+		t.Errorf("ValueType: got %q, want %q", flag.ValueType, model.ValueTypeBoolean)
 	}
 	if len(flag.Tags) != 2 {
 		t.Errorf("Tags length: got %d, want 2", len(flag.Tags))
 	}
-	if flag.Archived {
-		t.Error("expected Archived to be false")
+	if flag.LifecycleStatus != model.LifecycleActive {
+		t.Error("expected LifecycleStatus to be active")
 	}
 	if flag.CreatedAt.IsZero() {
 		t.Error("expected non-zero CreatedAt")
@@ -117,23 +117,23 @@ func TestFlagStore_ListByProject(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	_, err = fs.Create(ctx, project.ID, "flag-a", "Flag A", "first flag", model.FlagTypeBoolean, json.RawMessage(`false`), []string{"ui"})
+	_, err = fs.Create(ctx, project.ID, "flag-a", "Flag A", "first flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"ui"})
 	if err != nil {
 		t.Fatalf("Create flag-a: %v", err)
 	}
 
-	_, err = fs.Create(ctx, project.ID, "flag-b", "Flag B", "second flag", model.FlagTypeString, json.RawMessage(`"default"`), []string{"backend"})
+	_, err = fs.Create(ctx, project.ID, "flag-b", "Flag B", "second flag", model.ValueTypeString, model.FlagTypeRelease, json.RawMessage(`"default"`), []string{"backend"})
 	if err != nil {
 		t.Fatalf("Create flag-b: %v", err)
 	}
 
-	_, err = fs.Create(ctx, project.ID, "flag-c", "Dark Theme", "third flag", model.FlagTypeBoolean, json.RawMessage(`true`), []string{"ui", "frontend"})
+	_, err = fs.Create(ctx, project.ID, "flag-c", "Dark Theme", "third flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`true`), []string{"ui", "frontend"})
 	if err != nil {
 		t.Fatalf("Create flag-c: %v", err)
 	}
 
 	// Basic list — should return all 3
-	flags, err := fs.ListByProject(ctx, project.ID, "", "")
+	flags, err := fs.ListByProject(ctx, project.ID, "", "", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Filter by tag "ui" — should return flag-a and flag-c
-	flags, err = fs.ListByProject(ctx, project.ID, "ui", "")
+	flags, err = fs.ListByProject(ctx, project.ID, "ui", "", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject with tag: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Filter by tag "backend" — should return flag-b
-	flags, err = fs.ListByProject(ctx, project.ID, "backend", "")
+	flags, err = fs.ListByProject(ctx, project.ID, "backend", "", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject with tag 'backend': %v", err)
 	}
@@ -163,7 +163,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Search by name "Dark" — should return flag-c
-	flags, err = fs.ListByProject(ctx, project.ID, "", "Dark")
+	flags, err = fs.ListByProject(ctx, project.ID, "", "Dark", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject with search 'Dark': %v", err)
 	}
@@ -175,7 +175,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Search by key "flag-a" — should match flag-a
-	flags, err = fs.ListByProject(ctx, project.ID, "", "flag-a")
+	flags, err = fs.ListByProject(ctx, project.ID, "", "flag-a", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject with search 'flag-a': %v", err)
 	}
@@ -205,7 +205,7 @@ func TestFlagStore_FindByKey(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	created, err := fs.Create(ctx, project.ID, "find-me", "Find Me", "findable flag", model.FlagTypeBoolean, json.RawMessage(`false`), []string{"test"})
+	created, err := fs.Create(ctx, project.ID, "find-me", "Find Me", "findable flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"test"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -262,12 +262,12 @@ func TestFlagStore_Update(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	created, err := fs.Create(ctx, project.ID, "update-me", "Old Name", "old description", model.FlagTypeBoolean, json.RawMessage(`false`), []string{"old"})
+	created, err := fs.Create(ctx, project.ID, "update-me", "Old Name", "old description", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"old"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	updated, err := fs.Update(ctx, created.ID, "New Name", "new description", []string{"new", "updated"})
+	updated, err := fs.Update(ctx, created.ID, "New Name", "new description", []string{"new", "updated"}, model.FlagTypeRelease)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestFlagStore_Delete(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "delete-me", "Delete Me", "to be deleted", model.FlagTypeBoolean, json.RawMessage(`false`), []string{})
+	flag, err := fs.Create(ctx, project.ID, "delete-me", "Delete Me", "to be deleted", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestFlagStore_GetEnvironmentConfig(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "env-cfg-flag", "Env Config Flag", "test", model.FlagTypeBoolean, json.RawMessage(`false`), []string{})
+	flag, err := fs.Create(ctx, project.ID, "env-cfg-flag", "Env Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -409,7 +409,7 @@ func TestFlagStore_GetAllEnvironmentConfigs(t *testing.T) {
 		t.Fatalf("creating env3: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "all-cfg-flag", "All Config Flag", "test", model.FlagTypeBoolean, json.RawMessage(`false`), []string{})
+	flag, err := fs.Create(ctx, project.ID, "all-cfg-flag", "All Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -424,7 +424,7 @@ func TestFlagStore_GetAllEnvironmentConfigs(t *testing.T) {
 	}
 }
 
-func TestFlagStore_SetArchived(t *testing.T) {
+func TestFlagStore_SetLifecycleStatus(t *testing.T) {
 	pool := testPool(t)
 	ps := store.NewProjectStore(pool)
 	es := store.NewEnvironmentStore(pool)
@@ -442,34 +442,34 @@ func TestFlagStore_SetArchived(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "archive-me", "Archive Me", "test", model.FlagTypeBoolean, json.RawMessage(`false`), []string{})
+	flag, err := fs.Create(ctx, project.ID, "archive-me", "Archive Me", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if flag.Archived {
-		t.Fatal("expected newly created flag to not be archived")
+	if flag.LifecycleStatus != model.LifecycleActive {
+		t.Fatal("expected newly created flag to be active")
 	}
 
 	// Archive
-	archived, err := fs.SetArchived(ctx, flag.ID, true)
+	archived, err := fs.SetLifecycleStatus(ctx, flag.ID, model.LifecycleArchived)
 	if err != nil {
-		t.Fatalf("SetArchived(true): %v", err)
+		t.Fatalf("SetLifecycleStatus(archived): %v", err)
 	}
-	if !archived.Archived {
-		t.Error("expected Archived to be true")
+	if archived.LifecycleStatus != model.LifecycleArchived {
+		t.Error("expected lifecycle_status to be archived")
 	}
 	if archived.ID != flag.ID {
 		t.Errorf("ID: got %q, want %q", archived.ID, flag.ID)
 	}
 
 	// Unarchive
-	unarchived, err := fs.SetArchived(ctx, flag.ID, false)
+	unarchived, err := fs.SetLifecycleStatus(ctx, flag.ID, model.LifecycleActive)
 	if err != nil {
-		t.Fatalf("SetArchived(false): %v", err)
+		t.Fatalf("SetLifecycleStatus(active): %v", err)
 	}
-	if unarchived.Archived {
-		t.Error("expected Archived to be false")
+	if unarchived.LifecycleStatus != model.LifecycleActive {
+		t.Error("expected lifecycle_status to be active")
 	}
 }
 
@@ -491,7 +491,7 @@ func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "upd-cfg-flag", "Update Config Flag", "test", model.FlagTypeBoolean, json.RawMessage(`false`), []string{})
+	flag, err := fs.Create(ctx, project.ID, "upd-cfg-flag", "Update Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 interface Props {
   variants: Variant[]
-  flagType: string
+  valueType: string
   onChange: (variants: Variant[]) => void
 }
 
@@ -15,14 +15,14 @@ function formatValue(value: unknown): string {
   return String(value)
 }
 
-function parseValue(raw: string, flagType: string): unknown {
-  if (flagType === 'boolean') return raw === 'true'
-  if (flagType === 'number') { const n = Number(raw); return isNaN(n) ? 0 : n }
-  if (flagType === 'json') { try { return JSON.parse(raw) } catch { return raw } }
+function parseValue(raw: string, valueType: string): unknown {
+  if (valueType === 'boolean') return raw === 'true'
+  if (valueType === 'number') { const n = Number(raw); return isNaN(n) ? 0 : n }
+  if (valueType === 'json') { try { return JSON.parse(raw) } catch { return raw } }
   return raw
 }
 
-export default function VariantEditor({ variants, flagType, onChange }: Props) {
+export default function VariantEditor({ variants, valueType, onChange }: Props) {
   const updateKey = (index: number, newKey: string) => {
     const updated = [...variants]
     updated[index] = { ...updated[index], key: newKey }
@@ -31,7 +31,7 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
 
   const updateValue = (index: number, raw: string) => {
     const updated = [...variants]
-    updated[index] = { ...updated[index], value: parseValue(raw, flagType) }
+    updated[index] = { ...updated[index], value: parseValue(raw, valueType) }
     onChange(updated)
   }
 
@@ -41,14 +41,14 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
 
   const add = () => {
     let defaultVal: unknown = ''
-    if (flagType === 'boolean') defaultVal = false
-    else if (flagType === 'number') defaultVal = 0
-    else if (flagType === 'json') defaultVal = {}
+    if (valueType === 'boolean') defaultVal = false
+    else if (valueType === 'number') defaultVal = 0
+    else if (valueType === 'json') defaultVal = {}
     onChange([...variants, { key: '', value: defaultVal }])
   }
 
   const addDefaults = () => {
-    if (flagType === 'boolean') {
+    if (valueType === 'boolean') {
       onChange([
         { key: 'on', value: true },
         { key: 'off', value: false },
@@ -60,18 +60,18 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
     <div className="flex flex-col gap-2">
       <div className="text-[13px] font-medium text-foreground">Variants</div>
       <div className="text-xs text-muted-foreground/60 leading-relaxed mb-1">
-        {flagType === 'boolean'
+        {valueType === 'boolean'
           ? 'Define the on/off states for this flag. Each variant has a key (referenced in targeting rules) and a boolean value.'
-          : flagType === 'string'
+          : valueType === 'string'
           ? 'Define the possible string values this flag can return. Each variant has a key (referenced in targeting rules) and a string value.'
-          : flagType === 'number'
+          : valueType === 'number'
           ? 'Define the possible numeric values this flag can return. Each variant has a key (referenced in targeting rules) and a number value.'
           : 'Define the possible JSON payloads this flag can return. Each variant has a key (referenced in targeting rules) and a JSON value.'}
       </div>
 
       {variants.length === 0 && (
         <div className="text-xs text-muted-foreground/60 italic">
-          {flagType === 'boolean' ? (
+          {valueType === 'boolean' ? (
             <>
               No variants defined.{' '}
               <span
@@ -95,7 +95,7 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
             value={v.key}
             onChange={(e) => updateKey(i, e.target.value)}
           />
-          {flagType === 'boolean' ? (
+          {valueType === 'boolean' ? (
             <select
               className="flex-1 px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
               value={String(v.value)}
@@ -104,7 +104,7 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
               <option value="true">true</option>
               <option value="false">false</option>
             </select>
-          ) : flagType === 'json' ? (
+          ) : valueType === 'json' ? (
             <Textarea
               className="flex-1 min-h-[32px] resize-y font-mono text-[11px]"
               value={formatValue(v.value)}
@@ -114,7 +114,7 @@ export default function VariantEditor({ variants, flagType, onChange }: Props) {
           ) : (
             <Input
               className="flex-1 text-xs"
-              type={flagType === 'number' ? 'number' : 'text'}
+              type={valueType === 'number' ? 'number' : 'text'}
               placeholder="Value"
               value={formatValue(v.value)}
               onChange={(e) => updateValue(i, e.target.value)}

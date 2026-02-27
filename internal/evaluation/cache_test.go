@@ -13,7 +13,7 @@ func TestCache_SetAndGetFlags(t *testing.T) {
 	c := evaluation.NewCache()
 	flags := map[string]evaluation.FlagData{
 		"dark-mode": {
-			Flag:   model.Flag{Key: "dark-mode", FlagType: model.FlagTypeBoolean},
+			Flag:   model.Flag{Key: "dark-mode", ValueType: model.ValueTypeBoolean},
 			Config: model.FlagEnvironmentConfig{Enabled: true, DefaultVariant: "on"},
 		},
 	}

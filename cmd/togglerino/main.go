@@ -19,6 +19,7 @@ import (
 	"github.com/togglerino/togglerino/internal/logging"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/ratelimit"
+	"github.com/togglerino/togglerino/internal/staleness"
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
 	"github.com/togglerino/togglerino/migrations"
@@ -37,7 +38,8 @@ func main() {
 	slog.Info("starting togglerino", "port", cfg.Port)
 
 	// 2. Connect to database
-	ctx := context.Background()
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
 	pool, err := store.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatal(err)
@@ -57,17 +59,23 @@ func main() {
 	sdkKeyStore := store.NewSDKKeyStore(pool)
 	flagStore := store.NewFlagStore(pool)
 	auditStore := store.NewAuditStore(pool)
+	projectSettingsStore := store.NewProjectSettingsStore(pool)
 	unknownFlagStore := store.NewUnknownFlagStore(pool)
 
 	// 5. Initialize cache, engine, hub
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
 	hub := stream.NewHub()
+	cacheRefresher := cacheRefreshFunc(func(ctx context.Context) error {
+		return cache.LoadAll(ctx, pool)
+	})
+	stalenessChecker := staleness.NewChecker(flagStore, projectSettingsStore, auditStore, cacheRefresher, 1*time.Hour)
 
 	// 6. Load all flags into cache
 	if err := cache.LoadAll(ctx, pool); err != nil {
 		log.Fatalf("failed to load flags into cache: %v", err)
 	}
+	go stalenessChecker.Run(ctx)
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
@@ -77,6 +85,7 @@ func main() {
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
 	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
+	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore)
 	contextAttributeStore := store.NewContextAttributeStore(pool)
 	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
 	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore)
@@ -138,6 +147,7 @@ func main() {
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Update, sessionAuth))
 	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Delete, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/archive", wrap(flagHandler.Archive, sessionAuth))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/staleness", wrap(flagHandler.SetStaleness, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth))
 
 	// Unknown flags
@@ -146,6 +156,10 @@ func main() {
 
 	// Audit log
 	mux.Handle("GET /api/v1/projects/{key}/audit-log", wrap(auditHandler.List, sessionAuth))
+
+	// Project settings (flag lifetimes)
+	mux.Handle("GET /api/v1/projects/{key}/settings/flags", wrap(projectSettingsHandler.Get, sessionAuth))
+	mux.Handle("PUT /api/v1/projects/{key}/settings/flags", wrap(projectSettingsHandler.Update, sessionAuth))
 
 	// Context attributes
 	mux.Handle("GET /api/v1/projects/{key}/context-attributes", wrap(contextAttributeHandler.List, sessionAuth))
@@ -213,6 +227,7 @@ func main() {
 		slog.Error("server shutdown error", "error", err)
 	}
 
+	cancelCtx()
 	hub.Close()
 	pool.Close()
 
@@ -228,6 +243,11 @@ func wrap(h http.HandlerFunc, middlewares ...func(http.Handler) http.Handler) ht
 	}
 	return handler
 }
+
+// cacheRefreshFunc adapts a function to the staleness.CacheRefresher interface.
+type cacheRefreshFunc func(ctx context.Context) error
+
+func (f cacheRefreshFunc) LoadAll(ctx context.Context) error { return f(ctx) }
 
 // corsMiddleware adds CORS headers based on the configured allowed origins.
 // If origins contains only "*", all origins are allowed. Otherwise, the

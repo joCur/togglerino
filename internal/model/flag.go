@@ -5,27 +5,51 @@ import (
 	"time"
 )
 
+// ValueType describes the data type of a flag's value.
+type ValueType string
+
+const (
+	ValueTypeBoolean ValueType = "boolean"
+	ValueTypeString  ValueType = "string"
+	ValueTypeNumber  ValueType = "number"
+	ValueTypeJSON    ValueType = "json"
+)
+
+// FlagType describes the purpose/category of a flag.
 type FlagType string
 
 const (
-	FlagTypeBoolean FlagType = "boolean"
-	FlagTypeString  FlagType = "string"
-	FlagTypeNumber  FlagType = "number"
-	FlagTypeJSON    FlagType = "json"
+	FlagTypeRelease     FlagType = "release"
+	FlagTypeExperiment  FlagType = "experiment"
+	FlagTypeOperational FlagType = "operational"
+	FlagTypeKillSwitch  FlagType = "kill-switch"
+	FlagTypePermission  FlagType = "permission"
+)
+
+// LifecycleStatus describes the lifecycle state of a flag.
+type LifecycleStatus string
+
+const (
+	LifecycleActive           LifecycleStatus = "active"
+	LifecyclePotentiallyStale LifecycleStatus = "potentially_stale"
+	LifecycleStale            LifecycleStatus = "stale"
+	LifecycleArchived         LifecycleStatus = "archived"
 )
 
 type Flag struct {
-	ID           string          `json:"id"`
-	ProjectID    string          `json:"project_id"`
-	Key          string          `json:"key"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	FlagType     FlagType        `json:"flag_type"`
-	DefaultValue json.RawMessage `json:"default_value"`
-	Tags         []string        `json:"tags"`
-	Archived     bool            `json:"archived"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID                       string          `json:"id"`
+	ProjectID                string          `json:"project_id"`
+	Key                      string          `json:"key"`
+	Name                     string          `json:"name"`
+	Description              string          `json:"description"`
+	ValueType                ValueType       `json:"value_type"`
+	FlagType                 FlagType        `json:"flag_type"`
+	DefaultValue             json.RawMessage `json:"default_value"`
+	Tags                     []string        `json:"tags"`
+	LifecycleStatus          LifecycleStatus `json:"lifecycle_status"`
+	LifecycleStatusChangedAt *time.Time      `json:"lifecycle_status_changed_at"`
+	CreatedAt                time.Time       `json:"created_at"`
+	UpdatedAt                time.Time       `json:"updated_at"`
 }
 
 type FlagEnvironmentConfig struct {
@@ -75,6 +99,23 @@ const (
 	OpNotExists   Operator = "not_exists"
 	OpMatches     Operator = "matches"
 )
+
+// ValidValueTypes is the set of all valid value types.
+var ValidValueTypes = map[ValueType]bool{
+	ValueTypeBoolean: true,
+	ValueTypeString:  true,
+	ValueTypeNumber:  true,
+	ValueTypeJSON:    true,
+}
+
+// ValidFlagTypes is the set of all valid flag types.
+var ValidFlagTypes = map[FlagType]bool{
+	FlagTypeRelease:     true,
+	FlagTypeExperiment:  true,
+	FlagTypeOperational: true,
+	FlagTypeKillSwitch:  true,
+	FlagTypePermission:  true,
+}
 
 type EvaluationContext struct {
 	UserID     string         `json:"user_id"`
