@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus } from '../api/types.ts'
 import { useFlag } from '@togglerino/react'
 import CreateFlagModal from '../components/CreateFlagModal.tsx'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,8 @@ export default function ProjectDetailPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  const [purposeFilter, setPurposeFilter] = useState<FlagPurpose | ''>('')
+  const [statusFilter, setStatusFilter] = useState<LifecycleStatus | ''>('')
   const [modalOpen, setModalOpen] = useState(false)
   const [createFromKey, setCreateFromKey] = useState('')
   const unknownFlagsEnabled = useFlag('unknown-flags', false)
@@ -100,9 +102,11 @@ export default function ProjectDetailPage() {
         f.key.toLowerCase().includes(search.toLowerCase()) ||
         f.name.toLowerCase().includes(search.toLowerCase())
       const matchesTag = !tagFilter || (f.tags && f.tags.includes(tagFilter))
-      return matchesSearch && matchesTag
+      const matchesPurpose = !purposeFilter || f.flag_type === purposeFilter
+      const matchesStatus = !statusFilter || f.lifecycle_status === statusFilter
+      return matchesSearch && matchesTag && matchesPurpose && matchesStatus
     })
-  }, [flags, search, tagFilter])
+  }, [flags, search, tagFilter, purposeFilter, statusFilter])
 
   if (flagsLoading) {
     return (
@@ -180,6 +184,29 @@ export default function ProjectDetailPage() {
                 ))}
               </select>
             )}
+            <select
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+              value={purposeFilter}
+              onChange={(e) => setPurposeFilter(e.target.value as FlagPurpose | '')}
+            >
+              <option value="">All Purposes</option>
+              <option value="release">Release</option>
+              <option value="experiment">Experiment</option>
+              <option value="operational">Operational</option>
+              <option value="kill-switch">Kill Switch</option>
+              <option value="permission">Permission</option>
+            </select>
+            <select
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as LifecycleStatus | '')}
+            >
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="potentially_stale">Potentially Stale</option>
+              <option value="stale">Stale</option>
+              <option value="archived">Archived</option>
+            </select>
           </div>
 
           {filtered.length === 0 ? (
@@ -201,6 +228,7 @@ export default function ProjectDetailPage() {
                     <TableHead className="font-mono text-[11px] uppercase tracking-wider">Key</TableHead>
                     <TableHead className="font-mono text-[11px] uppercase tracking-wider">Name</TableHead>
                     <TableHead className="font-mono text-[11px] uppercase tracking-wider">Type</TableHead>
+                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Purpose</TableHead>
                     <TableHead className="font-mono text-[11px] uppercase tracking-wider">Tags</TableHead>
                     <TableHead className="font-mono text-[11px] uppercase tracking-wider">Environments</TableHead>
                   </TableRow>
@@ -236,6 +264,9 @@ export default function ProjectDetailPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="font-mono text-[11px]">{flag.value_type}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[11px]">{flag.flag_type}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">

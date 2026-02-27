@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -100,14 +101,16 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 	}
 
 	if lifecycleStatus != "" {
-		query += fmt.Sprintf(" AND lifecycle_status = $%d", argIdx)
-		args = append(args, lifecycleStatus)
+		values := strings.Split(lifecycleStatus, ",")
+		query += fmt.Sprintf(" AND lifecycle_status = ANY($%d)", argIdx)
+		args = append(args, values)
 		argIdx++
 	}
 
 	if flagType != "" {
-		query += fmt.Sprintf(" AND flag_type = $%d", argIdx)
-		args = append(args, flagType)
+		values := strings.Split(flagType, ",")
+		query += fmt.Sprintf(" AND flag_type = ANY($%d)", argIdx)
+		args = append(args, values)
 		argIdx++
 	}
 

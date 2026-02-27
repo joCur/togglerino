@@ -66,7 +66,10 @@ func main() {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
 	hub := stream.NewHub()
-	stalenessChecker := staleness.NewChecker(flagStore, projectSettingsStore, auditStore, 1*time.Hour)
+	cacheRefresher := cacheRefreshFunc(func(ctx context.Context) error {
+		return cache.LoadAll(ctx, pool)
+	})
+	stalenessChecker := staleness.NewChecker(flagStore, projectSettingsStore, auditStore, cacheRefresher, 1*time.Hour)
 
 	// 6. Load all flags into cache
 	if err := cache.LoadAll(ctx, pool); err != nil {
@@ -240,6 +243,11 @@ func wrap(h http.HandlerFunc, middlewares ...func(http.Handler) http.Handler) ht
 	}
 	return handler
 }
+
+// cacheRefreshFunc adapts a function to the staleness.CacheRefresher interface.
+type cacheRefreshFunc func(ctx context.Context) error
+
+func (f cacheRefreshFunc) LoadAll(ctx context.Context) error { return f(ctx) }
 
 // corsMiddleware adds CORS headers based on the configured allowed origins.
 // If origins contains only "*", all origins are allowed. Otherwise, the
