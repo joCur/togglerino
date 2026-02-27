@@ -1,6 +1,8 @@
 import type { TargetingRule, Variant, Condition } from '../api/types.ts'
+import { useFlag } from '@togglerino/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import AttributeCombobox from './AttributeCombobox.tsx'
 import RolloutSlider from './RolloutSlider.tsx'
 
 interface Props {
@@ -58,6 +60,8 @@ const OPERATOR_GROUPS = [
 ]
 
 export default function RuleBuilder({ rules, variants, onChange }: Props) {
+  const autocompleteEnabled = useFlag('context-attribute-autocomplete', false)
+
   const updateRule = (index: number, patch: Partial<TargetingRule>) => {
     const updated = [...rules]
     updated[index] = { ...updated[index], ...patch }
@@ -147,12 +151,19 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
             </div>
             {rule.conditions.map((cond, condIdx) => (
               <div key={condIdx} className="flex items-center gap-1.5 mb-1.5">
-                <Input
-                  className="flex-1 text-xs"
-                  placeholder="e.g. user_id, email, plan"
-                  value={cond.attribute}
-                  onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
-                />
+                {autocompleteEnabled ? (
+                  <AttributeCombobox
+                    value={cond.attribute}
+                    onChange={(val) => updateCondition(ruleIdx, condIdx, { attribute: val })}
+                  />
+                ) : (
+                  <Input
+                    className="w-[180px] text-xs"
+                    placeholder="Attribute"
+                    value={cond.attribute}
+                    onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
+                  />
+                )}
                 <select
                   className="w-[170px] px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
                   value={cond.operator}

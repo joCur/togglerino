@@ -17,6 +17,7 @@ type SDKKey struct {
 	Name           string    `json:"name"`
 	Revoked        bool      `json:"revoked"`
 	CreatedAt      time.Time `json:"created_at"`
+	ProjectID      string    `json:"project_id"`
 	ProjectKey     string    `json:"project_key"`
 	EnvironmentKey string    `json:"environment_key"`
 }
