@@ -15,6 +15,8 @@ interface Props {
   open: boolean
   projectKey: string
   onClose: () => void
+  onCreated?: () => void
+  initialKey?: string
 }
 
 const FLAG_PURPOSES = [
@@ -36,11 +38,11 @@ function slugify(text: string): string {
   return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
-export default function CreateFlagModal({ open, projectKey, onClose }: Props) {
+export default function CreateFlagModal({ open, projectKey, onClose, onCreated, initialKey }: Props) {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
-  const [key, setKey] = useState('')
-  const [keyManual, setKeyManual] = useState(false)
+  const [key, setKey] = useState(initialKey ?? '')
+  const [keyManual, setKeyManual] = useState(!!initialKey)
   const [description, setDescription] = useState('')
   const [flagType, setFlagType] = useState('boolean')
   const [flagPurpose, setFlagPurpose] = useState('release')
@@ -55,6 +57,7 @@ export default function CreateFlagModal({ open, projectKey, onClose }: Props) {
     }) => api.post<Flag>(`/projects/${projectKey}/flags`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', projectKey, 'flags'] })
+      onCreated?.()
       resetAndClose()
     },
   })

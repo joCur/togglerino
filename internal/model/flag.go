@@ -127,3 +127,10 @@ type EvaluationResult struct {
 	Variant string `json:"variant"`
 	Reason  string `json:"reason"`
 }
+
+type ContextAttribute struct {
+	ID         string    `json:"id"`
+	ProjectID  string    `json:"project_id"`
+	Name       string    `json:"name"`
+	LastSeenAt time.Time `json:"last_seen_at"`
+}

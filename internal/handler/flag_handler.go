@@ -23,10 +23,11 @@ type FlagHandler struct {
 	hub          *stream.Hub
 	cache        *evaluation.Cache
 	pool         *pgxpool.Pool
+	unknownFlags *store.UnknownFlagStore
 }
 
-func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool) *FlagHandler {
-	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool}
+func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool, unknownFlags *store.UnknownFlagStore) *FlagHandler {
+	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool, unknownFlags: unknownFlags}
 }
 
 // refreshAllEnvironments refreshes the evaluation cache and broadcasts SSE events
@@ -106,6 +107,11 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to create flag")
 		return
+	}
+
+	// Best-effort cleanup of unknown flags with this key
+	if err := h.unknownFlags.DeleteByProjectAndKey(r.Context(), project.ID, req.Key); err != nil {
+		slog.Warn("failed to cleanup unknown flags", "flag_key", req.Key, "error", err)
 	}
 
 	// Best-effort audit logging
