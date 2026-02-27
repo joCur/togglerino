@@ -82,16 +82,18 @@ func (c *Client) fetchFlags(ctx context.Context) error {
 
 	c.flagsMu.RLock()
 	evalCtx := c.config.context
+	// Deep copy attributes to avoid races with concurrent UpdateContext
+	attrs := make(map[string]any, len(evalCtx.Attributes))
+	for k, v := range evalCtx.Attributes {
+		attrs[k] = v
+	}
 	c.flagsMu.RUnlock()
 
 	reqBody := evaluateRequest{
 		Context: &evaluateContext{
 			UserID:     evalCtx.UserID,
-			Attributes: evalCtx.Attributes,
+			Attributes: attrs,
 		},
-	}
-	if reqBody.Context.Attributes == nil {
-		reqBody.Context.Attributes = make(map[string]any)
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -124,6 +126,11 @@ func (c *Client) fetchFlags(ctx context.Context) error {
 		return fmt.Errorf("togglerino: failed to decode response: %w", err)
 	}
 
+	// Collect events while holding the lock, emit after releasing to avoid
+	// deadlocks if a callback reads flag values.
+	var changeEvents []FlagChangeEvent
+	var deletedEvents []FlagDeletedEvent
+
 	c.flagsMu.Lock()
 	oldFlags := c.flags
 	c.flags = make(map[string]*EvaluationResult, len(evalResp.Flags))
@@ -132,7 +139,7 @@ func (c *Client) fetchFlags(ctx context.Context) error {
 		if c.initialized {
 			old, existed := oldFlags[k]
 			if !existed || !jsonEqual(old.Value, v.Value) {
-				c.events.emit(eventChange, FlagChangeEvent{
+				changeEvents = append(changeEvents, FlagChangeEvent{
 					FlagKey: k,
 					Value:   v.Value,
 					Variant: v.Variant,
@@ -140,7 +147,21 @@ func (c *Client) fetchFlags(ctx context.Context) error {
 			}
 		}
 	}
+	if c.initialized {
+		for k := range oldFlags {
+			if _, exists := c.flags[k]; !exists {
+				deletedEvents = append(deletedEvents, FlagDeletedEvent{FlagKey: k})
+			}
+		}
+	}
 	c.flagsMu.Unlock()
+
+	for _, evt := range changeEvents {
+		c.events.emit(eventChange, evt)
+	}
+	for _, evt := range deletedEvents {
+		c.events.emit(eventDeleted, evt)
+	}
 
 	return nil
 }

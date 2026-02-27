@@ -453,6 +453,122 @@ func TestNew_DefaultContext(t *testing.T) {
 	mu.Unlock()
 }
 
+func TestOnChange_CanReadFlagsInCallback(t *testing.T) {
+	callCount := 0
+	var mu sync.Mutex
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/evaluate" {
+			mu.Lock()
+			callCount++
+			count := callCount
+			mu.Unlock()
+
+			var flags map[string]*EvaluationResult
+			if count == 1 {
+				flags = map[string]*EvaluationResult{
+					"feat": {Value: false, Variant: "off", Reason: "default"},
+				}
+			} else {
+				flags = map[string]*EvaluationResult{
+					"feat": {Value: true, Variant: "on", Reason: "rule_match"},
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(evaluateResponse{Flags: flags})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	client, err := New(context.Background(), Config{
+		ServerURL: ts.URL,
+		SDKKey:    "sdk_test",
+		Streaming: boolPtr(false),
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer client.Close()
+
+	// This would deadlock before the fix: reading a flag inside OnChange callback
+	var readValue bool
+	client.OnChange(func(e FlagChangeEvent) {
+		readValue = client.BoolValue("feat", false)
+	})
+
+	err = client.UpdateContext(context.Background(), &EvaluationContext{UserID: "user-2"})
+	if err != nil {
+		t.Fatalf("UpdateContext error: %v", err)
+	}
+
+	if !readValue {
+		t.Error("expected callback to read true from BoolValue, got false")
+	}
+}
+
+func TestFetchFlags_EmitsDeletedForRemovedFlags(t *testing.T) {
+	callCount := 0
+	var mu sync.Mutex
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/evaluate" {
+			mu.Lock()
+			callCount++
+			count := callCount
+			mu.Unlock()
+
+			var flags map[string]*EvaluationResult
+			if count == 1 {
+				flags = map[string]*EvaluationResult{
+					"keep":   {Value: true, Variant: "on", Reason: "default"},
+					"remove": {Value: true, Variant: "on", Reason: "default"},
+				}
+			} else {
+				flags = map[string]*EvaluationResult{
+					"keep": {Value: true, Variant: "on", Reason: "default"},
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(evaluateResponse{Flags: flags})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	client, err := New(context.Background(), Config{
+		ServerURL: ts.URL,
+		SDKKey:    "sdk_test",
+		Streaming: boolPtr(false),
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer client.Close()
+
+	var deleted []FlagDeletedEvent
+	client.OnDeleted(func(e FlagDeletedEvent) {
+		deleted = append(deleted, e)
+	})
+
+	// Trigger re-fetch — "remove" flag is gone in second response
+	err = client.UpdateContext(context.Background(), &EvaluationContext{UserID: "user-2"})
+	if err != nil {
+		t.Fatalf("UpdateContext error: %v", err)
+	}
+
+	if len(deleted) != 1 || deleted[0].FlagKey != "remove" {
+		t.Errorf("expected deleted event for 'remove', got %v", deleted)
+	}
+
+	_, ok := client.Detail("remove")
+	if ok {
+		t.Error("removed flag still present in cache")
+	}
+}
+
 func TestClose_ClearsListeners(t *testing.T) {
 	ts := newTestServer(map[string]*EvaluationResult{})
 	defer ts.Close()

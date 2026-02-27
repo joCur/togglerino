@@ -102,7 +102,13 @@ func (c *Client) connectSSE(ctx context.Context, onConnected func()) error {
 		if strings.HasPrefix(line, "event:") {
 			eventType = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
 		} else if strings.HasPrefix(line, "data:") {
-			data = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			// Per SSE spec, multiple data: lines are concatenated with \n
+			line := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if data == "" {
+				data = line
+			} else {
+				data = data + "\n" + line
+			}
 		}
 	}
 
