@@ -314,7 +314,7 @@ export default function ProjectDetailPage() {
                             size="sm"
                             className="text-[11px] h-7 text-muted-foreground"
                             onClick={() => dismissMutation.mutate(uf.id)}
-                            disabled={dismissMutation.isPending}
+                            disabled={dismissMutation.isPending && dismissMutation.variables === uf.id}
                           >
                             Dismiss
                           </Button>
@@ -334,7 +334,8 @@ export default function ProjectDetailPage() {
         open={modalOpen}
         projectKey={key!}
         initialKey={createFromKey}
-        onClose={() => { setModalOpen(false); setCreateFromKey(''); queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] }) }}
+        onClose={() => { setModalOpen(false); setCreateFromKey('') }}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] })}
       />
     </div>
   )

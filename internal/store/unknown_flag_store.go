@@ -2,15 +2,11 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/model"
 )
-
-// ErrNotFound is returned when a requested resource does not exist.
-var ErrNotFound = errors.New("not found")
 
 type UnknownFlagStore struct {
 	pool *pgxpool.Pool
