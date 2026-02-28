@@ -1,15 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { api } from '../api/client.ts'
 import type { Flag, Environment, FlagEnvironmentConfig } from '../api/types.ts'
 import ConfigEditor from '../components/ConfigEditor.tsx'
-import EnvironmentSelector from '../components/EnvironmentSelector.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Switch } from '@/components/ui/switch'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -25,7 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Settings, Trash2, Archive, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -37,7 +42,7 @@ export default function FlagDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [selectedEnvKey, setSelectedEnvKey] = useState<string>('')
+  const [expandedEnvs, setExpandedEnvs] = useState<Set<string>>(new Set())
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
@@ -79,6 +84,38 @@ export default function FlagDetailPage() {
     },
   })
 
+  const toggleMutation = useMutation({
+    mutationFn: ({ envKey, config }: { envKey: string; config: FlagEnvironmentConfig }) =>
+      api.put(`/projects/${key}/flags/${flagKey}/environments/${envKey}`, {
+        enabled: !config.enabled,
+        default_variant: config.default_variant,
+        variants: config.variants,
+        targeting_rules: config.targeting_rules,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+    },
+  })
+
+  // Auto-expand first environment on initial load
+  useEffect(() => {
+    if (environments && environments.length > 0) {
+      setExpandedEnvs((prev) => {
+        if (prev.size > 0) return prev
+        return new Set([environments[0].key])
+      })
+    }
+  }, [environments])
+
+  const setEnvExpanded = (envKey: string, open: boolean) => {
+    setExpandedEnvs((prev) => {
+      const next = new Set(prev)
+      if (open) next.add(envKey)
+      else next.delete(envKey)
+      return next
+    })
+  }
+
   if (isLoading) {
     return (
       <div className="text-center py-16 text-muted-foreground/60 text-[13px] animate-pulse">
@@ -98,11 +135,6 @@ export default function FlagDetailPage() {
   }
 
   const flag = data.flag
-  const effectiveEnvKey = selectedEnvKey || (environments?.[0]?.key ?? '')
-  const selectedEnv = environments?.find((e) => e.key === effectiveEnvKey)
-  const selectedConfig = selectedEnv
-    ? data.environment_configs.find((c) => c.environment_id === selectedEnv.id) ?? null
-    : null
 
   return (
     <div className="animate-[fadeIn_300ms_ease]">
@@ -223,31 +255,72 @@ export default function FlagDetailPage() {
             Environment Configuration
           </div>
 
-          <div className="mb-5">
-            <EnvironmentSelector
-              environments={environments}
-              configs={data.environment_configs}
-              selectedEnvKey={effectiveEnvKey}
-              onSelectEnv={setSelectedEnvKey}
-              projectKey={key!}
-              flagKey={flagKey!}
-            />
-          </div>
+          <div className="flex flex-col gap-3">
+            {environments.map((env) => {
+              const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
+              const enabled = config?.enabled ?? false
+              const isExpanded = expandedEnvs.has(env.key)
 
-          <div className="mb-5">
-            <EvaluationFlow config={selectedConfig} />
-          </div>
+              return (
+                <Collapsible
+                  key={env.id}
+                  open={isExpanded}
+                  onOpenChange={(open) => setEnvExpanded(env.key, open)}
+                >
+                  <div className={cn(
+                    'rounded-lg border transition-colors duration-200',
+                    isExpanded ? 'border-[#d4956a]/40' : 'border-border',
+                  )}>
+                    <CollapsibleTrigger className="flex items-center w-full px-4 py-3 cursor-pointer group">
+                      <ChevronRight className={cn(
+                        'w-4 h-4 text-muted-foreground transition-transform duration-200 mr-3 shrink-0',
+                        isExpanded && 'rotate-90',
+                      )} />
+                      <span className="text-[14px] font-medium text-foreground mr-3">
+                        {env.name}
+                      </span>
+                      <div
+                        className="flex items-center gap-2 ml-auto"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className={cn(
+                          'text-[11px] font-mono font-medium',
+                          enabled ? 'text-emerald-400' : 'text-muted-foreground/50',
+                        )}>
+                          {enabled ? 'ON' : 'OFF'}
+                        </span>
+                        <Switch
+                          checked={enabled}
+                          disabled={!config || toggleMutation.isPending}
+                          onCheckedChange={() => {
+                            if (config) toggleMutation.mutate({ envKey: env.key, config })
+                          }}
+                        />
+                      </div>
+                    </CollapsibleTrigger>
 
-          <ConfigEditor
-            key={effectiveEnvKey}
-            config={selectedConfig}
-            flag={flag}
-            envKey={effectiveEnvKey}
-            projectKey={key!}
-            flagKey={flagKey!}
-            allConfigs={data.environment_configs}
-            environments={environments}
-          />
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                        <div className="mb-4 mt-3">
+                          <EvaluationFlow config={config} />
+                        </div>
+                        <ConfigEditor
+                          key={env.key}
+                          config={config}
+                          flag={flag}
+                          envKey={env.key}
+                          projectKey={key!}
+                          flagKey={flagKey!}
+                          allConfigs={data.environment_configs}
+                          environments={environments}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              )
+            })}
+          </div>
         </>
       )}
 
