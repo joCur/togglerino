@@ -194,7 +194,7 @@ export default function FlagDetailPage() {
       <div className="text-[15px] text-muted-foreground mb-2">{flag.name}</div>
 
       {/* Metadata chips */}
-      <div className="flex items-center gap-2 text-[13px] text-muted-foreground/60 mb-2">
+      <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground/60 mb-2">
         <Badge variant="secondary" className="font-mono text-[11px]">{flag.value_type}</Badge>
         <span>&middot;</span>
         <Badge variant="secondary" className="text-[11px] capitalize">{flag.flag_type}</Badge>
