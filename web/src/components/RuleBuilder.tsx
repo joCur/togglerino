@@ -111,11 +111,6 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="text-[13px] font-medium text-foreground">Targeting Rules</div>
-      <div className="text-xs text-muted-foreground/60 leading-relaxed mb-1">
-        Rules are evaluated top to bottom — the first matching rule wins. If no rule matches, the default variant is served.
-      </div>
-
       {rules.length === 0 && (
         <div className="text-xs text-muted-foreground/60 italic">
           No targeting rules. All users will receive the default variant.

@@ -3,21 +3,18 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { api } from '../api/client.ts'
-import type {
-  Flag,
-  Environment,
-  FlagEnvironmentConfig,
-  Variant,
-  TargetingRule,
-} from '../api/types.ts'
-import VariantEditor from '../components/VariantEditor.tsx'
-import RuleBuilder from '../components/RuleBuilder.tsx'
+import type { Flag, Environment, FlagEnvironmentConfig } from '../api/types.ts'
+import ConfigEditor from '../components/ConfigEditor.tsx'
+import EvaluationFlow from '../components/EvaluationFlow.tsx'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -27,219 +24,27 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react'
 
 interface FlagDetailResponse {
   flag: Flag
   environment_configs: FlagEnvironmentConfig[]
 }
 
-function ConfigEditor({
-  config,
-  flag,
-  envKey,
-  projectKey,
-  flagKey,
-  allConfigs,
-  environments,
-}: {
-  config: FlagEnvironmentConfig | null
-  flag: Flag
-  envKey: string
-  projectKey: string
-  flagKey: string
-  allConfigs: FlagEnvironmentConfig[]
-  environments: Environment[]
-}) {
-  const queryClient = useQueryClient()
-  const [enabled, setEnabled] = useState(config?.enabled ?? false)
-  const [defaultVariant, setDefaultVariant] = useState(config?.default_variant ?? '')
-  const [variants, setVariants] = useState<Variant[]>(config?.variants ?? [])
-  const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
-  const [saved, setSaved] = useState(false)
-  const [copySourceEnv, setCopySourceEnv] = useState<string | null>(null)
-  const [copyKey, setCopyKey] = useState(0)
-
-  const otherEnvironments = environments.filter((e) => e.key !== envKey)
-
-  const updateConfig = useMutation({
-    mutationFn: (data: {
-      enabled: boolean
-      default_variant: string
-      variants: Variant[]
-      targeting_rules: TargetingRule[]
-    }) => api.put(`/projects/${projectKey}/flags/${flagKey}/environments/${envKey}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', projectKey, 'flags', flagKey] })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    },
-  })
-
-  const handleSave = () => {
-    updateConfig.mutate({
-      enabled,
-      default_variant: defaultVariant,
-      variants,
-      targeting_rules: rules,
-    })
-  }
-
-  return (
-    <div className="p-6 rounded-lg bg-card border">
-      {/* Copy from environment */}
-      {otherEnvironments.length > 0 && (
-        <div className="flex items-center gap-3 mb-6 p-3 rounded-md bg-secondary/30 border border-dashed">
-          <div className="text-[13px] text-muted-foreground whitespace-nowrap">Copy from</div>
-          <Select key={copyKey} onValueChange={(value) => setCopySourceEnv(value)}>
-            <SelectTrigger className="w-[180px]" size="sm">
-              <SelectValue placeholder="Select environment" />
-            </SelectTrigger>
-            <SelectContent>
-              {otherEnvironments.map((env) => (
-                <SelectItem key={env.key} value={env.key}>
-                  {env.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Toggle */}
-      <div className="flex items-start gap-4 mb-6 p-4 rounded-md bg-secondary/50 border">
-        <Switch checked={enabled} onCheckedChange={setEnabled} />
-        <div>
-          <span className="text-sm font-medium text-foreground">
-            {enabled ? 'Enabled' : 'Disabled'} in {envKey}
-          </span>
-          <div className="text-xs text-muted-foreground leading-relaxed mt-1">
-            {enabled
-              ? 'Targeting rules and variants are active. Users are evaluated against rules below.'
-              : 'All SDK evaluations return the default variant. Targeting rules are ignored.'}
-          </div>
-        </div>
-      </div>
-
-      {/* Default Variant */}
-      <div className="mb-6">
-        <div className="text-[13px] font-medium text-foreground mb-1">
-          Default Variant
-        </div>
-        <div className="text-xs text-muted-foreground leading-relaxed mb-2.5">
-          {flag.value_type === 'boolean'
-            ? "The value returned when no targeting rule matches. For boolean flags, this is typically 'on' or 'off'."
-            : flag.value_type === 'string'
-            ? 'The string value returned when no targeting rule matches.'
-            : flag.value_type === 'number'
-            ? 'The numeric value returned when no targeting rule matches.'
-            : 'The JSON payload returned when no targeting rule matches.'}
-        </div>
-        {variants.length > 0 ? (
-          <select
-            className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[160px]"
-            value={defaultVariant}
-            onChange={(e) => setDefaultVariant(e.target.value)}
-          >
-            <option value="">-- Select --</option>
-            {variants.map((v) => (
-              <option key={v.key} value={v.key}>
-                {v.key}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <Input
-            className="min-w-[200px] max-w-[300px]"
-            placeholder="Variant key"
-            value={defaultVariant}
-            onChange={(e) => setDefaultVariant(e.target.value)}
-          />
-        )}
-      </div>
-
-      {/* Variants */}
-      <div className="mb-6">
-        <VariantEditor
-          variants={variants}
-          valueType={flag.value_type}
-          onChange={setVariants}
-        />
-      </div>
-
-      {/* Targeting Rules */}
-      <div className="mb-6">
-        <RuleBuilder
-          rules={rules}
-          variants={variants}
-          onChange={setRules}
-        />
-      </div>
-
-      {/* Save */}
-      <Button onClick={handleSave} disabled={updateConfig.isPending}>
-        {updateConfig.isPending ? 'Saving...' : 'Save Configuration'}
-      </Button>
-
-      {saved && (
-        <Alert className="mt-3 bg-emerald-500/10 border-emerald-500/20 text-emerald-400 animate-[fadeIn_200ms_ease]">
-          <AlertDescription>Configuration saved successfully.</AlertDescription>
-        </Alert>
-      )}
-      {updateConfig.error && (
-        <Alert variant="destructive" className="mt-3">
-          <AlertDescription>
-            Failed to save: {updateConfig.error instanceof Error ? updateConfig.error.message : 'Unknown error'}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Copy Config Confirmation Dialog */}
-      <Dialog open={copySourceEnv !== null} onOpenChange={(open) => { if (!open) { setCopySourceEnv(null); setCopyKey((k) => k + 1) } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Copy configuration?</DialogTitle>
-            <DialogDescription>
-              This will replace the current variants, targeting rules, and default variant
-              in <span className="font-semibold text-foreground">{envKey}</span> with
-              the configuration from <span className="font-semibold text-foreground">{copySourceEnv}</span>.
-              The enabled/disabled state will not change.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setCopySourceEnv(null); setCopyKey((k) => k + 1) }}>
-              Cancel
-            </Button>
-            <Button onClick={() => {
-              if (!copySourceEnv) return
-              const sourceEnv = environments.find((e) => e.key === copySourceEnv)
-              if (!sourceEnv) return
-              const sourceConfig = allConfigs.find((c) => c.environment_id === sourceEnv.id)
-              if (!sourceConfig) return
-              setVariants(structuredClone(sourceConfig.variants ?? []))
-              setRules(structuredClone(sourceConfig.targeting_rules ?? []))
-              setDefaultVariant(sourceConfig.default_variant ?? '')
-              setCopySourceEnv(null)
-              setCopyKey((k) => k + 1)
-            }}>
-              Copy Configuration
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
-
 export default function FlagDetailPage() {
   const { key, flag: flagKey } = useParams<{ key: string; flag: string }>()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
-  const [selectedEnvKey, setSelectedEnvKey] = useState<string>('')
+  const [expandedEnvs, setExpandedEnvs] = useState<Set<string> | null>(null)
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['projects', key, 'flags', flagKey],
@@ -252,12 +57,6 @@ export default function FlagDetailPage() {
     queryFn: () => api.get<Environment[]>(`/projects/${key}/environments`),
     enabled: !!key,
   })
-
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-
-  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const archiveMutation = useMutation({
     mutationFn: (archived: boolean) =>
@@ -285,7 +84,34 @@ export default function FlagDetailPage() {
     },
   })
 
-  const effectiveEnvKey = selectedEnvKey || (environments?.[0]?.key ?? '')
+  const toggleMutation = useMutation({
+    mutationFn: ({ envKey, config }: { envKey: string; config: FlagEnvironmentConfig }) =>
+      api.put(`/projects/${key}/flags/${flagKey}/environments/${envKey}`, {
+        enabled: !config.enabled,
+        default_variant: config.default_variant,
+        variants: config.variants,
+        targeting_rules: config.targeting_rules,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+    },
+  })
+
+  // Derive effective expanded set: null means "not yet interacted, show first env expanded"
+  const defaultExpanded = environments && environments.length > 0
+    ? new Set([environments[0].key])
+    : new Set<string>()
+  const effectiveExpandedEnvs = expandedEnvs ?? defaultExpanded
+
+  const setEnvExpanded = (envKey: string, open: boolean) => {
+    setExpandedEnvs((prev) => {
+      const current = prev ?? defaultExpanded
+      const next = new Set(current)
+      if (open) next.add(envKey)
+      else next.delete(envKey)
+      return next
+    })
+  }
 
   if (isLoading) {
     return (
@@ -309,191 +135,190 @@ export default function FlagDetailPage() {
 
   return (
     <div className="animate-[fadeIn_300ms_ease]">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-6 text-[13px] text-muted-foreground/60">
-        <Link to="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
-          Projects
-        </Link>
-        <span className="opacity-40">&rsaquo;</span>
-        <Link to={`/projects/${key}`} className="text-muted-foreground hover:text-foreground transition-colors">
-          {key}
-        </Link>
-        <span className="opacity-40">&rsaquo;</span>
-        <span className="text-foreground font-mono text-xs">{flagKey}</span>
-      </div>
+      {/* Back link */}
+      <Link
+        to={`/projects/${key}`}
+        className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground transition-colors mb-6"
+      >
+        &larr; Back to flags
+      </Link>
 
-      {/* Flag Metadata Card */}
-      <div className="p-6 rounded-lg bg-card border mb-6">
-        <div className="text-xl font-semibold text-foreground mb-1 tracking-tight">
-          {flag.name}
-          {flag.lifecycle_status === 'archived' && (
-            <Badge variant="secondary" className="ml-2 text-xs align-middle">Archived</Badge>
-          )}
-        </div>
-        <div className="text-[13px] font-mono text-[#d4956a] mb-3.5 tracking-wide">
-          {flag.key}
-        </div>
-        <div className="flex gap-6 flex-wrap mb-2">
-          <div>
-            <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-              Type
-            </div>
-            <Badge variant="secondary" className="font-mono text-xs">{flag.value_type}</Badge>
-          </div>
-          <div>
-            <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-              Purpose
-            </div>
-            <Badge variant="secondary" className="text-xs capitalize">{flag.flag_type}</Badge>
-          </div>
-          <div>
-            <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-              Status
-            </div>
-            <Badge
-              variant="secondary"
-              className={cn(
-                'text-xs',
-                flag.lifecycle_status === 'active' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-                flag.lifecycle_status === 'potentially_stale' && 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-                flag.lifecycle_status === 'stale' && 'bg-red-500/10 text-red-400 border-red-500/20',
-                flag.lifecycle_status === 'archived' && 'bg-muted text-muted-foreground',
-              )}
-            >
-              {flag.lifecycle_status.replace(/_/g, ' ')}
-            </Badge>
-          </div>
-          {flag.tags && flag.tags.length > 0 && (
-            <div>
-              <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                Tags
-              </div>
-              <div className="flex gap-1">
-                {flag.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        {flag.description && (
-          <div className="text-[13px] text-muted-foreground leading-relaxed mt-2">
-            {flag.description}
-          </div>
-        )}
-      </div>
+      {/* Header: flag key + settings dropdown */}
+      <div className="flex items-start justify-between mb-1">
+        <h1 className="text-xl font-mono text-[#d4956a] tracking-wide">{flag.key}</h1>
 
-      {/* Danger Zone */}
-      <div className="p-6 rounded-lg border border-destructive/30 mb-6">
-        <div className="font-mono text-[10px] font-medium text-destructive uppercase tracking-wider mb-3">
-          Danger Zone
-        </div>
-        {flag.lifecycle_status === 'archived' ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[13px] font-medium text-foreground">Unarchive this flag</div>
-                <div className="text-xs text-muted-foreground">Restore this flag so it can be evaluated again.</div>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => archiveMutation.mutate(false)}
-                disabled={archiveMutation.isPending}
-              >
-                {archiveMutation.isPending ? 'Unarchiving...' : 'Unarchive'}
-              </Button>
-            </div>
-            <div className="border-t border-destructive/20" />
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[13px] font-medium text-foreground">Delete this flag permanently</div>
-                <div className="text-xs text-muted-foreground">This action cannot be undone.</div>
-              </div>
-              <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
-                Delete Flag
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {flag.lifecycle_status === 'potentially_stale' && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Settings className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {flag.lifecycle_status === 'archived' ? (
               <>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-[13px] font-medium text-foreground">Mark as stale</div>
-                    <div className="text-xs text-muted-foreground">Signal that this flag should be removed from code.</div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
-                    onClick={() => stalenessMutation.mutate()}
-                    disabled={stalenessMutation.isPending}
-                  >
-                    {stalenessMutation.isPending ? 'Marking...' : 'Mark as Stale'}
-                  </Button>
-                </div>
-                <div className="border-t border-destructive/20" />
+                <DropdownMenuItem onClick={() => archiveMutation.mutate(false)}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Unarchive
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete permanently
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                {flag.lifecycle_status === 'potentially_stale' && (
+                  <>
+                    <DropdownMenuItem onClick={() => stalenessMutation.mutate()}>
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      Mark as stale
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => setArchiveDialogOpen(true)}>
+                  <Archive className="w-4 h-4 mr-2" />
+                  Archive
+                </DropdownMenuItem>
               </>
             )}
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[13px] font-medium text-foreground">Archive this flag</div>
-                <div className="text-xs text-muted-foreground">
-                  Archived flags return default values and are excluded from evaluation.
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                className="border-destructive/50 text-destructive hover:bg-destructive/10"
-                onClick={() => setArchiveDialogOpen(true)}
-              >
-                Archive Flag
-              </Button>
-            </div>
-          </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Flag name */}
+      <div className="text-[15px] text-muted-foreground mb-2">{flag.name}</div>
+
+      {/* Metadata chips */}
+      <div className="flex items-center gap-2 text-[13px] text-muted-foreground/60 mb-2">
+        <Badge variant="secondary" className="font-mono text-[11px]">{flag.value_type}</Badge>
+        <span>&middot;</span>
+        <Badge variant="secondary" className="text-[11px] capitalize">{flag.flag_type}</Badge>
+        <span>&middot;</span>
+        <Badge
+          variant="secondary"
+          className={cn(
+            'text-[11px]',
+            flag.lifecycle_status === 'active' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+            flag.lifecycle_status === 'potentially_stale' && 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+            flag.lifecycle_status === 'stale' && 'bg-red-500/10 text-red-400 border-red-500/20',
+            flag.lifecycle_status === 'archived' && 'bg-muted text-muted-foreground',
+          )}
+        >
+          {flag.lifecycle_status.replace(/_/g, ' ')}
+        </Badge>
+        {flag.tags && flag.tags.length > 0 && (
+          <>
+            <span>&middot;</span>
+            {flag.tags.map((tag) => (
+              <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
+            ))}
+          </>
         )}
       </div>
 
+      {/* Description */}
+      {flag.description && (
+        <div className="text-[13px] text-muted-foreground/60 leading-relaxed mb-6">
+          {flag.description}
+        </div>
+      )}
+      {!flag.description && <div className="mb-6" />}
+
+      {/* Mutation error alerts */}
       {archiveMutation.error && (
-        <Alert variant="destructive" className="mb-6">
+        <Alert variant="destructive" className="mb-4">
           <AlertDescription>
             Failed to update flag: {archiveMutation.error instanceof Error ? archiveMutation.error.message : 'Unknown error'}
           </AlertDescription>
         </Alert>
       )}
       {deleteMutation.error && (
-        <Alert variant="destructive" className="mb-6">
+        <Alert variant="destructive" className="mb-4">
           <AlertDescription>
             Failed to delete flag: {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Unknown error'}
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Environment Tabs */}
+      {/* Environment Configuration section */}
       {environments && environments.length > 0 && (
-        <Tabs value={effectiveEnvKey} onValueChange={setSelectedEnvKey}>
-          <TabsList className="mb-6">
-            {environments.map((env) => (
-              <TabsTrigger key={env.key} value={env.key}>{env.name}</TabsTrigger>
-            ))}
-          </TabsList>
-          {environments.map((env) => {
-            const envConfig = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
-            return (
-              <TabsContent key={env.key} value={env.key}>
-                <ConfigEditor
-                  config={envConfig}
-                  flag={flag}
-                  envKey={env.key}
-                  projectKey={key!}
-                  flagKey={flagKey!}
-                  allConfigs={data.environment_configs}
-                  environments={environments}
-                />
-              </TabsContent>
-            )
-          })}
-        </Tabs>
+        <>
+          <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-4">
+            Environment Configuration
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {environments.map((env) => {
+              const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
+              const enabled = config?.enabled ?? false
+              const isExpanded = effectiveExpandedEnvs.has(env.key)
+
+              return (
+                <Collapsible
+                  key={env.id}
+                  open={isExpanded}
+                  onOpenChange={(open) => setEnvExpanded(env.key, open)}
+                >
+                  <div className={cn(
+                    'rounded-lg border transition-colors duration-200',
+                    isExpanded ? 'border-[#d4956a]/40' : 'border-border',
+                  )}>
+                    <CollapsibleTrigger className="flex items-center w-full px-4 py-3 cursor-pointer group">
+                      <ChevronRight className={cn(
+                        'w-4 h-4 text-muted-foreground transition-transform duration-200 mr-3 shrink-0',
+                        isExpanded && 'rotate-90',
+                      )} />
+                      <span className="text-[14px] font-medium text-foreground mr-3">
+                        {env.name}
+                      </span>
+                      <div
+                        className="flex items-center gap-2 ml-auto"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className={cn(
+                          'text-[11px] font-mono font-medium',
+                          enabled ? 'text-emerald-400' : 'text-muted-foreground/50',
+                        )}>
+                          {enabled ? 'ON' : 'OFF'}
+                        </span>
+                        <Switch
+                          checked={enabled}
+                          disabled={!config || toggleMutation.isPending}
+                          onCheckedChange={() => {
+                            if (config) toggleMutation.mutate({ envKey: env.key, config })
+                          }}
+                        />
+                      </div>
+                    </CollapsibleTrigger>
+
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                        <div className="mb-4 mt-3">
+                          <EvaluationFlow config={config} />
+                        </div>
+                        <ConfigEditor
+                          key={env.key}
+                          config={config}
+                          flag={flag}
+                          envKey={env.key}
+                          projectKey={key!}
+                          flagKey={flagKey!}
+                          allConfigs={data.environment_configs}
+                          environments={environments}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {(!environments || environments.length === 0) && (

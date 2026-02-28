@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus } from '../api/types.ts'
 import { useFlag } from '@togglerino/react'
+import FlagCard from '../components/FlagCard.tsx'
 import CreateFlagModal from '../components/CreateFlagModal.tsx'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -221,83 +222,16 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Key</TableHead>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Name</TableHead>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Type</TableHead>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Purpose</TableHead>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Tags</TableHead>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Environments</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((flag) => (
-                    <TableRow
-                      key={flag.id}
-                      className="cursor-pointer transition-colors hover:bg-[#d4956a]/8"
-                      onClick={() => navigate(`/projects/${key}/flags/${flag.key}`)}
-                    >
-                      <TableCell>
-                        <span className={`font-mono text-xs text-[#d4956a] tracking-wide ${flag.lifecycle_status === 'archived' ? 'opacity-50' : ''}`}>{flag.key}</span>
-                      </TableCell>
-                      <TableCell className="text-[13px] text-foreground">
-                        <span className={flag.lifecycle_status === 'archived' ? 'opacity-50' : ''}>
-                          {flag.name}
-                        </span>
-                        {flag.lifecycle_status !== 'active' && (
-                          <Badge
-                            variant="secondary"
-                            className={`ml-2 text-[10px] ${
-                              flag.lifecycle_status === 'stale' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                              flag.lifecycle_status === 'potentially_stale' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                              ''
-                            }`}
-                          >
-                            {flag.lifecycle_status === 'archived' ? 'Archived' :
-                             flag.lifecycle_status === 'stale' ? 'Stale' :
-                             flag.lifecycle_status === 'potentially_stale' ? 'Potentially Stale' : ''}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="font-mono text-[11px]">{flag.value_type}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[11px]">{flag.flag_type}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {flag.tags?.map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-[11px]">{tag}</Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
-                          {environments?.map((env) => {
-                            const enabled = getEnvStatus(flag.key, env.id)
-                            return (
-                              <span key={env.id} className="inline-flex items-center gap-1 whitespace-nowrap">
-                                <span
-                                  className={`inline-block w-[7px] h-[7px] rounded-full transition-all duration-300 ${
-                                    enabled
-                                      ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]'
-                                      : 'bg-muted-foreground/60'
-                                  }`}
-                                />
-                                <span className="text-[11px] text-muted-foreground/60">{env.name}</span>
-                              </span>
-                            )
-                          })}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filtered.map((flag) => (
+                <FlagCard
+                  key={flag.id}
+                  flag={flag}
+                  environments={environments ?? []}
+                  getEnvStatus={getEnvStatus}
+                  onClick={() => navigate(`/projects/${key}/flags/${flag.key}`)}
+                />
+              ))}
             </div>
           )}
         </TabsContent>
