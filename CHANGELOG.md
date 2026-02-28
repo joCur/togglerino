@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/joCur/togglerino/compare/v0.8.0...v0.9.0) (2026-02-28)
+
+
+### Features
+
+* add Go client SDK ([#24](https://github.com/joCur/togglerino/issues/24)) ([e46b667](https://github.com/joCur/togglerino/commit/e46b6675b5eb07cc96eb71a9c21b07a2d04dd53c))
+* **web:** redesign flag list and detail screens ([#26](https://github.com/joCur/togglerino/issues/26)) ([b724bab](https://github.com/joCur/togglerino/commit/b724bab8804f8b1e657f32fd64913c1a615d9e57))
+
 ## [0.8.0](https://github.com/joCur/togglerino/compare/v0.7.1...v0.8.0) (2026-02-27)
 
 
