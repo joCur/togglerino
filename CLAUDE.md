@@ -33,6 +33,7 @@ cd web && npm run lint                     # ESLint
 ```bash
 cd sdks/javascript && npm test             # JavaScript SDK tests (vitest)
 cd sdks/react && npm test                  # React SDK tests (vitest)
+cd sdks/dotnet && dotnet test              # .NET SDK tests (xUnit)
 ```
 
 Both SDKs use `tsup` for bundling, outputting CJS + ESM with TypeScript declarations. `@togglerino/react` references `@togglerino/sdk` via local file path for development.
@@ -100,6 +101,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 
 - `sdks/javascript/` — `@togglerino/sdk`: TypeScript SDK with SSE streaming, built with tsup
 - `sdks/react/` — `@togglerino/react`: React context provider + `useFlag` hook
+- `sdks/dotnet/` — `Togglerino.Sdk`: .NET 8+ SDK with IObservable events, Polly resilience, built with dotnet
 
 ## API Routes
 
