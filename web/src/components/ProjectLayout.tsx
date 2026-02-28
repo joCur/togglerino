@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Outlet, NavLink, useParams, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { Outlet, NavLink, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useIsMobile } from '../hooks/useIsMobile.ts'
 import Topbar from './Topbar.tsx'
@@ -20,12 +20,7 @@ export default function ProjectLayout() {
   const { key } = useParams<{ key: string }>()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const location = useLocation()
   const { user, logout } = useAuth()
-
-  useEffect(() => {
-    setDrawerOpen(false)
-  }, [location.pathname])
 
   const navLinks = (
     <>
@@ -59,7 +54,7 @@ export default function ProjectLayout() {
               <div className="p-4 border-b">
                 <ProjectSwitcher />
               </div>
-              <nav className="py-5 flex-1 flex flex-col">
+              <nav className="py-5 flex-1 flex flex-col" onClick={() => setDrawerOpen(false)}>
                 {navLinks}
               </nav>
               <div className="border-t p-4 flex flex-col gap-2">

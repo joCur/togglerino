@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { Outlet, NavLink } from 'react-router-dom'
 import { useFlag } from '@togglerino/react'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useIsMobile } from '../hooks/useIsMobile.ts'
@@ -35,13 +35,7 @@ function SidebarNav() {
 export default function OrgLayout() {
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const location = useLocation()
   const { user, logout } = useAuth()
-
-  // Close drawer on navigation
-  useEffect(() => {
-    setDrawerOpen(false)
-  }, [location.pathname])
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -59,7 +53,7 @@ export default function OrgLayout() {
         {isMobile && (
           <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
             <SheetContent side="left" className="w-[260px] p-0 flex flex-col">
-              <nav className="py-5 flex-1 flex flex-col">
+              <nav className="py-5 flex-1 flex flex-col" onClick={() => setDrawerOpen(false)}>
                 <SidebarNav />
               </nav>
               <div className="border-t p-4 flex flex-col gap-2">
