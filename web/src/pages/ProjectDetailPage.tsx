@@ -144,7 +144,7 @@ export default function ProjectDetailPage() {
         <span className="text-foreground font-mono text-xs">{key}</span>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">{key}</h1>
         <Button onClick={() => setModalOpen(true)}>Create Flag</Button>
       </div>
@@ -166,16 +166,16 @@ export default function ProjectDetailPage() {
 
         <TabsContent value="flags">
           {/* Filters */}
-          <div className="flex gap-2.5 mb-5 mt-5">
+          <div className="flex flex-col md:flex-row gap-2.5 mb-5 mt-5">
             <Input
-              className="flex-1 max-w-[300px]"
+              className="w-full md:flex-1 md:max-w-[300px]"
               placeholder="Search flags..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             {allTags.length > 0 && (
               <select
-                className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+                className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
               >
@@ -186,7 +186,7 @@ export default function ProjectDetailPage() {
               </select>
             )}
             <select
-              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={purposeFilter}
               onChange={(e) => setPurposeFilter(e.target.value as FlagPurpose | '')}
             >
@@ -198,7 +198,7 @@ export default function ProjectDetailPage() {
               <option value="permission">Permission</option>
             </select>
             <select
-              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as LifecycleStatus | '')}
             >
@@ -245,7 +245,7 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border overflow-hidden mt-5">
+            <div className="rounded-lg border overflow-x-auto mt-5">
               <Table>
                 <TableHeader>
                   <TableRow>

@@ -37,7 +37,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="animate-[fadeIn_300ms_ease]">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">Projects</h1>
         <Button onClick={() => setModalOpen(true)}>Create Project</Button>
       </div>
@@ -50,7 +50,7 @@ export default function ProjectsPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3 md:gap-4">
           {projects.map((project, index) => (
             <Card
               key={project.id}

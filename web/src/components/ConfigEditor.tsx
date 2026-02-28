@@ -106,7 +106,7 @@ export default function ConfigEditor({
         </div>
         {variants.length > 0 ? (
           <select
-            className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[160px]"
+            className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:min-w-[160px] md:w-auto"
             value={defaultVariant}
             onChange={(e) => setDefaultVariant(e.target.value)}
           >
@@ -117,7 +117,7 @@ export default function ConfigEditor({
           </select>
         ) : (
           <Input
-            className="min-w-[200px] max-w-[300px]"
+            className="w-full md:min-w-[200px] md:max-w-[300px]"
             placeholder="Variant key"
             value={defaultVariant}
             onChange={(e) => setDefaultVariant(e.target.value)}
@@ -173,10 +173,10 @@ export default function ConfigEditor({
 
       {/* Copy from environment */}
       {otherEnvironments.length > 0 && (
-        <div className="flex items-center gap-3 mb-6 p-3 rounded-md bg-secondary/30 border border-dashed">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6 p-3 rounded-md bg-secondary/30 border border-dashed">
           <div className="text-[13px] text-muted-foreground whitespace-nowrap">Copy from</div>
           <Select key={copyKey} onValueChange={(value) => setCopySourceEnv(value)}>
-            <SelectTrigger className="w-[180px]" size="sm">
+            <SelectTrigger className="w-full md:w-[180px]" size="sm">
               <SelectValue placeholder="Select environment" />
             </SelectTrigger>
             <SelectContent>
