@@ -8,6 +8,16 @@
     <PackageId>Togglerino.Sdk</PackageId>
     <Version>0.1.0</Version>
     <Description>Togglerino feature flag SDK for .NET</Description>
+    <Authors>Togglerino</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/joCur/togglerino</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/joCur/togglerino</PackageProjectUrl>
+    <PackageTags>feature-flags;feature-toggles;togglerino</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,7 +25,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     <PackageReference Include="Polly.Core" Version="8.5.2" />
     <PackageReference Include="System.Reactive" Version="6.0.1" />
   </ItemGroup>

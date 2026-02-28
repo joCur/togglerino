@@ -10,6 +10,24 @@
         {"type": "fix", "section": "Bug Fixes"},
         {"type": "refactor", "section": "Code Refactoring"}
       ]
+    },
+    "sdks/dotnet": {
+      "release-type": "simple",
+      "component": "dotnet-sdk",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "changelog-sections": [
+        {"type": "feat", "section": "Features"},
+        {"type": "fix", "section": "Bug Fixes"},
+        {"type": "refactor", "section": "Code Refactoring"}
+      ],
+      "extra-files": [
+        {
+          "type": "xml",
+          "path": "src/Togglerino.Sdk/Togglerino.Sdk.csproj",
+          "xpath": "//PropertyGroup/Version"
+        }
+      ]
     }
   }
 }
