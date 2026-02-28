@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
@@ -42,7 +42,7 @@ export default function FlagDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [expandedEnvs, setExpandedEnvs] = useState<Set<string>>(new Set())
+  const [expandedEnvs, setExpandedEnvs] = useState<Set<string> | null>(null)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
@@ -97,19 +97,16 @@ export default function FlagDetailPage() {
     },
   })
 
-  // Auto-expand first environment on initial load
-  useEffect(() => {
-    if (environments && environments.length > 0) {
-      setExpandedEnvs((prev) => {
-        if (prev.size > 0) return prev
-        return new Set([environments[0].key])
-      })
-    }
-  }, [environments])
+  // Derive effective expanded set: null means "not yet interacted, show first env expanded"
+  const defaultExpanded = environments && environments.length > 0
+    ? new Set([environments[0].key])
+    : new Set<string>()
+  const effectiveExpandedEnvs = expandedEnvs ?? defaultExpanded
 
   const setEnvExpanded = (envKey: string, open: boolean) => {
     setExpandedEnvs((prev) => {
-      const next = new Set(prev)
+      const current = prev ?? defaultExpanded
+      const next = new Set(current)
       if (open) next.add(envKey)
       else next.delete(envKey)
       return next
@@ -259,7 +256,7 @@ export default function FlagDetailPage() {
             {environments.map((env) => {
               const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
               const enabled = config?.enabled ?? false
-              const isExpanded = expandedEnvs.has(env.key)
+              const isExpanded = effectiveExpandedEnvs.has(env.key)
 
               return (
                 <Collapsible
