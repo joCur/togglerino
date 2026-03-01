@@ -16,11 +16,11 @@ func rawJSON(v any) json.RawMessage {
 	return b
 }
 
-func makeFlag(key string, defaultValue any, archived bool) *model.Flag {
+func makeFlag(key string, defaultValue any, lifecycleStatus model.LifecycleStatus) *model.Flag {
 	return &model.Flag{
-		Key:          key,
-		DefaultValue: rawJSON(defaultValue),
-		Archived:     archived,
+		Key:             key,
+		DefaultValue:    rawJSON(defaultValue),
+		LifecycleStatus: lifecycleStatus,
 	}
 }
 
@@ -35,7 +35,7 @@ func makeConfig(enabled bool, defaultVariant string, variants []model.Variant, r
 
 func TestEngine_FlagDisabled(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", false, false)
+	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(false, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},
@@ -57,7 +57,7 @@ func TestEngine_FlagDisabled(t *testing.T) {
 
 func TestEngine_FlagArchived(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", "default-val", true)
+	flag := makeFlag("test-flag", "default-val", model.LifecycleArchived)
 	config := makeConfig(true, "on", []model.Variant{
 		{Key: "on", Value: rawJSON("on-val")},
 	}, nil)
@@ -78,7 +78,7 @@ func TestEngine_FlagArchived(t *testing.T) {
 
 func TestEngine_NoRulesEnabled(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", false, false)
+	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},
@@ -103,7 +103,7 @@ func TestEngine_NoRulesEnabled(t *testing.T) {
 
 func TestEngine_SingleRuleMatches(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", false, false)
+	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},
@@ -137,7 +137,7 @@ func TestEngine_SingleRuleMatches(t *testing.T) {
 
 func TestEngine_SingleRuleDoesNotMatch(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", false, false)
+	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},
@@ -168,7 +168,7 @@ func TestEngine_SingleRuleDoesNotMatch(t *testing.T) {
 
 func TestEngine_MultipleRulesFirstMatchWins(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", "none", false)
+	flag := makeFlag("test-flag", "none", model.LifecycleActive)
 	config := makeConfig(true, "default", []model.Variant{
 		{Key: "default", Value: rawJSON("none")},
 		{Key: "beta", Value: rawJSON("beta-experience")},
@@ -214,7 +214,7 @@ func TestEngine_PercentageRollout_InBucket(t *testing.T) {
 	// rollout-flag + user-xyz = bucket 28
 	// With 50% rollout, bucket 28 < 50, so user IS in rollout.
 	engine := NewEngine()
-	flag := makeFlag("rollout-flag", false, false)
+	flag := makeFlag("rollout-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},
@@ -251,7 +251,7 @@ func TestEngine_PercentageRollout_OutOfBucket(t *testing.T) {
 	// rollout-flag + user-abc = bucket 89
 	// With 50% rollout, bucket 89 >= 50, so user is NOT in rollout.
 	engine := NewEngine()
-	flag := makeFlag("rollout-flag", false, false)
+	flag := makeFlag("rollout-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},
@@ -285,7 +285,7 @@ func TestEngine_PercentageRollout_OutOfBucket(t *testing.T) {
 
 func TestEngine_ComplexConditionsANDLogic(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", "default", false)
+	flag := makeFlag("test-flag", "default", model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON("default")},
 		{Key: "premium", Value: rawJSON("premium-feature")},
@@ -367,7 +367,7 @@ func TestEngine_ComplexConditionsANDLogic(t *testing.T) {
 
 func TestEngine_ExistsNotExistsOperators(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", false, false)
+	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},
@@ -450,7 +450,7 @@ func TestEngine_ExistsNotExistsOperators(t *testing.T) {
 
 func TestEngine_VariantNotFound_FallbackToDefault(t *testing.T) {
 	engine := NewEngine()
-	flag := makeFlag("test-flag", "fallback-value", false)
+	flag := makeFlag("test-flag", "fallback-value", model.LifecycleActive)
 	config := makeConfig(true, "nonexistent-variant", []model.Variant{
 		{Key: "on", Value: rawJSON(true)},
 	}, nil)
@@ -477,7 +477,7 @@ func TestEngine_VariantNotFound_FallbackToDefault(t *testing.T) {
 func TestEngine_PercentageRollout_100Percent(t *testing.T) {
 	// 100% rollout means all users should be included.
 	engine := NewEngine()
-	flag := makeFlag("full-rollout", false, false)
+	flag := makeFlag("full-rollout", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},
@@ -510,7 +510,7 @@ func TestEngine_PercentageRollout_100Percent(t *testing.T) {
 func TestEngine_PercentageRollout_0Percent(t *testing.T) {
 	// 0% rollout means no users should be included.
 	engine := NewEngine()
-	flag := makeFlag("zero-rollout", false, false)
+	flag := makeFlag("zero-rollout", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
 		{Key: "off", Value: rawJSON(false)},
 		{Key: "on", Value: rawJSON(true)},

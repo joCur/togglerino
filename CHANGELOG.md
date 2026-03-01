@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.9.0](https://github.com/joCur/togglerino/compare/v0.8.0...v0.9.0) (2026-02-28)
+
+
+### Features
+
+* add Go client SDK ([#24](https://github.com/joCur/togglerino/issues/24)) ([e46b667](https://github.com/joCur/togglerino/commit/e46b6675b5eb07cc96eb71a9c21b07a2d04dd53c))
+* **web:** redesign flag list and detail screens ([#26](https://github.com/joCur/togglerino/issues/26)) ([b724bab](https://github.com/joCur/togglerino/commit/b724bab8804f8b1e657f32fd64913c1a615d9e57))
+
+## [0.8.0](https://github.com/joCur/togglerino/compare/v0.7.1...v0.8.0) (2026-02-27)
+
+
+### Features
+
+* add flag types, lifecycle status, and staleness tracking ([#18](https://github.com/joCur/togglerino/issues/18)) ([831f11d](https://github.com/joCur/togglerino/commit/831f11dffa98ca7bb17383be86a4ca38bed7a7c3))
+
+## [0.7.1](https://github.com/joCur/togglerino/compare/v0.7.0...v0.7.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* correct repository URL in SDK package.json for OIDC provenance ([#21](https://github.com/joCur/togglerino/issues/21)) ([9c77539](https://github.com/joCur/togglerino/commit/9c77539be5821586102b49437a1a194cf6ba25d3))
+
+## [0.7.0](https://github.com/joCur/togglerino/compare/v0.6.0...v0.7.0) (2026-02-27)
+
+
+### Features
+
+* context attribute autocomplete in rule builder ([#14](https://github.com/joCur/togglerino/issues/14)) ([3712eb1](https://github.com/joCur/togglerino/commit/3712eb1de3fe297a4e988292b70a64b273ab8e30))
+* track and surface unknown flags from SDK evaluations ([#15](https://github.com/joCur/togglerino/issues/15)) ([e60a0a7](https://github.com/joCur/togglerino/commit/e60a0a708196f01f83519b363e79ff9e72e72379))
+
+## [0.6.0](https://github.com/joCur/togglerino/compare/v0.5.0...v0.6.0) (2026-02-27)
+
+
+### Features
+
+* **web:** copy flag config between environments ([#12](https://github.com/joCur/togglerino/issues/12)) ([683f83a](https://github.com/joCur/togglerino/commit/683f83ae9fead3e62831644567a5e30abd172d87))
+
+
+### Bug Fixes
+
+* **ci:** quote step names containing YAML-special colon character ([f62d162](https://github.com/joCur/togglerino/commit/f62d162da4a694c35f2485de3cde4dfd785b22d6))
+
 ## [0.5.0](https://github.com/joCur/togglerino/compare/v0.4.0...v0.5.0) (2026-02-26)
 
 

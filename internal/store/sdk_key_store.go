@@ -70,13 +70,13 @@ func (s *SDKKeyStore) ListByEnvironment(ctx context.Context, environmentID strin
 func (s *SDKKeyStore) FindByKey(ctx context.Context, key string) (*model.SDKKey, error) {
 	var k model.SDKKey
 	err := s.pool.QueryRow(ctx,
-		`SELECT sk.id, sk.key, sk.environment_id, sk.name, sk.revoked, sk.created_at, p.key, e.key
+		`SELECT sk.id, sk.key, sk.environment_id, sk.name, sk.revoked, sk.created_at, p.id, p.key, e.key
 		 FROM sdk_keys sk
 		 JOIN environments e ON e.id = sk.environment_id
 		 JOIN projects p ON p.id = e.project_id
 		 WHERE sk.key = $1 AND sk.revoked = FALSE`,
 		key,
-	).Scan(&k.ID, &k.Key, &k.EnvironmentID, &k.Name, &k.Revoked, &k.CreatedAt, &k.ProjectKey, &k.EnvironmentKey)
+	).Scan(&k.ID, &k.Key, &k.EnvironmentID, &k.Name, &k.Revoked, &k.CreatedAt, &k.ProjectID, &k.ProjectKey, &k.EnvironmentKey)
 	if err != nil {
 		return nil, fmt.Errorf("finding SDK key: %w", err)
 	}
