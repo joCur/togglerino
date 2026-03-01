@@ -16,7 +16,14 @@ func NewEngine() *Engine {
 
 // Evaluate evaluates a flag for a given context.
 // Returns the evaluation result with value, variant key, and reason.
+// This is a backward-compatible wrapper around EvaluateWithSegments with no segments.
 func (e *Engine) Evaluate(flag *model.Flag, config *model.FlagEnvironmentConfig, ctx *model.EvaluationContext) *model.EvaluationResult {
+	return e.EvaluateWithSegments(flag, config, ctx, nil)
+}
+
+// EvaluateWithSegments evaluates a flag for a given context, resolving segment_match conditions
+// against the provided segments map. Segments are keyed by segment key.
+func (e *Engine) EvaluateWithSegments(flag *model.Flag, config *model.FlagEnvironmentConfig, ctx *model.EvaluationContext, segments map[string]model.Segment) *model.EvaluationResult {
 	// 1. If flag is archived, return default value with reason "archived".
 	if flag.LifecycleStatus == model.LifecycleArchived {
 		return &model.EvaluationResult{
@@ -37,7 +44,7 @@ func (e *Engine) Evaluate(flag *model.Flag, config *model.FlagEnvironmentConfig,
 
 	// 3. Evaluate targeting rules in order.
 	for _, rule := range config.TargetingRules {
-		if matchesAllConditions(rule.Conditions, ctx) {
+		if matchesAllConditions(rule.Conditions, ctx, segments) {
 			// Check percentage rollout.
 			if rule.PercentageRollout != nil {
 				bucket := ConsistentHash(flag.Key, ctx.UserID)
@@ -66,8 +73,29 @@ func (e *Engine) Evaluate(flag *model.Flag, config *model.FlagEnvironmentConfig,
 }
 
 // matchesAllConditions checks if all conditions in a rule match the evaluation context.
-func matchesAllConditions(conditions []model.Condition, ctx *model.EvaluationContext) bool {
+// When a condition has operator "segment_match", the engine looks up the segment by key
+// and evaluates its conditions. Passing nil for segments in the recursive call prevents
+// nesting (segments cannot reference other segments).
+func matchesAllConditions(conditions []model.Condition, ctx *model.EvaluationContext, segments map[string]model.Segment) bool {
 	for _, cond := range conditions {
+		if cond.Operator == string(model.OpSegmentMatch) {
+			segKey, ok := cond.Value.(string)
+			if !ok {
+				return false
+			}
+			if segments == nil {
+				return false
+			}
+			seg, exists := segments[segKey]
+			if !exists {
+				return false
+			}
+			// Evaluate segment conditions (pass nil for segments to prevent nesting).
+			if !matchesAllConditions(seg.Conditions, ctx, nil) {
+				return false
+			}
+			continue
+		}
 		attrValue := ctx.Attributes[cond.Attribute]
 		if !EvaluateCondition(attrValue, cond.Operator, cond.Value) {
 			return false

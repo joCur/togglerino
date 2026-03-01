@@ -20,6 +20,7 @@ import AcceptInvitePage from './pages/AcceptInvitePage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.tsx'
 import AccountPage from './pages/AccountPage.tsx'
+import SegmentsPage from './pages/SegmentsPage.tsx'
 
 const queryClient = new QueryClient()
 
@@ -77,6 +78,7 @@ function AuthRouter() {
         <Route path="environments/:env/sdk-keys" element={<SDKKeysPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
         <Route path="settings" element={<ProjectSettingsPage />} />
+        <Route path="segments" element={<SegmentsPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/projects" replace />} />
       <Route path="*" element={<Navigate to="/projects" replace />} />

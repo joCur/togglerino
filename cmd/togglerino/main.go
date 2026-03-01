@@ -62,6 +62,7 @@ func main() {
 	auditStore := store.NewAuditStore(pool)
 	projectSettingsStore := store.NewProjectSettingsStore(pool)
 	unknownFlagStore := store.NewUnknownFlagStore(pool)
+	segmentStore := store.NewSegmentStore(pool)
 	scheduleStore := store.NewScheduleStore(pool)
 
 	// 5. Initialize cache, engine, hub
@@ -101,6 +102,7 @@ func main() {
 	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
 	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore)
 	unknownFlagHandler := handler.NewUnknownFlagHandler(unknownFlagStore, projectStore)
+	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool)
 	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
 	streamHandler := handler.NewStreamHandler(hub)
 
@@ -183,6 +185,14 @@ func main() {
 
 	// Context attributes
 	mux.Handle("GET /api/v1/projects/{key}/context-attributes", wrap(contextAttributeHandler.List, sessionAuth))
+
+	// Segments
+	mux.Handle("GET /api/v1/projects/{key}/segments", wrap(segmentHandler.List, sessionAuth))
+	mux.Handle("POST /api/v1/projects/{key}/segments", wrap(segmentHandler.Create, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Get, sessionAuth))
+	mux.Handle("PUT /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Update, sessionAuth))
+	mux.Handle("DELETE /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Delete, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}/usage", wrap(segmentHandler.Usage, sessionAuth))
 
 	// --- SDK-authed routes (client API) ---
 	mux.Handle("POST /api/v1/evaluate", wrap(evaluateHandler.EvaluateAll, sdkAuth))

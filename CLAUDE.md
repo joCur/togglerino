@@ -68,10 +68,10 @@ Key internal packages:
 |---------|---------------|
 | `auth` | Session middleware (`SessionAuth`), SDK key middleware (`SDKAuth`), role middleware (`RequireRole`), bcrypt password hashing, context-based user extraction |
 | `config` | Env-var config loading |
-| `evaluation` | Flag evaluation engine (consistent hashing via SHA-256 for rollouts, 15 condition operators) + in-memory cache (`RWMutex`-protected map keyed by `projectKey:envKey`) |
+| `evaluation` | Flag evaluation engine (consistent hashing via SHA-256 for rollouts, 16 condition operators including `segment_match`) + in-memory cache (`RWMutex`-protected map keyed by `projectKey:envKey` for flags, `projectKey` for segments) |
 | `handler` | HTTP handlers split into management API (session-authed) and client API (SDK-key-authed) |
 | `logging` | Configures `log/slog` (JSON/text), provides HTTP request logging middleware (method, path, status, duration_ms) |
-| `model` | Domain types: Flag (value types: `boolean`, `string`, `number`, `json`; flag types: `release`, `experiment`, `operational`, `kill-switch`, `permission`; lifecycle: `active`, `potentially_stale`, `stale`, `archived`), FlagEnvironmentConfig, Variant, TargetingRule, Condition, EvaluationContext, User (roles: `admin`, `member`, optional `display_name`), ProjectSettings, UnknownFlag, ContextAttribute |
+| `model` | Domain types: Flag (value types: `boolean`, `string`, `number`, `json`; flag types: `release`, `experiment`, `operational`, `kill-switch`, `permission`; lifecycle: `active`, `potentially_stale`, `stale`, `archived`), FlagEnvironmentConfig, Variant, TargetingRule, Condition, EvaluationContext, Segment, User (roles: `admin`, `member`, optional `display_name`), ProjectSettings, UnknownFlag, ContextAttribute |
 | `ratelimit` | Fixed-window per-IP rate limiter, applied to auth endpoints (10 req/60s) |
 | `staleness` | Automated flag staleness checker — periodic background goroutine (1hr interval) that transitions flags through lifecycle states based on per-project flag lifetime settings |
 | `store` | PostgreSQL repositories using pgx/v5, database pool creation, migration runner |
@@ -95,6 +95,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `/projects/:key/environments` — environment list
 - `/projects/:key/environments/:env/sdk-keys` — SDK keys
 - `/projects/:key/audit-log` — audit log
+- `/projects/:key/segments` — segment management
 - `/projects/:key/settings` — project settings
 - `/account` — user account page (display name, password change)
 - `/settings` — general settings
@@ -134,6 +135,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **Flags query params**: `?tag=` and `?search=` for filtering
 - **Unknown flags**: `GET /api/v1/projects/{key}/unknown-flags`, `DELETE .../unknown-flags/{id}` (dismiss)
 - **Project settings**: `GET /PUT /api/v1/projects/{key}/settings/flags` — per-project flag lifetime configuration
+- **Segments**: CRUD on `/api/v1/projects/{key}/segments[/{segmentKey}]`, `GET .../segments/{segmentKey}/usage` for referencing flags
 - **Context attributes**: `GET /api/v1/projects/{key}/context-attributes` — autocomplete for rule builder
 - **Audit log**: `GET /api/v1/projects/{key}/audit-log?limit=50&offset=0`
 
@@ -153,7 +155,8 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **Flag types** (purpose/category): `release`, `experiment`, `operational`, `kill-switch`, `permission` — used to determine expected lifetime and staleness thresholds
 - **Flag lifecycle**: `active` → `potentially_stale` → `stale` → `archived`. Staleness checker runs hourly, comparing flag age to per-project lifetime settings (configurable per flag type, defaults: release/experiment 40 days, operational 7 days, kill-switch/permission permanent)
 - **Flag evaluation flow**: Check archived → check disabled → evaluate targeting rules in order (first match wins) → apply percentage rollout via consistent hashing (SHA-256 of `flagKey+userID` → mod 100) → fall back to default variant
-- **Condition operators**: `equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `greater_than`, `less_than`, `gte`, `lte`, `in`, `not_in`, `exists`, `not_exists`, `matches` (regex)
+- **Condition operators**: `equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `greater_than`, `less_than`, `gte`, `lte`, `in`, `not_in`, `exists`, `not_exists`, `matches` (regex), `segment_match` (references a reusable segment by key)
+- **Reusable segments**: Project-scoped, named groups of targeting conditions shared across flags. A targeting rule condition with `operator: "segment_match"` and `value: "<segment-key>"` evaluates the segment's conditions. Segments cannot reference other segments (enforced at write time). Delete blocked if segment is referenced by flags (409)
 - **Default environments**: Project creation auto-creates `development`, `staging`, `production`
 - **Cache invalidation**: In-memory cache loaded at startup via `cache.LoadAll()`, refreshed on flag mutations through handlers
 - **SSE streaming**: Hub notifies connected SDK clients on flag changes, keyed by `projectKey:envKey`. Initial `: connected` keepalive, events use `event: flag_update`. Buffered channels (size 16), events dropped for slow subscribers
@@ -168,7 +171,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 
 ## Database
 
-PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`. Migrations in `migrations/` (currently: `001_initial_schema` through `007_user_display_name`).
+PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`. Migrations in `migrations/` (currently: `001_initial_schema` through `009_segments`).
 
 ## Testing
 

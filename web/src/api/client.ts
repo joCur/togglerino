@@ -1,3 +1,5 @@
+import type { Condition, Segment } from './types'
+
 const API_BASE = '/api/v1'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -28,4 +30,29 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+
+  segments: {
+    list: (projectKey: string) => request<Segment[]>(`/projects/${projectKey}/segments`),
+    get: (projectKey: string, segmentKey: string) =>
+      request<Segment>(`/projects/${projectKey}/segments/${segmentKey}`),
+    create: (
+      projectKey: string,
+      body: { key: string; name: string; description: string; conditions: Condition[] },
+    ) => request<Segment>(`/projects/${projectKey}/segments`, { method: 'POST', body: JSON.stringify(body) }),
+    update: (
+      projectKey: string,
+      segmentKey: string,
+      body: { name: string; description: string; conditions: Condition[] },
+    ) =>
+      request<Segment>(`/projects/${projectKey}/segments/${segmentKey}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    delete: (projectKey: string, segmentKey: string) =>
+      request<void>(`/projects/${projectKey}/segments/${segmentKey}`, { method: 'DELETE' }),
+    usage: (projectKey: string, segmentKey: string) =>
+      request<{ referencing_flags: string[] }>(
+        `/projects/${projectKey}/segments/${segmentKey}/usage`,
+      ),
+  },
 }

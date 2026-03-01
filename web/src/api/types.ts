@@ -116,6 +116,17 @@ export interface ContextAttribute {
   last_seen_at: string
 }
 
+export interface Segment {
+  id: string
+  project_id: string
+  key: string
+  name: string
+  description: string
+  conditions: Condition[]
+  created_at: string
+  updated_at: string
+}
+
 export type ScheduleStatus = 'pending' | 'executed' | 'cancelled'
 
 export interface ScheduledFlagChange {

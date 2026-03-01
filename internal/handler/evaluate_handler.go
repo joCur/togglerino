@@ -60,9 +60,10 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 	h.trackAttributes(sdkKey.ProjectKey, evalCtx)
 
 	flags := h.cache.GetFlags(sdkKey.ProjectKey, sdkKey.EnvironmentKey)
+	segments := h.cache.GetSegments(sdkKey.ProjectKey)
 	results := make(map[string]*model.EvaluationResult, len(flags))
 	for flagKey, fd := range flags {
-		results[flagKey] = h.engine.Evaluate(&fd.Flag, &fd.Config, evalCtx)
+		results[flagKey] = h.engine.EvaluateWithSegments(&fd.Flag, &fd.Config, evalCtx, segments)
 	}
 
 	writeJSON(w, http.StatusOK, evaluateAllResponse{Flags: results})
@@ -89,7 +90,8 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	result := h.engine.Evaluate(&fd.Flag, &fd.Config, evalCtx)
+	segments := h.cache.GetSegments(sdkKey.ProjectKey)
+	result := h.engine.EvaluateWithSegments(&fd.Flag, &fd.Config, evalCtx, segments)
 	writeJSON(w, http.StatusOK, result)
 }
 

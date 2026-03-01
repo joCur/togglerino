@@ -169,6 +169,7 @@ export default function ConfigEditor({
             rules={rules}
             variants={variants}
             onChange={setRules}
+            projectKey={projectKey}
           />
         </CollapsibleContent>
       </Collapsible>

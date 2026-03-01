@@ -22,12 +22,15 @@ type Cache struct {
 	mu sync.RWMutex
 	// Key: "projectKey:envKey", Value: map of flagKey -> FlagData
 	data map[string]map[string]FlagData
+	// Key: projectKey, Value: map of segmentKey -> Segment
+	segments map[string]map[string]model.Segment
 }
 
 // NewCache creates a new empty cache.
 func NewCache() *Cache {
 	return &Cache{
-		data: make(map[string]map[string]FlagData),
+		data:     make(map[string]map[string]FlagData),
+		segments: make(map[string]map[string]model.Segment),
 	}
 }
 
@@ -75,8 +78,42 @@ func (c *Cache) LoadAll(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("cache LoadAll rows: %w", err)
 	}
 
+	// Load segments (project-scoped)
+	segRows, err := pool.Query(ctx,
+		`SELECT p.key AS project_key, s.id, s.project_id, s.key, s.name, s.description, s.conditions, s.created_at, s.updated_at
+		 FROM segments s
+		 JOIN projects p ON p.id = s.project_id`)
+	if err != nil {
+		return fmt.Errorf("cache LoadAll segments query: %w", err)
+	}
+	defer segRows.Close()
+
+	newSegments := make(map[string]map[string]model.Segment)
+	for segRows.Next() {
+		var projectKey string
+		var seg model.Segment
+		var condJSON []byte
+		if err := segRows.Scan(&projectKey, &seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &condJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
+			return fmt.Errorf("cache LoadAll segment scan: %w", err)
+		}
+		if err := json.Unmarshal(condJSON, &seg.Conditions); err != nil {
+			return fmt.Errorf("cache LoadAll segment unmarshal: %w", err)
+		}
+		if seg.Conditions == nil {
+			seg.Conditions = []model.Condition{}
+		}
+		if newSegments[projectKey] == nil {
+			newSegments[projectKey] = make(map[string]model.Segment)
+		}
+		newSegments[projectKey][seg.Key] = seg
+	}
+	if err := segRows.Err(); err != nil {
+		return fmt.Errorf("cache LoadAll segments rows: %w", err)
+	}
+
 	c.mu.Lock()
 	c.data = newData
+	c.segments = newSegments
 	c.mu.Unlock()
 
 	return nil
@@ -114,6 +151,44 @@ func (c *Cache) Refresh(ctx context.Context, pool *pgxpool.Pool, projectKey, env
 	return nil
 }
 
+// RefreshSegments reloads all segments for a specific project from the database.
+// Called after a segment is created, updated, or deleted.
+func (c *Cache) RefreshSegments(ctx context.Context, pool *pgxpool.Pool, projectKey string) error {
+	rows, err := pool.Query(ctx,
+		`SELECT s.id, s.project_id, s.key, s.name, s.description, s.conditions, s.created_at, s.updated_at
+		 FROM segments s
+		 JOIN projects p ON p.id = s.project_id
+		 WHERE p.key = $1`, projectKey)
+	if err != nil {
+		return fmt.Errorf("cache RefreshSegments query: %w", err)
+	}
+	defer rows.Close()
+
+	segs := make(map[string]model.Segment)
+	for rows.Next() {
+		var seg model.Segment
+		var condJSON []byte
+		if err := rows.Scan(&seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &condJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
+			return fmt.Errorf("cache RefreshSegments scan: %w", err)
+		}
+		if err := json.Unmarshal(condJSON, &seg.Conditions); err != nil {
+			return fmt.Errorf("cache RefreshSegments unmarshal: %w", err)
+		}
+		if seg.Conditions == nil {
+			seg.Conditions = []model.Condition{}
+		}
+		segs[seg.Key] = seg
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("cache RefreshSegments rows: %w", err)
+	}
+
+	c.mu.Lock()
+	c.segments[projectKey] = segs
+	c.mu.Unlock()
+	return nil
+}
+
 // GetFlags returns all flag data for a project/environment.
 // Returns nil if the project/environment combination is not found.
 func (c *Cache) GetFlags(projectKey, envKey string) map[string]FlagData {
@@ -141,6 +216,21 @@ func (c *Cache) Set(projectKey, envKey string, flags map[string]FlagData) {
 	key := cacheKey(projectKey, envKey)
 	c.mu.Lock()
 	c.data[key] = flags
+	c.mu.Unlock()
+}
+
+// GetSegments returns all segments for a project, keyed by segment key.
+// Returns nil if the project has no segments cached.
+func (c *Cache) GetSegments(projectKey string) map[string]model.Segment {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.segments[projectKey]
+}
+
+// SetSegments stores segments for a project, keyed by segment key.
+func (c *Cache) SetSegments(projectKey string, segments map[string]model.Segment) {
+	c.mu.Lock()
+	c.segments[projectKey] = segments
 	c.mu.Unlock()
 }
 
