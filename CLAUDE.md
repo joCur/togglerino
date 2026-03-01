@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A self-hosted feature flag management platform. Single Go binary serves: management API, client/SDK evaluation API, embedded React dashboard, and SSE streaming for real-time flag updates.
 
-Go module: `github.com/togglerino/togglerino` (Go 1.25, stdlib `net/http` + `log/slog`, no external HTTP or logging frameworks). Key deps: `pgx/v5`, `golang.org/x/crypto`.
+Go module: `github.com/togglerino/togglerino` (Go 1.25.0, stdlib `net/http` + `log/slog`, no external HTTP or logging frameworks). Key deps: `pgx/v5`, `golang.org/x/crypto`.
 
 ## Build & Run Commands
 
@@ -34,9 +34,10 @@ cd web && npm run lint                     # ESLint
 cd sdks/javascript && npm test             # JavaScript SDK tests (vitest)
 cd sdks/react && npm test                  # React SDK tests (vitest)
 cd sdks/dotnet && dotnet test              # .NET SDK tests (xUnit)
+cd sdks/go && go test ./...                # Go SDK tests
 ```
 
-Both SDKs use `tsup` for bundling, outputting CJS + ESM with TypeScript declarations. `@togglerino/react` references `@togglerino/sdk` via local file path for development.
+JS/React SDKs use `tsup` for bundling, outputting CJS + ESM with TypeScript declarations. `@togglerino/react` references `@togglerino/sdk` via local file path for development.
 
 ### Docker
 
@@ -70,8 +71,9 @@ Key internal packages:
 | `evaluation` | Flag evaluation engine (consistent hashing via SHA-256 for rollouts, 15 condition operators) + in-memory cache (`RWMutex`-protected map keyed by `projectKey:envKey`) |
 | `handler` | HTTP handlers split into management API (session-authed) and client API (SDK-key-authed) |
 | `logging` | Configures `log/slog` (JSON/text), provides HTTP request logging middleware (method, path, status, duration_ms) |
-| `model` | Domain types: Flag (types: `boolean`, `string`, `number`, `json`), FlagEnvironmentConfig, Variant, TargetingRule, Condition, EvaluationContext, User (roles: `admin`, `member`) |
+| `model` | Domain types: Flag (value types: `boolean`, `string`, `number`, `json`; flag types: `release`, `experiment`, `operational`, `kill-switch`, `permission`; lifecycle: `active`, `potentially_stale`, `stale`, `archived`), FlagEnvironmentConfig, Variant, TargetingRule, Condition, EvaluationContext, User (roles: `admin`, `member`, optional `display_name`), ProjectSettings, UnknownFlag, ContextAttribute |
 | `ratelimit` | Fixed-window per-IP rate limiter, applied to auth endpoints (10 req/60s) |
+| `staleness` | Automated flag staleness checker — periodic background goroutine (1hr interval) that transitions flags through lifecycle states based on per-project flag lifetime settings |
 | `store` | PostgreSQL repositories using pgx/v5, database pool creation, migration runner |
 | `stream` | SSE pub/sub hub — broadcasts flag changes to subscribed SDK clients |
 
@@ -81,18 +83,21 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 
 **Styling**: Tailwind CSS v4 (via `@tailwindcss/vite` plugin) + shadcn/ui (New York style, neutral base color). Dark-only theme with CSS custom properties defined in `web/src/index.css`. Uses `cn()` utility from `web/src/lib/utils.ts` (`clsx` + `tailwind-merge`). Path alias `@/` maps to `web/src/`. Accent color: amber `#d4956a`. Fonts: `Sora` sans-serif, `Fira Code` monospace.
 
-**UI components** (`web/src/components/ui/`): shadcn/ui components — alert, badge, button, card, dialog, input, label, select, switch, table, tabs, textarea. Built on Radix UI primitives + `class-variance-authority`. Add new components via `npx shadcn@latest add <component>`.
+**UI components** (`web/src/components/ui/`): shadcn/ui components — alert, badge, button, card, collapsible, command, dialog, dropdown-menu, input, label, popover, select, sheet, switch, table, tabs, textarea. Built on Radix UI primitives + `class-variance-authority`. Add new components via `npx shadcn@latest add <component>`.
 
 **API client**: `web/src/api/client.ts` — thin `fetch` wrapper at `/api/v1`, sends `credentials: include` for session cookies.
 
 **Routes**:
 - `/projects` — project list
 - `/projects/:key` — project detail
+- `/projects/:key/lifecycle` — flag lifecycle board
 - `/projects/:key/flags/:flag` — flag detail
 - `/projects/:key/environments` — environment list
 - `/projects/:key/environments/:env/sdk-keys` — SDK keys
 - `/projects/:key/audit-log` — audit log
 - `/projects/:key/settings` — project settings
+- `/account` — user account page (display name, password change)
+- `/settings` — general settings
 - `/settings/team` — team management
 - `/invite/:token` — accept invite (public)
 - `/reset-password/:token` — password reset (public)
@@ -102,6 +107,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `sdks/javascript/` — `@togglerino/sdk`: TypeScript SDK with SSE streaming, built with tsup
 - `sdks/react/` — `@togglerino/react`: React context provider + `useFlag` hook
 - `sdks/dotnet/` — `Togglerino.Sdk`: .NET 8+ SDK with IObservable events, Polly resilience, built with dotnet
+- `sdks/go/` — Go SDK with SSE streaming and polling, pure stdlib
 
 ## API Routes
 
@@ -118,12 +124,17 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 ### Session-authed (management UI)
 
 - `GET /api/v1/auth/me` — current user
+- `PUT /api/v1/auth/me` — update profile (display name)
+- `POST /api/v1/auth/change-password` — change password (rate-limited)
 - **Users (admin-only)**: `GET /api/v1/management/users`, `POST .../invite`, `GET .../invites`, `DELETE .../{id}`, `POST .../{id}/reset-password`
 - **Projects**: CRUD on `/api/v1/projects[/{key}]` (delete is admin-only)
 - **Environments**: `POST`, `GET` on `/api/v1/projects/{key}/environments`
 - **SDK Keys**: `POST`, `GET`, `DELETE` on `/api/v1/projects/{key}/environments/{env}/sdk-keys[/{id}]`
-- **Flags**: CRUD on `/api/v1/projects/{key}/flags[/{flag}]`, `PUT .../flags/{flag}/environments/{env}` for per-env config
+- **Flags**: CRUD on `/api/v1/projects/{key}/flags[/{flag}]`, `PUT .../flags/{flag}/environments/{env}` for per-env config, `PUT .../flags/{flag}/archive` for archiving, `PUT .../flags/{flag}/staleness` for staleness override
 - **Flags query params**: `?tag=` and `?search=` for filtering
+- **Unknown flags**: `GET /api/v1/projects/{key}/unknown-flags`, `DELETE .../unknown-flags/{id}` (dismiss)
+- **Project settings**: `GET /PUT /api/v1/projects/{key}/settings/flags` — per-project flag lifetime configuration
+- **Context attributes**: `GET /api/v1/projects/{key}/context-attributes` — autocomplete for rule builder
 - **Audit log**: `GET /api/v1/projects/{key}/audit-log?limit=50&offset=0`
 
 ### SDK-authed (client SDKs)
@@ -138,13 +149,17 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **RBAC**: Two roles (`admin`, `member`). `RequireRole` middleware enforces admin-only access on user management and project deletion
 - **Invite & password reset**: Both use the `invites` table. Invite tokens expire in 7 days, reset tokens in 24 hours. Tokens are atomically claimed via conditional UPDATE (TOCTOU-safe)
 - **Initial setup**: First-run flow creates the initial admin user. Frontend `AuthRouter` detects `setup_required` and shows `SetupPage`
-- **Flag types**: `boolean`, `string`, `number`, `json`
+- **Flag value types**: `boolean`, `string`, `number`, `json`
+- **Flag types** (purpose/category): `release`, `experiment`, `operational`, `kill-switch`, `permission` — used to determine expected lifetime and staleness thresholds
+- **Flag lifecycle**: `active` → `potentially_stale` → `stale` → `archived`. Staleness checker runs hourly, comparing flag age to per-project lifetime settings (configurable per flag type, defaults: release/experiment 40 days, operational 7 days, kill-switch/permission permanent)
 - **Flag evaluation flow**: Check archived → check disabled → evaluate targeting rules in order (first match wins) → apply percentage rollout via consistent hashing (SHA-256 of `flagKey+userID` → mod 100) → fall back to default variant
 - **Condition operators**: `equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `greater_than`, `less_than`, `gte`, `lte`, `in`, `not_in`, `exists`, `not_exists`, `matches` (regex)
 - **Default environments**: Project creation auto-creates `development`, `staging`, `production`
 - **Cache invalidation**: In-memory cache loaded at startup via `cache.LoadAll()`, refreshed on flag mutations through handlers
 - **SSE streaming**: Hub notifies connected SDK clients on flag changes, keyed by `projectKey:envKey`. Initial `: connected` keepalive, events use `event: flag_update`. Buffered channels (size 16), events dropped for slow subscribers
-- **Audit log**: Best-effort recording (errors logged, don't fail requests). Stores full JSON snapshots of old/new entity state. Events: flag/project create/update/delete, flag config update
+- **Unknown flag tracking**: SDK evaluations for non-existent flag keys are recorded with request counts and first/last seen timestamps, surfaced in the management UI for cleanup
+- **Context attribute autocomplete**: Attributes seen in SDK evaluation contexts are tracked per project and surfaced in the rule builder for autocomplete
+- **Audit log**: Best-effort recording (errors logged, don't fail requests). Stores full JSON snapshots of old/new entity state. Events: flag/project create/update/delete, flag config update, lifecycle status changes
 - **Rate limiting**: Fixed-window per-IP on auth endpoints (10 req/60s, returns 429 + `Retry-After`)
 - **CORS**: When `CORS_ORIGINS=*`, all origins allowed. Specific list → exact-match only, 403 for unlisted origins on OPTIONS. Sends `Allow-Credentials: true`
 - **Dependency injection**: Stores and handlers created in `main.go` and passed via constructors
@@ -153,7 +168,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 
 ## Database
 
-PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`. Migrations in `migrations/` (currently: `001_initial_schema`, `002_invites`).
+PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`. Migrations in `migrations/` (currently: `001_initial_schema` through `007_user_display_name`).
 
 ## Testing
 
@@ -161,7 +176,7 @@ Go tests require a running PostgreSQL instance. Tests use `testPool()` helper th
 
 ## CI/CD
 
-- **`.github/workflows/ci.yml`**: Four jobs — `test-go` (postgres service container, builds frontend for `go:embed`, runs `go test`), `test-sdks` (JS + React SDK tests), `lint-frontend` (`npm run lint`), `build` (gates on all three, full binary build). Runs on push/PR to `main`.
+- **`.github/workflows/ci.yml`**: Six jobs — `test-go` (postgres service container, builds frontend for `go:embed`, runs `go test`), `test-sdks` (JS + React SDK tests), `test-dotnet-sdk` (.NET SDK tests), `test-go-sdk` (Go SDK tests), `lint-frontend` (`npm run lint`), `build` (gates on all five, full binary build). Runs on push/PR to `main`.
 - **`.github/workflows/release.yml`**: Uses `release-please-action@v4` (`release-type: simple`). On release, builds and pushes Docker image to **ghcr.io** with semver + `latest` tags. Changelog auto-generated from Conventional Commits.
 
 ## Other
