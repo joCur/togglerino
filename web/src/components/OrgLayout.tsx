@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useFlag } from '@togglerino/react'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useIsMobile } from '../hooks/useIsMobile.ts'
@@ -7,6 +7,7 @@ import Topbar from './Topbar.tsx'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { navLinkClass } from './navLinkClass'
+import { User as UserIcon, LogOut } from 'lucide-react'
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const isThemeToggleEnabled = useFlag('enable-theme-toggle', false)
@@ -28,6 +29,7 @@ export default function OrgLayout() {
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const closeDrawer = () => setDrawerOpen(false)
 
   return (
@@ -50,8 +52,13 @@ export default function OrgLayout() {
                 <SidebarNav onNavigate={closeDrawer} />
               </nav>
               <div className="border-t p-4 flex flex-col gap-2">
-                <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
-                <Button variant="outline" size="sm" className="w-full" onClick={() => { logout(); setDrawerOpen(false) }}>
+                <div className="text-xs text-muted-foreground truncate">{user?.display_name || user?.email}</div>
+                <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { navigate('/account'); setDrawerOpen(false) }}>
+                  <UserIcon className="h-4 w-4" />
+                  Account
+                </Button>
+                <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { logout(); setDrawerOpen(false) }}>
+                  <LogOut className="h-4 w-4" />
                   Log out
                 </Button>
               </div>
