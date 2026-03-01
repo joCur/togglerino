@@ -27,8 +27,8 @@ export default function LoginPage() {
   const displayError = loginError instanceof Error ? loginError.message : ''
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background bg-[radial-gradient(ellipse_60%_50%_at_50%_40%,rgba(212,149,106,0.04)_0%,transparent_70%)]">
-      <div className="w-full max-w-[400px] p-10 rounded-2xl bg-card border shadow-lg animate-[fadeInUp_400ms_ease]">
+    <div className="flex items-center justify-center min-h-screen px-6 md:px-0 bg-background bg-[radial-gradient(ellipse_60%_50%_at_50%_40%,rgba(212,149,106,0.04)_0%,transparent_70%)]">
+      <div className="w-full max-w-[400px] p-6 md:p-10 rounded-2xl md:bg-card md:border md:shadow-lg animate-[fadeInUp_400ms_ease]">
         {/* Brand */}
         <div className="flex items-center justify-center gap-2.5 mb-2">
           <svg width="24" height="14" viewBox="0 0 24 14" fill="none">
