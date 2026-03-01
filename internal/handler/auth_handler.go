@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -177,9 +178,15 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Email != nil && *req.Email == "" {
-		writeError(w, http.StatusBadRequest, "email cannot be empty")
-		return
+	if req.Email != nil {
+		if *req.Email == "" {
+			writeError(w, http.StatusBadRequest, "email cannot be empty")
+			return
+		}
+		if _, err := mail.ParseAddress(*req.Email); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid email format")
+			return
+		}
 	}
 
 	updated, err := h.users.UpdateProfile(r.Context(), user.ID, req.Email, req.DisplayName)
