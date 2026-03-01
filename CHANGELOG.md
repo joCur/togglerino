@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/joCur/togglerino/compare/v0.9.0...v0.10.0) (2026-03-01)
+
+
+### Features
+
+* add .NET SDK for Togglerino ([#27](https://github.com/joCur/togglerino/issues/27)) ([2895473](https://github.com/joCur/togglerino/commit/2895473064660fa25063c569e0152d1b8b3711b0))
+* make dashboard mobile-friendly ([#28](https://github.com/joCur/togglerino/issues/28)) ([34e1ae1](https://github.com/joCur/togglerino/commit/34e1ae10566f33b99f5973fe971bb751e8476ec4))
+
 ## [0.9.0](https://github.com/joCur/togglerino/compare/v0.8.0...v0.9.0) (2026-02-28)
 
 
