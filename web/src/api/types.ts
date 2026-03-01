@@ -32,18 +32,28 @@ export interface SDKKey {
   created_at: string
 }
 
+export type ValueType = 'boolean' | 'string' | 'number' | 'json'
+export type FlagPurpose = 'release' | 'experiment' | 'operational' | 'kill-switch' | 'permission'
+export type LifecycleStatus = 'active' | 'potentially_stale' | 'stale' | 'archived'
+
 export interface Flag {
   id: string
   project_id: string
   key: string
   name: string
   description: string
-  flag_type: 'boolean' | 'string' | 'number' | 'json'
+  value_type: ValueType
+  flag_type: FlagPurpose
   default_value: unknown
   tags: string[]
-  archived: boolean
+  lifecycle_status: LifecycleStatus
+  lifecycle_status_changed_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface ProjectFlagSettings {
+  flag_lifetimes: Record<FlagPurpose, number | null>
 }
 
 export interface Variant {
@@ -84,4 +94,23 @@ export interface AuditEntry {
   old_value?: unknown
   new_value?: unknown
   created_at: string
+}
+
+export interface UnknownFlag {
+  id: string
+  project_id: string
+  environment_id: string
+  flag_key: string
+  request_count: number
+  first_seen_at: string
+  last_seen_at: string
+  environment_key: string
+  environment_name: string
+}
+
+export interface ContextAttribute {
+  id: string
+  project_id: string
+  name: string
+  last_seen_at: string
 }

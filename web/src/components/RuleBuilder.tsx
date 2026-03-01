@@ -1,6 +1,8 @@
 import type { TargetingRule, Variant, Condition } from '../api/types.ts'
+import { useFlag } from '@togglerino/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import AttributeCombobox from './AttributeCombobox.tsx'
 import RolloutSlider from './RolloutSlider.tsx'
 
 interface Props {
@@ -58,6 +60,8 @@ const OPERATOR_GROUPS = [
 ]
 
 export default function RuleBuilder({ rules, variants, onChange }: Props) {
+  const autocompleteEnabled = useFlag('context-attribute-autocomplete', false)
+
   const updateRule = (index: number, patch: Partial<TargetingRule>) => {
     const updated = [...rules]
     updated[index] = { ...updated[index], ...patch }
@@ -107,11 +111,6 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="text-[13px] font-medium text-foreground">Targeting Rules</div>
-      <div className="text-xs text-muted-foreground/60 leading-relaxed mb-1">
-        Rules are evaluated top to bottom — the first matching rule wins. If no rule matches, the default variant is served.
-      </div>
-
       {rules.length === 0 && (
         <div className="text-xs text-muted-foreground/60 italic">
           No targeting rules. All users will receive the default variant.
@@ -146,15 +145,22 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
               All conditions must match (AND logic). Attributes are properties from your SDK's evaluation context.
             </div>
             {rule.conditions.map((cond, condIdx) => (
-              <div key={condIdx} className="flex items-center gap-1.5 mb-1.5">
-                <Input
-                  className="flex-1 text-xs"
-                  placeholder="e.g. user_id, email, plan"
-                  value={cond.attribute}
-                  onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
-                />
+              <div key={condIdx} className="flex flex-col md:flex-row md:items-center gap-1.5 mb-1.5">
+                {autocompleteEnabled ? (
+                  <AttributeCombobox
+                    value={cond.attribute}
+                    onChange={(val) => updateCondition(ruleIdx, condIdx, { attribute: val })}
+                  />
+                ) : (
+                  <Input
+                    className="w-full md:w-[180px] text-xs"
+                    placeholder="Attribute"
+                    value={cond.attribute}
+                    onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
+                  />
+                )}
                 <select
-                  className="w-[170px] px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
+                  className="w-full md:w-[170px] px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
                   value={cond.operator}
                   onChange={(e) => {
                     const op = e.target.value
@@ -209,7 +215,7 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
 
           {/* Serve variant */}
           <div className="flex flex-col gap-1 mb-3">
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-col md:flex-row md:items-center gap-2.5">
               <span className="text-xs text-muted-foreground whitespace-nowrap">Serve variant:</span>
               {variants.length > 0 ? (
                 <select
@@ -223,7 +229,7 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
                 </select>
               ) : (
                 <Input
-                  className="flex-none w-[130px] text-xs"
+                  className="flex-none w-full md:w-[130px] text-xs"
                   placeholder="Variant key"
                   value={rule.variant}
                   onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}

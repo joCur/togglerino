@@ -15,6 +15,7 @@ import TeamPage from './pages/TeamPage.tsx'
 import OrgLayout from './components/OrgLayout.tsx'
 import ProjectLayout from './components/ProjectLayout.tsx'
 import ProjectSettingsPage from './pages/ProjectSettingsPage.tsx'
+import LifecycleBoardPage from './pages/LifecycleBoardPage.tsx'
 import AcceptInvitePage from './pages/AcceptInvitePage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.tsx'
@@ -68,6 +69,7 @@ function AuthRouter() {
       </Route>
       <Route path="/projects/:key" element={<ProjectLayout />}>
         <Route index element={<ProjectDetailPage />} />
+        <Route path="lifecycle" element={<LifecycleBoardPage />} />
         <Route path="flags/:flag" element={<FlagDetailPage />} />
         <Route path="environments" element={<EnvironmentsPage />} />
         <Route path="environments/:env/sdk-keys" element={<SDKKeysPage />} />
