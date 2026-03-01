@@ -4,34 +4,27 @@ import { useAuth } from '../hooks/useAuth.ts'
 import { useIsMobile } from '../hooks/useIsMobile.ts'
 import Topbar from './Topbar.tsx'
 import ProjectSwitcher from './ProjectSwitcher.tsx'
-import { cn } from '@/lib/utils'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  cn(
-    'flex items-center gap-2.5 px-5 py-2 text-[13px] border-l-2 transition-all duration-200',
-    isActive
-      ? 'font-medium text-foreground border-[#d4956a] bg-[#d4956a]/8'
-      : 'font-normal text-muted-foreground border-transparent hover:text-foreground hover:bg-foreground/[0.03]'
-  )
+import { navLinkClass } from './navLinkClass'
 
 export default function ProjectLayout() {
   const { key } = useParams<{ key: string }>()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { user, logout } = useAuth()
+  const closeDrawer = () => setDrawerOpen(false)
 
-  const navLinks = (
+  const navLinks = (onNavigate?: () => void) => (
     <>
       <div className="px-5 pb-2.5 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-[1.2px] font-mono">
         Project
       </div>
-      <NavLink to={`/projects/${key}`} end className={navLinkClass}>Flags</NavLink>
-      <NavLink to={`/projects/${key}/lifecycle`} className={navLinkClass}>Lifecycle</NavLink>
-      <NavLink to={`/projects/${key}/environments`} className={navLinkClass}>Environments</NavLink>
-      <NavLink to={`/projects/${key}/audit-log`} className={navLinkClass}>Audit Log</NavLink>
-      <NavLink to={`/projects/${key}/settings`} className={navLinkClass}>Settings</NavLink>
+      <NavLink to={`/projects/${key}`} end className={navLinkClass} onClick={onNavigate}>Flags</NavLink>
+      <NavLink to={`/projects/${key}/lifecycle`} className={navLinkClass} onClick={onNavigate}>Lifecycle</NavLink>
+      <NavLink to={`/projects/${key}/environments`} className={navLinkClass} onClick={onNavigate}>Environments</NavLink>
+      <NavLink to={`/projects/${key}/audit-log`} className={navLinkClass} onClick={onNavigate}>Audit Log</NavLink>
+      <NavLink to={`/projects/${key}/settings`} className={navLinkClass} onClick={onNavigate}>Settings</NavLink>
     </>
   )
 
@@ -44,18 +37,18 @@ export default function ProjectLayout() {
       <div className="flex flex-1">
         {!isMobile && (
           <nav className="w-[200px] bg-card border-r py-5 shrink-0 flex flex-col">
-            {navLinks}
+            {navLinks()}
           </nav>
         )}
 
         {isMobile && (
           <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-            <SheetContent side="left" className="w-[260px] p-0 flex flex-col">
+            <SheetContent side="left" className="w-[260px] p-0 flex flex-col" aria-label="Navigation menu">
               <div className="p-4 border-b">
                 <ProjectSwitcher />
               </div>
-              <nav className="py-5 flex-1 flex flex-col" onClick={() => setDrawerOpen(false)}>
-                {navLinks}
+              <nav className="py-5 flex-1 flex flex-col">
+                {navLinks(closeDrawer)}
               </nav>
               <div className="border-t p-4 flex flex-col gap-2">
                 <div className="text-xs text-muted-foreground truncate">{user?.email}</div>

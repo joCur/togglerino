@@ -83,7 +83,7 @@ export default function ProjectsPage() {
       {isMobile && (
         <button
           onClick={() => setModalOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#d4956a] text-white shadow-lg flex items-center justify-center hover:bg-[#e0a87a] active:scale-95 transition-all"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#d4956a] text-white shadow-lg flex items-center justify-center hover:bg-[#e0a87a] active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#d4956a] focus-visible:ring-offset-2"
           aria-label="Create Project"
         >
           <Plus className="w-6 h-6" />
