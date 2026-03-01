@@ -110,36 +110,6 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {/* Your Account */}
-      <Card className="mb-5">
-        <CardContent className="p-6">
-          <div className="text-sm font-semibold text-foreground mb-4">
-            Your Account
-          </div>
-          <div className="flex flex-col gap-3.5">
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider min-w-[70px]">Email</span>
-              <span className="text-[13px] text-foreground">{user?.email}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider min-w-[70px]">Role</span>
-              <Badge
-                variant={user?.role === 'admin' ? 'secondary' : 'outline'}
-                className="font-mono text-[11px]"
-              >
-                {user?.role || 'member'}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider min-w-[70px]">Joined</span>
-              <span className="text-[13px] text-muted-foreground">
-                {user?.created_at ? new Date(user.created_at).toLocaleDateString() : '--'}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Invite Team Member */}
       {isAdmin && (
         <Card className="mb-5">

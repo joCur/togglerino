@@ -2,6 +2,8 @@ package handler
 
 import (
 	"net/http"
+	"net/mail"
+	"strings"
 	"time"
 
 	"github.com/togglerino/togglerino/internal/auth"
@@ -152,6 +154,107 @@ func (h *AuthHandler) Status(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"setup_required": count == 0,
 	})
+}
+
+// PUT /api/v1/auth/me — update own profile (session-authed)
+func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req struct {
+		Email       *string `json:"email"`
+		DisplayName *string `json:"display_name"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Email == nil && req.DisplayName == nil {
+		writeError(w, http.StatusBadRequest, "at least one field is required")
+		return
+	}
+
+	if req.Email != nil {
+		if *req.Email == "" {
+			writeError(w, http.StatusBadRequest, "email cannot be empty")
+			return
+		}
+		if _, err := mail.ParseAddress(*req.Email); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid email format")
+			return
+		}
+	}
+
+	updated, err := h.users.UpdateProfile(r.Context(), user.ID, req.Email, req.DisplayName)
+	if err != nil {
+		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
+			writeError(w, http.StatusConflict, "email already in use")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to update profile")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, updated)
+}
+
+// POST /api/v1/auth/change-password — change own password (session-authed)
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.CurrentPassword == "" {
+		writeError(w, http.StatusBadRequest, "current password is required")
+		return
+	}
+	if req.NewPassword == "" {
+		writeError(w, http.StatusBadRequest, "new password is required")
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+
+	dbUser, err := h.users.FindByID(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	if !auth.VerifyPassword(dbUser.PasswordHash, req.CurrentPassword) {
+		writeError(w, http.StatusBadRequest, "current password is incorrect")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	if err := h.users.UpdatePassword(r.Context(), user.ID, hash); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update password")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // POST /api/v1/auth/reset-password — reset password using a token (public, rate-limited)

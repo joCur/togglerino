@@ -124,3 +124,55 @@ func TestUserStore_Count(t *testing.T) {
 		t.Errorf("count did not increase: before=%d, after=%d", count, newCount)
 	}
 }
+
+func TestUserStore_UpdateProfile(t *testing.T) {
+	pool := testPool(t)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	email := uniqueEmail("updateprofile")
+	user, err := us.Create(ctx, email, "hash123", model.RoleMember)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Update display name only
+	displayName := "Test User"
+	updated, err := us.UpdateProfile(ctx, user.ID, nil, &displayName)
+	if err != nil {
+		t.Fatalf("UpdateProfile (display_name): %v", err)
+	}
+	if updated.DisplayName == nil || *updated.DisplayName != "Test User" {
+		t.Errorf("display_name: got %v, want %q", updated.DisplayName, "Test User")
+	}
+	if updated.Email != email {
+		t.Errorf("email should not change: got %q, want %q", updated.Email, email)
+	}
+
+	// Update email only
+	newEmail := uniqueEmail("updateprofile-new")
+	updated, err = us.UpdateProfile(ctx, user.ID, &newEmail, nil)
+	if err != nil {
+		t.Fatalf("UpdateProfile (email): %v", err)
+	}
+	if updated.Email != newEmail {
+		t.Errorf("email: got %q, want %q", updated.Email, newEmail)
+	}
+	if updated.DisplayName == nil || *updated.DisplayName != "Test User" {
+		t.Errorf("display_name should not change: got %v, want %q", updated.DisplayName, "Test User")
+	}
+
+	// Update both
+	finalEmail := uniqueEmail("updateprofile-final")
+	finalName := "Final Name"
+	updated, err = us.UpdateProfile(ctx, user.ID, &finalEmail, &finalName)
+	if err != nil {
+		t.Fatalf("UpdateProfile (both): %v", err)
+	}
+	if updated.Email != finalEmail {
+		t.Errorf("email: got %q, want %q", updated.Email, finalEmail)
+	}
+	if updated.DisplayName == nil || *updated.DisplayName != "Final Name" {
+		t.Errorf("display_name: got %v, want %q", updated.DisplayName, "Final Name")
+	}
+}

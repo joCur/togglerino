@@ -19,6 +19,7 @@ import LifecycleBoardPage from './pages/LifecycleBoardPage.tsx'
 import AcceptInvitePage from './pages/AcceptInvitePage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.tsx'
+import AccountPage from './pages/AccountPage.tsx'
 
 const queryClient = new QueryClient()
 
@@ -62,6 +63,7 @@ function AuthRouter() {
 
   return (
     <Routes>
+      <Route path="/account" element={<AccountPage />} />
       <Route element={<OrgLayout />}>
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/settings/team" element={<TeamPage />} />

@@ -1,8 +1,16 @@
 import { type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useFlag } from '@togglerino/react'
 import { useAuth } from '../hooks/useAuth.ts'
 import { Button } from '@/components/ui/button'
-import { Menu } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ChevronDown, User as UserIcon, Settings, LogOut, Menu } from 'lucide-react'
 
 interface TopbarProps {
   children?: ReactNode
@@ -11,6 +19,8 @@ interface TopbarProps {
 
 export default function Topbar({ children, onMenuClick }: TopbarProps) {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const isThemeToggleEnabled = useFlag('enable-theme-toggle', false)
 
   const handleLogout = async () => {
     try {
@@ -45,15 +55,36 @@ export default function Topbar({ children, onMenuClick }: TopbarProps) {
         {children}
       </div>
 
-      <div className="flex items-center gap-3.5">
-        <div className="w-7 h-7 rounded-full bg-[#d4956a]/8 border border-[#d4956a]/20 flex items-center justify-center text-[11px] font-semibold text-[#d4956a] font-mono">
-          {user?.email?.charAt(0).toUpperCase()}
-        </div>
-        <span className="hidden md:inline text-xs text-muted-foreground">{user?.email}</span>
-        <Button variant="outline" size="sm" className="hidden md:flex" onClick={handleLogout}>
-          Log out
-        </Button>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors outline-none">
+            <div className="w-7 h-7 rounded-full bg-[#d4956a]/8 border border-[#d4956a]/20 flex items-center justify-center text-[11px] font-semibold text-[#d4956a] font-mono">
+              {user?.email?.charAt(0).toUpperCase()}
+            </div>
+            <span className="hidden md:inline text-xs text-muted-foreground max-w-[150px] truncate">
+              {user?.display_name || user?.email}
+            </span>
+            <ChevronDown className="hidden md:block h-3 w-3 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => navigate('/account')}>
+            <UserIcon className="mr-2 h-4 w-4" />
+            Account
+          </DropdownMenuItem>
+          {isThemeToggleEnabled && (
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   )
 }

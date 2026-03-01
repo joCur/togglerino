@@ -20,9 +20,9 @@ func (s *UserStore) Create(ctx context.Context, email, passwordHash string, role
 	var user model.User
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3)
-		 RETURNING id, email, password_hash, role, created_at, updated_at`,
+		 RETURNING id, email, display_name, password_hash, role, created_at, updated_at`,
 		email, passwordHash, role,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	).Scan(&user.ID, &user.Email, &user.DisplayName, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("creating user: %w", err)
 	}
@@ -32,9 +32,9 @@ func (s *UserStore) Create(ctx context.Context, email, passwordHash string, role
 func (s *UserStore) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	var user model.User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, role, created_at, updated_at FROM users WHERE email = $1`,
+		`SELECT id, email, display_name, password_hash, role, created_at, updated_at FROM users WHERE email = $1`,
 		email,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	).Scan(&user.ID, &user.Email, &user.DisplayName, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("finding user by email: %w", err)
 	}
@@ -44,9 +44,9 @@ func (s *UserStore) FindByEmail(ctx context.Context, email string) (*model.User,
 func (s *UserStore) FindByID(ctx context.Context, id string) (*model.User, error) {
 	var user model.User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, role, created_at, updated_at FROM users WHERE id = $1`,
+		`SELECT id, email, display_name, password_hash, role, created_at, updated_at FROM users WHERE id = $1`,
 		id,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	).Scan(&user.ID, &user.Email, &user.DisplayName, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("finding user by id: %w", err)
 	}
@@ -64,7 +64,7 @@ func (s *UserStore) Count(ctx context.Context) (int, error) {
 
 func (s *UserStore) List(ctx context.Context) ([]model.User, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, email, password_hash, role, created_at, updated_at FROM users ORDER BY created_at`,
+		`SELECT id, email, display_name, password_hash, role, created_at, updated_at FROM users ORDER BY created_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("listing users: %w", err)
@@ -74,7 +74,7 @@ func (s *UserStore) List(ctx context.Context) ([]model.User, error) {
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning user: %w", err)
 		}
 		users = append(users, u)
@@ -83,6 +83,23 @@ func (s *UserStore) List(ctx context.Context) ([]model.User, error) {
 		return nil, fmt.Errorf("iterating users: %w", err)
 	}
 	return users, nil
+}
+
+func (s *UserStore) UpdateProfile(ctx context.Context, id string, email *string, displayName *string) (*model.User, error) {
+	var user model.User
+	err := s.pool.QueryRow(ctx,
+		`UPDATE users SET
+			email = COALESCE($2, email),
+			display_name = COALESCE($3, display_name),
+			updated_at = NOW()
+		 WHERE id = $1
+		 RETURNING id, email, display_name, password_hash, role, created_at, updated_at`,
+		id, email, displayName,
+	).Scan(&user.ID, &user.Email, &user.DisplayName, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("updating user profile: %w", err)
+	}
+	return &user, nil
 }
 
 func (s *UserStore) UpdatePassword(ctx context.Context, id, passwordHash string) error {
