@@ -61,7 +61,7 @@ export default function SettingsPage() {
         <h2 className="text-sm font-medium mb-1">Appearance</h2>
         <p className="text-xs text-muted-foreground mb-4">Choose how the dashboard looks to you.</p>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {themes.map((t) => (
             <button
               key={t.value}
