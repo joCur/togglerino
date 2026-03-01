@@ -536,3 +536,126 @@ func TestEngine_PercentageRollout_0Percent(t *testing.T) {
 		t.Errorf("expected reason 'default', got %q", result.Reason)
 	}
 }
+
+func TestEngine_SegmentMatchCondition(t *testing.T) {
+	engine := NewEngine()
+	flag := makeFlag("test-flag", false, model.LifecycleActive)
+	config := makeConfig(true, "off", []model.Variant{
+		{Key: "off", Value: rawJSON(false)},
+		{Key: "on", Value: rawJSON(true)},
+	}, []model.TargetingRule{
+		{
+			Conditions: []model.Condition{
+				{Attribute: "", Operator: "segment_match", Value: "beta-users"},
+			},
+			Variant: "on",
+		},
+	})
+
+	segments := map[string]model.Segment{
+		"beta-users": {
+			Key: "beta-users",
+			Conditions: []model.Condition{
+				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
+				{Attribute: "beta_opted_in", Operator: "equals", Value: "true"},
+			},
+		},
+	}
+
+	t.Run("matches segment conditions", func(t *testing.T) {
+		ctx := &model.EvaluationContext{
+			UserID: "user-1",
+			Attributes: map[string]any{
+				"plan":          "enterprise",
+				"beta_opted_in": "true",
+			},
+		}
+		result := engine.EvaluateWithSegments(flag, config, ctx, segments)
+		if result.Reason != "rule_match" {
+			t.Errorf("expected reason 'rule_match', got %q", result.Reason)
+		}
+		if result.Variant != "on" {
+			t.Errorf("expected variant 'on', got %q", result.Variant)
+		}
+	})
+
+	t.Run("does not match segment conditions", func(t *testing.T) {
+		ctx := &model.EvaluationContext{
+			UserID: "user-2",
+			Attributes: map[string]any{
+				"plan":          "free",
+				"beta_opted_in": "true",
+			},
+		}
+		result := engine.EvaluateWithSegments(flag, config, ctx, segments)
+		if result.Reason != "default" {
+			t.Errorf("expected reason 'default', got %q", result.Reason)
+		}
+	})
+
+	t.Run("segment not found fails silently", func(t *testing.T) {
+		ctx := &model.EvaluationContext{
+			UserID: "user-3",
+			Attributes: map[string]any{
+				"plan": "enterprise",
+			},
+		}
+		result := engine.EvaluateWithSegments(flag, config, ctx, map[string]model.Segment{})
+		if result.Reason != "default" {
+			t.Errorf("expected reason 'default' for missing segment, got %q", result.Reason)
+		}
+	})
+
+	t.Run("segment_match mixed with inline conditions", func(t *testing.T) {
+		mixedConfig := makeConfig(true, "off", []model.Variant{
+			{Key: "off", Value: rawJSON(false)},
+			{Key: "on", Value: rawJSON(true)},
+		}, []model.TargetingRule{
+			{
+				Conditions: []model.Condition{
+					{Attribute: "", Operator: "segment_match", Value: "beta-users"},
+					{Attribute: "country", Operator: "equals", Value: "US"},
+				},
+				Variant: "on",
+			},
+		})
+
+		ctx := &model.EvaluationContext{
+			UserID: "user-4",
+			Attributes: map[string]any{
+				"plan":          "enterprise",
+				"beta_opted_in": "true",
+				"country":       "US",
+			},
+		}
+		result := engine.EvaluateWithSegments(flag, mixedConfig, ctx, segments)
+		if result.Reason != "rule_match" {
+			t.Errorf("expected 'rule_match', got %q", result.Reason)
+		}
+
+		ctx.Attributes["country"] = "UK"
+		result = engine.EvaluateWithSegments(flag, mixedConfig, ctx, segments)
+		if result.Reason != "default" {
+			t.Errorf("expected 'default' when inline condition fails, got %q", result.Reason)
+		}
+	})
+}
+
+func TestCache_SegmentStorage(t *testing.T) {
+	cache := NewCache()
+	segments := map[string]model.Segment{
+		"beta": {Key: "beta", Conditions: []model.Condition{{Attribute: "plan", Operator: "equals", Value: "pro"}}},
+	}
+	cache.SetSegments("myproject", segments)
+	got := cache.GetSegments("myproject")
+	if got == nil {
+		t.Fatal("expected segments, got nil")
+	}
+	if _, ok := got["beta"]; !ok {
+		t.Error("expected 'beta' segment")
+	}
+	got = cache.GetSegments("other")
+	if got != nil {
+		t.Error("expected nil for non-existent project")
+	}
+}

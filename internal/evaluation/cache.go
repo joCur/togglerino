@@ -22,12 +22,15 @@ type Cache struct {
 	mu sync.RWMutex
 	// Key: "projectKey:envKey", Value: map of flagKey -> FlagData
 	data map[string]map[string]FlagData
+	// Key: projectKey, Value: map of segmentKey -> Segment
+	segments map[string]map[string]model.Segment
 }
 
 // NewCache creates a new empty cache.
 func NewCache() *Cache {
 	return &Cache{
-		data: make(map[string]map[string]FlagData),
+		data:     make(map[string]map[string]FlagData),
+		segments: make(map[string]map[string]model.Segment),
 	}
 }
 
@@ -141,6 +144,21 @@ func (c *Cache) Set(projectKey, envKey string, flags map[string]FlagData) {
 	key := cacheKey(projectKey, envKey)
 	c.mu.Lock()
 	c.data[key] = flags
+	c.mu.Unlock()
+}
+
+// GetSegments returns all segments for a project, keyed by segment key.
+// Returns nil if the project has no segments cached.
+func (c *Cache) GetSegments(projectKey string) map[string]model.Segment {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.segments[projectKey]
+}
+
+// SetSegments stores segments for a project, keyed by segment key.
+func (c *Cache) SetSegments(projectKey string, segments map[string]model.Segment) {
+	c.mu.Lock()
+	c.segments[projectKey] = segments
 	c.mu.Unlock()
 }
 
