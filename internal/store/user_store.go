@@ -85,6 +85,23 @@ func (s *UserStore) List(ctx context.Context) ([]model.User, error) {
 	return users, nil
 }
 
+func (s *UserStore) UpdateProfile(ctx context.Context, id string, email *string, displayName *string) (*model.User, error) {
+	var user model.User
+	err := s.pool.QueryRow(ctx,
+		`UPDATE users SET
+			email = COALESCE($2, email),
+			display_name = COALESCE($3, display_name),
+			updated_at = NOW()
+		 WHERE id = $1
+		 RETURNING id, email, display_name, password_hash, role, created_at, updated_at`,
+		id, email, displayName,
+	).Scan(&user.ID, &user.Email, &user.DisplayName, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("updating user profile: %w", err)
+	}
+	return &user, nil
+}
+
 func (s *UserStore) UpdatePassword(ctx context.Context, id, passwordHash string) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2`,
