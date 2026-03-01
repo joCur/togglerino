@@ -97,7 +97,8 @@ const (
 	OpNotIn       Operator = "not_in"
 	OpExists      Operator = "exists"
 	OpNotExists   Operator = "not_exists"
-	OpMatches     Operator = "matches"
+	OpMatches      Operator = "matches"
+	OpSegmentMatch Operator = "segment_match"
 )
 
 // ValidValueTypes is the set of all valid value types.
