@@ -16,6 +16,12 @@ interface Props {
 
 const OPERATOR_GROUPS = [
   {
+    label: 'Segment',
+    operators: [
+      { value: 'segment_match', label: 'matches segment' },
+    ],
+  },
+  {
     label: 'Comparison',
     operators: [
       { value: 'equals', label: 'equals' },
@@ -58,12 +64,6 @@ const OPERATOR_GROUPS = [
     label: 'Pattern',
     operators: [
       { value: 'matches', label: 'matches (regex)' },
-    ],
-  },
-  {
-    label: 'Segment',
-    operators: [
-      { value: 'segment_match', label: 'matches segment' },
     ],
   },
 ]
