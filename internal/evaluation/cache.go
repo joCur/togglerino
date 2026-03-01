@@ -96,7 +96,9 @@ func (c *Cache) LoadAll(ctx context.Context, pool *pgxpool.Pool) error {
 		if err := segRows.Scan(&projectKey, &seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &condJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
 			return fmt.Errorf("cache LoadAll segment scan: %w", err)
 		}
-		json.Unmarshal(condJSON, &seg.Conditions)
+		if err := json.Unmarshal(condJSON, &seg.Conditions); err != nil {
+			return fmt.Errorf("cache LoadAll segment unmarshal: %w", err)
+		}
 		if seg.Conditions == nil {
 			seg.Conditions = []model.Condition{}
 		}
@@ -169,7 +171,9 @@ func (c *Cache) RefreshSegments(ctx context.Context, pool *pgxpool.Pool, project
 		if err := rows.Scan(&seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &condJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
 			return fmt.Errorf("cache RefreshSegments scan: %w", err)
 		}
-		json.Unmarshal(condJSON, &seg.Conditions)
+		if err := json.Unmarshal(condJSON, &seg.Conditions); err != nil {
+			return fmt.Errorf("cache RefreshSegments unmarshal: %w", err)
+		}
 		if seg.Conditions == nil {
 			seg.Conditions = []model.Condition{}
 		}

@@ -227,6 +227,10 @@ func (h *SegmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
 
 	if msg := validateSegmentConditions(req.Conditions); msg != "" {
 		writeError(w, http.StatusBadRequest, msg)

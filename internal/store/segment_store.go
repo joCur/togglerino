@@ -30,7 +30,9 @@ func (s *SegmentStore) Create(ctx context.Context, projectID, key, name, descrip
 	if err != nil {
 		return nil, fmt.Errorf("creating segment: %w", err)
 	}
-	json.Unmarshal(conditionsJSON, &seg.Conditions)
+	if err := json.Unmarshal(conditionsJSON, &seg.Conditions); err != nil {
+		return nil, fmt.Errorf("unmarshaling segment conditions: %w", err)
+	}
 	if seg.Conditions == nil {
 		seg.Conditions = []model.Condition{}
 	}
@@ -49,7 +51,9 @@ func (s *SegmentStore) GetByKey(ctx context.Context, projectID, key string) (*mo
 	if err != nil {
 		return nil, fmt.Errorf("finding segment by key: %w", err)
 	}
-	json.Unmarshal(conditionsJSON, &seg.Conditions)
+	if err := json.Unmarshal(conditionsJSON, &seg.Conditions); err != nil {
+		return nil, fmt.Errorf("unmarshaling segment conditions: %w", err)
+	}
 	if seg.Conditions == nil {
 		seg.Conditions = []model.Condition{}
 	}
@@ -75,7 +79,9 @@ func (s *SegmentStore) ListByProject(ctx context.Context, projectID string) ([]m
 		if err := rows.Scan(&seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &conditionsJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning segment: %w", err)
 		}
-		json.Unmarshal(conditionsJSON, &seg.Conditions)
+		if err := json.Unmarshal(conditionsJSON, &seg.Conditions); err != nil {
+			return nil, fmt.Errorf("unmarshaling segment conditions: %w", err)
+		}
 		if seg.Conditions == nil {
 			seg.Conditions = []model.Condition{}
 		}
@@ -99,7 +105,9 @@ func (s *SegmentStore) Update(ctx context.Context, segmentID, name, description 
 	if err != nil {
 		return nil, fmt.Errorf("updating segment: %w", err)
 	}
-	json.Unmarshal(conditionsJSON, &seg.Conditions)
+	if err := json.Unmarshal(conditionsJSON, &seg.Conditions); err != nil {
+		return nil, fmt.Errorf("unmarshaling segment conditions: %w", err)
+	}
 	if seg.Conditions == nil {
 		seg.Conditions = []model.Condition{}
 	}
@@ -138,7 +146,9 @@ func (s *SegmentStore) ListByProjectKey(ctx context.Context, projectKey string) 
 		if err := rows.Scan(&seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &conditionsJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning segment: %w", err)
 		}
-		json.Unmarshal(conditionsJSON, &seg.Conditions)
+		if err := json.Unmarshal(conditionsJSON, &seg.Conditions); err != nil {
+			return nil, fmt.Errorf("unmarshaling segment conditions: %w", err)
+		}
 		if seg.Conditions == nil {
 			seg.Conditions = []model.Condition{}
 		}
@@ -154,9 +164,19 @@ func (s *SegmentStore) ListByProjectKey(ctx context.Context, projectKey string) 
 // containing a segment_match condition referencing the given segment key.
 // Uses JSONB containment to search flag_environment_configs.
 func (s *SegmentStore) FindReferencingFlags(ctx context.Context, projectID, segmentKey string) ([]string, error) {
-	// Build the JSONB containment pattern:
+	// Build the JSONB containment pattern using json.Marshal for safe encoding:
 	// [{"conditions":[{"operator":"segment_match","value":"<segmentKey>"}]}]
-	pattern := fmt.Sprintf(`[{"conditions":[{"operator":"segment_match","value":"%s"}]}]`, segmentKey)
+	type condPattern struct {
+		Operator string `json:"operator"`
+		Value    string `json:"value"`
+	}
+	type rulePattern struct {
+		Conditions []condPattern `json:"conditions"`
+	}
+	pattern, err := json.Marshal([]rulePattern{{Conditions: []condPattern{{Operator: "segment_match", Value: segmentKey}}}})
+	if err != nil {
+		return nil, fmt.Errorf("marshaling segment reference pattern: %w", err)
+	}
 
 	rows, err := s.pool.Query(ctx,
 		`SELECT DISTINCT f.key
