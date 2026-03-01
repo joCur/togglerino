@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useFlag } from '@togglerino/react'
 import { useAuth } from '../hooks/useAuth.ts'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,8 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ChevronDown, User as UserIcon, LogOut } from 'lucide-react'
-import { Menu } from 'lucide-react'
+import { ChevronDown, User as UserIcon, Settings, LogOut, Menu } from 'lucide-react'
 
 interface TopbarProps {
   children?: ReactNode
@@ -20,6 +20,7 @@ interface TopbarProps {
 export default function Topbar({ children, onMenuClick }: TopbarProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const isThemeToggleEnabled = useFlag('enable-theme-toggle', false)
 
   const handleLogout = async () => {
     try {
@@ -71,6 +72,12 @@ export default function Topbar({ children, onMenuClick }: TopbarProps) {
             <UserIcon className="mr-2 h-4 w-4" />
             Account
           </DropdownMenuItem>
+          {isThemeToggleEnabled && (
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />

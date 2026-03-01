@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useParams, useNavigate } from 'react-router-dom'
+import { useFlag } from '@togglerino/react'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useIsMobile } from '../hooks/useIsMobile.ts'
 import Topbar from './Topbar.tsx'
@@ -7,7 +8,7 @@ import ProjectSwitcher from './ProjectSwitcher.tsx'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { navLinkClass } from './navLinkClass'
-import { User as UserIcon, LogOut } from 'lucide-react'
+import { User as UserIcon, Settings, LogOut } from 'lucide-react'
 
 export default function ProjectLayout() {
   const { key } = useParams<{ key: string }>()
@@ -15,6 +16,7 @@ export default function ProjectLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const isThemeToggleEnabled = useFlag('enable-theme-toggle', false)
   const closeDrawer = () => setDrawerOpen(false)
 
   const navLinks = (onNavigate?: () => void) => (
@@ -58,6 +60,12 @@ export default function ProjectLayout() {
                   <UserIcon className="h-4 w-4" />
                   Account
                 </Button>
+                {isThemeToggleEnabled && (
+                  <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { navigate('/settings'); setDrawerOpen(false) }}>
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="w-full justify-start gap-2" onClick={() => { logout(); setDrawerOpen(false) }}>
                   <LogOut className="h-4 w-4" />
                   Log out
