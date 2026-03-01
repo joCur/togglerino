@@ -77,6 +77,19 @@ func (s *EnvironmentStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// EnvKeyByID returns the environment key for an environment ID (used by schedule checker).
+func (s *EnvironmentStore) EnvKeyByID(ctx context.Context, environmentID string) (string, error) {
+	var key string
+	err := s.pool.QueryRow(ctx,
+		`SELECT key FROM environments WHERE id = $1`,
+		environmentID,
+	).Scan(&key)
+	if err != nil {
+		return "", fmt.Errorf("looking up environment key by ID: %w", err)
+	}
+	return key, nil
+}
+
 // CreateDefaultEnvironments creates development, staging, production environments for a project.
 func (s *EnvironmentStore) CreateDefaultEnvironments(ctx context.Context, projectID string) error {
 	defaults := []struct {
