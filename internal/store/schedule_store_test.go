@@ -30,7 +30,7 @@ func setupScheduleTest(t *testing.T) (*store.ScheduleStore, *store.FlagStore, *m
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, uniqueKey("schflag"), "Schedule Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), nil)
+	flag, err := fs.Create(ctx, project.ID, uniqueKey("schflag"), "Schedule Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{})
 	if err != nil {
 		t.Fatalf("creating flag: %v", err)
 	}
