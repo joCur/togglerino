@@ -78,8 +78,40 @@ func (c *Cache) LoadAll(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("cache LoadAll rows: %w", err)
 	}
 
+	// Load segments (project-scoped)
+	segRows, err := pool.Query(ctx,
+		`SELECT p.key AS project_key, s.id, s.project_id, s.key, s.name, s.description, s.conditions, s.created_at, s.updated_at
+		 FROM segments s
+		 JOIN projects p ON p.id = s.project_id`)
+	if err != nil {
+		return fmt.Errorf("cache LoadAll segments query: %w", err)
+	}
+	defer segRows.Close()
+
+	newSegments := make(map[string]map[string]model.Segment)
+	for segRows.Next() {
+		var projectKey string
+		var seg model.Segment
+		var condJSON []byte
+		if err := segRows.Scan(&projectKey, &seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &condJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
+			return fmt.Errorf("cache LoadAll segment scan: %w", err)
+		}
+		json.Unmarshal(condJSON, &seg.Conditions)
+		if seg.Conditions == nil {
+			seg.Conditions = []model.Condition{}
+		}
+		if newSegments[projectKey] == nil {
+			newSegments[projectKey] = make(map[string]model.Segment)
+		}
+		newSegments[projectKey][seg.Key] = seg
+	}
+	if err := segRows.Err(); err != nil {
+		return fmt.Errorf("cache LoadAll segments rows: %w", err)
+	}
+
 	c.mu.Lock()
 	c.data = newData
+	c.segments = newSegments
 	c.mu.Unlock()
 
 	return nil
@@ -114,6 +146,42 @@ func (c *Cache) Refresh(ctx context.Context, pool *pgxpool.Pool, projectKey, env
 	c.data[key] = flags
 	c.mu.Unlock()
 
+	return nil
+}
+
+// RefreshSegments reloads all segments for a specific project from the database.
+// Called after a segment is created, updated, or deleted.
+func (c *Cache) RefreshSegments(ctx context.Context, pool *pgxpool.Pool, projectKey string) error {
+	rows, err := pool.Query(ctx,
+		`SELECT s.id, s.project_id, s.key, s.name, s.description, s.conditions, s.created_at, s.updated_at
+		 FROM segments s
+		 JOIN projects p ON p.id = s.project_id
+		 WHERE p.key = $1`, projectKey)
+	if err != nil {
+		return fmt.Errorf("cache RefreshSegments query: %w", err)
+	}
+	defer rows.Close()
+
+	segs := make(map[string]model.Segment)
+	for rows.Next() {
+		var seg model.Segment
+		var condJSON []byte
+		if err := rows.Scan(&seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &condJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
+			return fmt.Errorf("cache RefreshSegments scan: %w", err)
+		}
+		json.Unmarshal(condJSON, &seg.Conditions)
+		if seg.Conditions == nil {
+			seg.Conditions = []model.Condition{}
+		}
+		segs[seg.Key] = seg
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("cache RefreshSegments rows: %w", err)
+	}
+
+	c.mu.Lock()
+	c.segments[projectKey] = segs
+	c.mu.Unlock()
 	return nil
 }
 
