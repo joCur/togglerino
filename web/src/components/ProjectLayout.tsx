@@ -27,6 +27,7 @@ export default function ProjectLayout() {
       <NavLink to={`/projects/${key}`} end className={navLinkClass} onClick={onNavigate}>Flags</NavLink>
       <NavLink to={`/projects/${key}/lifecycle`} className={navLinkClass} onClick={onNavigate}>Lifecycle</NavLink>
       <NavLink to={`/projects/${key}/environments`} className={navLinkClass} onClick={onNavigate}>Environments</NavLink>
+      <NavLink to={`/projects/${key}/segments`} className={navLinkClass} onClick={onNavigate}>Segments</NavLink>
       <NavLink to={`/projects/${key}/audit-log`} className={navLinkClass} onClick={onNavigate}>Audit Log</NavLink>
       <NavLink to={`/projects/${key}/settings`} className={navLinkClass} onClick={onNavigate}>Settings</NavLink>
     </>
