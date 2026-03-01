@@ -20,7 +20,7 @@ var options = new TogglerioOptions
     Context = new EvaluationContext
     {
         UserId = "user-123",
-        Properties = new Dictionary<string, string>
+        Attributes = new Dictionary<string, object?>
         {
             ["plan"] = "pro",
             ["country"] = "US"
@@ -62,10 +62,10 @@ var options = new TogglerioOptions
 
 ```csharp
 client.FlagChanges.Subscribe(change =>
-    Console.WriteLine($"Flag '{change.Key}' changed to {change.NewValue}"));
+    Console.WriteLine($"Flag '{change.FlagKey}' changed to {change.Value}"));
 
 client.FlagDeletions.Subscribe(deletion =>
-    Console.WriteLine($"Flag '{deletion.Key}' was deleted"));
+    Console.WriteLine($"Flag '{deletion.FlagKey}' was deleted"));
 
 client.Errors.Subscribe(error =>
     Console.WriteLine($"Error: {error.Message}"));
@@ -77,7 +77,7 @@ client.Errors.Subscribe(error =>
 await client.UpdateContextAsync(new EvaluationContext
 {
     UserId = "user-456",
-    Properties = new Dictionary<string, string> { ["plan"] = "enterprise" }
+    Attributes = new Dictionary<string, object?> { ["plan"] = "enterprise" }
 });
 ```
 

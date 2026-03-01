@@ -15,7 +15,7 @@ public sealed class TogglerioClient : IAsyncDisposable, IDisposable
     private readonly FlagStore _store;
     private readonly FlagApiClient _apiClient;
     private readonly Subject<Exception> _errors = new();
-    private EvaluationContext _context;
+    private volatile EvaluationContext _context;
 
     private SseClient? _sseClient;
     private PeriodicTimer? _pollTimer;

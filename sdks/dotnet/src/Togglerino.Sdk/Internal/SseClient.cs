@@ -37,7 +37,7 @@ internal static class SseParser
 
         try
         {
-            var doc = JsonDocument.Parse(data);
+            using var doc = JsonDocument.Parse(data);
             var root = doc.RootElement;
 
             var flagKey = root.GetProperty("flagKey").GetString()!;
