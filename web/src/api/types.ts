@@ -115,3 +115,14 @@ export interface ContextAttribute {
   name: string
   last_seen_at: string
 }
+
+export interface Segment {
+  id: string
+  project_id: string
+  key: string
+  name: string
+  description: string
+  conditions: Condition[]
+  created_at: string
+  updated_at: string
+}
