@@ -72,21 +72,21 @@ function FlagLifetimesSettings({ projectKey }: { projectKey: string }) {
 
         <div className="flex flex-col gap-3">
           {Object.entries(FLAG_PURPOSE_LABELS).map(([purpose, { label, description }]) => (
-            <div key={purpose} className="flex items-center gap-4">
-              <div className="w-[140px]">
+            <div key={purpose} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+              <div className="md:w-[140px]">
                 <div className="text-[13px] font-medium text-foreground">{label}</div>
                 <div className="text-[11px] text-muted-foreground">{description}</div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {lifetimes[purpose] === null ? (
                   <Input
-                    className="w-[120px]"
+                    className="w-full md:w-[120px]"
                     value="Permanent"
                     disabled
                   />
                 ) : (
                   <Input
-                    className="w-[120px]"
+                    className="w-full md:w-[120px]"
                     type="number"
                     min={1}
                     value={lifetimes[purpose] ?? ''}

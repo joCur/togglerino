@@ -77,9 +77,9 @@ export default function VariantEditor({ variants, valueType, onChange }: Props) 
       )}
 
       {variants.map((v, i) => (
-        <div key={i} className="flex items-center gap-2">
+        <div key={i} className="flex flex-col md:flex-row md:items-center gap-2">
           <Input
-            className="flex-none w-[110px] font-mono text-xs"
+            className="w-full md:flex-none md:w-[110px] font-mono text-xs"
             placeholder="Key"
             value={v.key}
             onChange={(e) => updateKey(i, e.target.value)}
@@ -112,7 +112,7 @@ export default function VariantEditor({ variants, valueType, onChange }: Props) 
           <Button
             variant="destructive"
             size="sm"
-            className="shrink-0 text-[11px] px-2.5 h-7"
+            className="shrink-0 text-[11px] px-2.5 h-7 self-end md:self-auto"
             onClick={() => remove(i)}
           >
             Remove

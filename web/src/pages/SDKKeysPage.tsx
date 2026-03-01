@@ -110,7 +110,7 @@ export default function SDKKeysPage() {
         <span className="text-foreground">SDK Keys</span>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">SDK Keys</h1>
         {!showForm && (
           <Button onClick={() => setShowForm(true)}>Generate New Key</Button>
@@ -119,7 +119,7 @@ export default function SDKKeysPage() {
 
       {showForm && (
         <form
-          className="flex gap-3 mb-6 p-5 rounded-lg bg-card border items-end animate-[fadeIn_200ms_ease]"
+          className="flex flex-col md:flex-row gap-3 mb-6 p-5 rounded-lg bg-card border md:items-end animate-[fadeIn_200ms_ease]"
           onSubmit={handleCreate}
         >
           <div className="flex flex-col gap-1.5 flex-1">
@@ -160,7 +160,7 @@ export default function SDKKeysPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
+        <div className="rounded-lg border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

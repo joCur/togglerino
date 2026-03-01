@@ -136,7 +136,7 @@ export default function LifecycleBoardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {grouped.map(col => (
           <div key={col.status}>
             <div className={`flex items-center gap-2 mb-3 pb-2 border-b-2 ${col.bgColor}`}>

@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { useIsMobile } from '@/hooks/useIsMobile'
+import { Plus } from 'lucide-react'
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -40,6 +42,7 @@ export default function ProjectDetailPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [createFromKey, setCreateFromKey] = useState('')
   const unknownFlagsEnabled = useFlag('unknown-flags', false)
+  const isMobile = useIsMobile()
 
   const { data: flags, isLoading: flagsLoading, error: flagsError } = useQuery({
     queryKey: ['projects', key, 'flags'],
@@ -146,7 +149,7 @@ export default function ProjectDetailPage() {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">{key}</h1>
-        <Button onClick={() => setModalOpen(true)}>Create Flag</Button>
+        {!isMobile && <Button onClick={() => setModalOpen(true)}>Create Flag</Button>}
       </div>
 
       <Tabs defaultValue="flags">
@@ -166,16 +169,16 @@ export default function ProjectDetailPage() {
 
         <TabsContent value="flags">
           {/* Filters */}
-          <div className="flex gap-2.5 mb-5 mt-5">
+          <div className="flex flex-col md:flex-row gap-2.5 mb-5 mt-5">
             <Input
-              className="flex-1 max-w-[300px]"
+              className="w-full md:flex-1 md:max-w-[300px]"
               placeholder="Search flags..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             {allTags.length > 0 && (
               <select
-                className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+                className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
               >
@@ -186,7 +189,7 @@ export default function ProjectDetailPage() {
               </select>
             )}
             <select
-              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={purposeFilter}
               onChange={(e) => setPurposeFilter(e.target.value as FlagPurpose | '')}
             >
@@ -198,7 +201,7 @@ export default function ProjectDetailPage() {
               <option value="permission">Permission</option>
             </select>
             <select
-              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer min-w-[130px]"
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as LifecycleStatus | '')}
             >
@@ -245,7 +248,7 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border overflow-hidden mt-5">
+            <div className="rounded-lg border overflow-x-auto mt-5">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -313,6 +316,16 @@ export default function ProjectDetailPage() {
         onClose={() => { setModalOpen(false); setCreateFromKey('') }}
         onCreated={() => queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] })}
       />
+
+      {isMobile && (
+        <button
+          onClick={() => setModalOpen(true)}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#d4956a] text-white shadow-lg flex items-center justify-center hover:bg-[#e0a87a] active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#d4956a] focus-visible:ring-offset-2"
+          aria-label="Create Flag"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      )}
     </div>
   )
 }

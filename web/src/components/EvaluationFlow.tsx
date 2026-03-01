@@ -1,4 +1,5 @@
 import type { FlagEnvironmentConfig } from '../api/types.ts'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -10,6 +11,32 @@ export default function EvaluationFlow({ config }: Props) {
   const ruleCount = config?.targeting_rules?.length ?? 0
   const defaultVariant = config?.default_variant ?? '—'
   const hasRules = ruleCount > 0
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 rounded-lg bg-secondary/30 border border-dashed text-[11px] font-mono">
+        <span
+          className={cn(
+            'px-2 py-0.5 rounded',
+            enabled
+              ? 'bg-emerald-500/10 text-emerald-400'
+              : 'bg-red-500/10 text-red-400',
+          )}
+        >
+          {enabled ? 'Enabled' : 'Disabled'}
+        </span>
+        <span className="text-muted-foreground/30">·</span>
+        <span className="text-muted-foreground">
+          {hasRules ? `${ruleCount} rule${ruleCount > 1 ? 's' : ''}` : '0 rules'}
+        </span>
+        <span className="text-muted-foreground/30">·</span>
+        <span className="text-muted-foreground">
+          Default: <span className="text-[#d4956a]">{defaultVariant || '—'}</span>
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div className="flex items-center gap-0 px-4 py-3 rounded-lg bg-secondary/30 border border-dashed text-[11px] font-mono overflow-x-auto">

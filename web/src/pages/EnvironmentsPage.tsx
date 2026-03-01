@@ -71,7 +71,7 @@ export default function EnvironmentsPage() {
         <span className="text-foreground">Environments</span>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">Environments</h1>
         {!showForm && (
           <Button onClick={() => setShowForm(true)}>Create Environment</Button>
@@ -80,13 +80,13 @@ export default function EnvironmentsPage() {
 
       {showForm && (
         <form
-          className="flex gap-3 mb-6 p-5 rounded-lg bg-card border items-end animate-[fadeIn_200ms_ease]"
+          className="flex flex-col md:flex-row gap-3 mb-6 p-5 rounded-lg bg-card border md:items-end animate-[fadeIn_200ms_ease]"
           onSubmit={handleCreate}
         >
           <div className="flex flex-col gap-1.5">
             <Label className="font-mono text-[10px] uppercase tracking-wider">Key</Label>
             <Input
-              className="min-w-[160px]"
+              className="w-full md:w-auto"
               placeholder="e.g. staging"
               value={envKey}
               onChange={(e) => setEnvKey(e.target.value)}
@@ -96,7 +96,7 @@ export default function EnvironmentsPage() {
           <div className="flex flex-col gap-1.5">
             <Label className="font-mono text-[10px] uppercase tracking-wider">Name</Label>
             <Input
-              className="min-w-[160px]"
+              className="w-full md:w-auto"
               placeholder="e.g. Staging"
               value={envName}
               onChange={(e) => setEnvName(e.target.value)}
@@ -131,7 +131,7 @@ export default function EnvironmentsPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
+        <div className="rounded-lg border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
