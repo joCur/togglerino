@@ -115,3 +115,24 @@ export interface ContextAttribute {
   name: string
   last_seen_at: string
 }
+
+export type ScheduleStatus = 'pending' | 'executed' | 'cancelled'
+
+export interface ScheduledFlagChange {
+  id: string
+  flag_id: string
+  environment_id: string
+  scheduled_at: string
+  status: ScheduleStatus
+  config_snapshot: {
+    enabled: boolean
+    default_variant: string
+    variants: Variant[]
+    targeting_rules: TargetingRule[]
+  }
+  created_by?: string
+  created_at: string
+  executed_at?: string
+  cancelled_at?: string
+  cancel_reason?: string
+}

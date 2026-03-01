@@ -24,10 +24,11 @@ type FlagHandler struct {
 	cache        *evaluation.Cache
 	pool         *pgxpool.Pool
 	unknownFlags *store.UnknownFlagStore
+	schedules    *store.ScheduleStore
 }
 
-func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool, unknownFlags *store.UnknownFlagStore) *FlagHandler {
-	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool, unknownFlags: unknownFlags}
+func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool, unknownFlags *store.UnknownFlagStore, schedules *store.ScheduleStore) *FlagHandler {
+	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool, unknownFlags: unknownFlags, schedules: schedules}
 }
 
 // refreshAllEnvironments refreshes the evaluation cache and broadcasts SSE events
@@ -305,6 +306,11 @@ func (h *FlagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cancel pending schedules before delete (cascade would delete them without audit trail)
+	if err := h.schedules.CancelByFlag(r.Context(), flag.ID, "flag_deleted"); err != nil {
+		slog.Warn("failed to cancel schedules for deleted flag", "flag", flag.Key, "error", err)
+	}
+
 	if err := h.flags.Delete(r.Context(), flag.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete flag")
 		return
@@ -378,6 +384,13 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update flag archive status")
 		return
+	}
+
+	// Best-effort cancel pending schedules on archive
+	if req.Archived {
+		if err := h.schedules.CancelByFlag(r.Context(), flag.ID, "flag_archived"); err != nil {
+			slog.Warn("failed to cancel schedules for archived flag", "flag", flag.Key, "error", err)
+		}
 	}
 
 	// Best-effort audit logging

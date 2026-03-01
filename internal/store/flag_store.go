@@ -285,6 +285,45 @@ func (s *FlagStore) UpdateEnvironmentConfig(ctx context.Context, flagID, environ
 	return scanFlagEnvConfig(row)
 }
 
+// ProjectKeyByFlagID returns the project key for a flag (used by schedule checker).
+func (s *FlagStore) ProjectKeyByFlagID(ctx context.Context, flagID string) (string, error) {
+	var key string
+	err := s.pool.QueryRow(ctx,
+		`SELECT p.key FROM projects p JOIN flags f ON f.project_id = p.id WHERE f.id = $1`,
+		flagID,
+	).Scan(&key)
+	if err != nil {
+		return "", fmt.Errorf("looking up project key by flag ID: %w", err)
+	}
+	return key, nil
+}
+
+// ProjectIDByFlagID returns the project ID for a flag (used by schedule checker).
+func (s *FlagStore) ProjectIDByFlagID(ctx context.Context, flagID string) (string, error) {
+	var id string
+	err := s.pool.QueryRow(ctx,
+		`SELECT project_id FROM flags WHERE id = $1`,
+		flagID,
+	).Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("looking up project ID by flag ID: %w", err)
+	}
+	return id, nil
+}
+
+// FlagKeyByID returns the flag key for a flag ID (used by schedule checker).
+func (s *FlagStore) FlagKeyByID(ctx context.Context, flagID string) (string, error) {
+	var key string
+	err := s.pool.QueryRow(ctx,
+		`SELECT key FROM flags WHERE id = $1`,
+		flagID,
+	).Scan(&key)
+	if err != nil {
+		return "", fmt.Errorf("looking up flag key by ID: %w", err)
+	}
+	return key, nil
+}
+
 func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	var cfg model.FlagEnvironmentConfig
 	var variantsJSON, rulesJSON json.RawMessage
