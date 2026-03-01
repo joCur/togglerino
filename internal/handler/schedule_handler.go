@@ -26,11 +26,10 @@ func NewScheduleHandler(schedules *store.ScheduleStore, flags *store.FlagStore, 
 
 // List handles GET /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules
 func (h *ScheduleHandler) List(w http.ResponseWriter, r *http.Request) {
-	project, flag, env, ok := h.resolveContext(w, r)
+	_, flag, env, ok := h.resolveContext(w, r)
 	if !ok {
 		return
 	}
-	_ = project
 
 	schedules, err := h.schedules.ListByFlagEnvironment(r.Context(), flag.ID, env.ID)
 	if err != nil {
