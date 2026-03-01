@@ -6,6 +6,7 @@ import { api } from '../api/client.ts'
 import type { Flag, Environment, FlagEnvironmentConfig } from '../api/types.ts'
 import ConfigEditor from '../components/ConfigEditor.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
+import PendingSchedules from '../components/PendingSchedules.tsx'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -301,6 +302,13 @@ export default function FlagDetailPage() {
                         <div className="mb-4 mt-3">
                           <EvaluationFlow config={config} />
                         </div>
+                        <PendingSchedules
+                          projectKey={key!}
+                          flagKey={flagKey!}
+                          envKey={env.key}
+                          flagId={flag.id}
+                          environmentId={env.id}
+                        />
                         <ConfigEditor
                           key={env.key}
                           config={config}

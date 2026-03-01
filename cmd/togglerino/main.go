@@ -19,6 +19,7 @@ import (
 	"github.com/togglerino/togglerino/internal/logging"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/ratelimit"
+	"github.com/togglerino/togglerino/internal/schedule"
 	"github.com/togglerino/togglerino/internal/staleness"
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
@@ -62,6 +63,7 @@ func main() {
 	projectSettingsStore := store.NewProjectSettingsStore(pool)
 	unknownFlagStore := store.NewUnknownFlagStore(pool)
 	segmentStore := store.NewSegmentStore(pool)
+	scheduleStore := store.NewScheduleStore(pool)
 
 	// 5. Initialize cache, engine, hub
 	cache := evaluation.NewCache()
@@ -72,11 +74,20 @@ func main() {
 	})
 	stalenessChecker := staleness.NewChecker(flagStore, projectSettingsStore, auditStore, cacheRefresher, 1*time.Hour)
 
+	// 5b. Initialize schedule checker
+	schedCacheRefresher := scheduleCacheRefreshFunc(func(ctx context.Context, projectKey, envKey string) error {
+		return cache.Refresh(ctx, pool, projectKey, envKey)
+	})
+	flagEnvLookup := &combinedLookup{flags: flagStore, environments: environmentStore}
+	schedBroadcaster := scheduleEventBroadcaster{hub: hub}
+	scheduleChecker := schedule.NewChecker(scheduleStore, flagEnvLookup, pool, schedCacheRefresher, schedBroadcaster, auditStore, 30*time.Second)
+
 	// 6. Load all flags into cache
 	if err := cache.LoadAll(ctx, pool); err != nil {
 		log.Fatalf("failed to load flags into cache: %v", err)
 	}
 	go stalenessChecker.Run(ctx)
+	go scheduleChecker.Run(ctx)
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
@@ -84,7 +95,7 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
-	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore)
+	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
 	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore)
 	contextAttributeStore := store.NewContextAttributeStore(pool)
@@ -92,6 +103,7 @@ func main() {
 	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore)
 	unknownFlagHandler := handler.NewUnknownFlagHandler(unknownFlagStore, projectStore)
 	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool)
+	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
 	streamHandler := handler.NewStreamHandler(hub)
 
 	// 8. Set up HTTP router
@@ -153,6 +165,12 @@ func main() {
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/archive", wrap(flagHandler.Archive, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/staleness", wrap(flagHandler.SetStaleness, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth))
+
+	// Scheduled flag changes
+	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.List, sessionAuth))
+	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.Create, sessionAuth))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Update, sessionAuth))
+	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Cancel, sessionAuth))
 
 	// Unknown flags
 	mux.Handle("GET /api/v1/projects/{key}/unknown-flags", wrap(unknownFlagHandler.List, sessionAuth))
@@ -260,6 +278,49 @@ func wrap(h http.HandlerFunc, middlewares ...func(http.Handler) http.Handler) ht
 type cacheRefreshFunc func(ctx context.Context) error
 
 func (f cacheRefreshFunc) LoadAll(ctx context.Context) error { return f(ctx) }
+
+// scheduleCacheRefreshFunc adapts a function to the schedule.CacheRefresher interface.
+type scheduleCacheRefreshFunc func(ctx context.Context, projectKey, envKey string) error
+
+func (f scheduleCacheRefreshFunc) Refresh(ctx context.Context, projectKey, envKey string) error {
+	return f(ctx, projectKey, envKey)
+}
+
+// combinedLookup implements schedule.FlagEnvLookup by combining FlagStore and EnvironmentStore methods.
+type combinedLookup struct {
+	flags        *store.FlagStore
+	environments *store.EnvironmentStore
+}
+
+func (l *combinedLookup) ProjectKeyByFlagID(ctx context.Context, flagID string) (string, error) {
+	return l.flags.ProjectKeyByFlagID(ctx, flagID)
+}
+
+func (l *combinedLookup) ProjectIDByFlagID(ctx context.Context, flagID string) (string, error) {
+	return l.flags.ProjectIDByFlagID(ctx, flagID)
+}
+
+func (l *combinedLookup) FlagKeyByID(ctx context.Context, flagID string) (string, error) {
+	return l.flags.FlagKeyByID(ctx, flagID)
+}
+
+func (l *combinedLookup) EnvKeyByID(ctx context.Context, environmentID string) (string, error) {
+	return l.environments.EnvKeyByID(ctx, environmentID)
+}
+
+// scheduleEventBroadcaster adapts *stream.Hub to schedule.EventBroadcaster.
+type scheduleEventBroadcaster struct {
+	hub *stream.Hub
+}
+
+func (b scheduleEventBroadcaster) Broadcast(projectKey, envKey string, flagKey string, enabled bool, defaultVariant string) {
+	b.hub.Broadcast(projectKey, envKey, stream.Event{
+		Type:    "flag_update",
+		FlagKey: flagKey,
+		Value:   enabled,
+		Variant: defaultVariant,
+	})
+}
 
 // corsMiddleware adds CORS headers based on the configured allowed origins.
 // If origins contains only "*", all origins are allowed. Otherwise, the

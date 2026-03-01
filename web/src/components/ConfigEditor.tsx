@@ -10,6 +10,7 @@ import type {
 } from '../api/types.ts'
 import VariantEditor from './VariantEditor.tsx'
 import RuleBuilder from './RuleBuilder.tsx'
+import ScheduleChangeDialog from './ScheduleChangeDialog.tsx'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -33,7 +34,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -64,6 +65,7 @@ export default function ConfigEditor({
   const [copyKey, setCopyKey] = useState(0)
   const [variantsOpen, setVariantsOpen] = useState((config?.variants ?? []).length > 0)
   const [rulesOpen, setRulesOpen] = useState((config?.targeting_rules ?? []).length > 0)
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
 
   const otherEnvironments = environments.filter((e) => e.key !== envKey)
 
@@ -189,10 +191,18 @@ export default function ConfigEditor({
         </div>
       )}
 
-      {/* Save */}
+      {/* Save + Schedule */}
       <div className="flex items-center gap-3">
         <Button onClick={handleSave} disabled={updateConfig.isPending}>
           {updateConfig.isPending ? 'Saving...' : 'Save Configuration'}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setScheduleDialogOpen(true)}
+          disabled={flag.lifecycle_status === 'archived'}
+        >
+          <Clock className="w-3.5 h-3.5 mr-1.5" />
+          Schedule
         </Button>
         {saved && (
           <span className="text-[13px] text-emerald-400 animate-[fadeIn_200ms_ease]">
@@ -208,6 +218,21 @@ export default function ConfigEditor({
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Schedule Change Dialog */}
+      <ScheduleChangeDialog
+        open={scheduleDialogOpen}
+        onClose={() => setScheduleDialogOpen(false)}
+        projectKey={projectKey}
+        flagKey={flagKey}
+        envKey={envKey}
+        currentConfig={{
+          enabled: config?.enabled ?? false,
+          default_variant: defaultVariant,
+          variants,
+          targeting_rules: rules,
+        }}
+      />
 
       {/* Copy Config Confirmation Dialog */}
       <Dialog open={copySourceEnv !== null} onOpenChange={(open) => { if (!open) { setCopySourceEnv(null); setCopyKey((k) => k + 1) } }}>
