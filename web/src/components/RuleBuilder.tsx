@@ -1,5 +1,7 @@
 import type { TargetingRule, Variant, Condition } from '../api/types.ts'
 import { useFlag } from '@togglerino/react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/client.ts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import AttributeCombobox from './AttributeCombobox.tsx'
@@ -9,6 +11,7 @@ interface Props {
   rules: TargetingRule[]
   variants: Variant[]
   onChange: (rules: TargetingRule[]) => void
+  projectKey?: string
 }
 
 const OPERATOR_GROUPS = [
@@ -57,9 +60,36 @@ const OPERATOR_GROUPS = [
       { value: 'matches', label: 'matches (regex)' },
     ],
   },
+  {
+    label: 'Segment',
+    operators: [
+      { value: 'segment_match', label: 'matches segment' },
+    ],
+  },
 ]
 
-export default function RuleBuilder({ rules, variants, onChange }: Props) {
+function SegmentPicker({ projectKey, value, onChange }: { projectKey?: string; value: string; onChange: (v: string) => void }) {
+  const { data: segments } = useQuery({
+    queryKey: ['segments', projectKey],
+    queryFn: () => api.segments.list(projectKey!),
+    enabled: !!projectKey,
+  })
+
+  return (
+    <select
+      className="flex-1 px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">Select segment...</option>
+      {segments?.map((s) => (
+        <option key={s.key} value={s.key}>{s.name} ({s.key})</option>
+      ))}
+    </select>
+  )
+}
+
+export default function RuleBuilder({ rules, variants, onChange, projectKey }: Props) {
   const autocompleteEnabled = useFlag('context-attribute-autocomplete', false)
 
   const updateRule = (index: number, patch: Partial<TargetingRule>) => {
@@ -146,50 +176,87 @@ export default function RuleBuilder({ rules, variants, onChange }: Props) {
             </div>
             {rule.conditions.map((cond, condIdx) => (
               <div key={condIdx} className="flex flex-col md:flex-row md:items-center gap-1.5 mb-1.5">
-                {autocompleteEnabled ? (
-                  <AttributeCombobox
-                    value={cond.attribute}
-                    onChange={(val) => updateCondition(ruleIdx, condIdx, { attribute: val })}
-                  />
-                ) : (
-                  <Input
-                    className="w-full md:w-[180px] text-xs"
-                    placeholder="Attribute"
-                    value={cond.attribute}
-                    onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
-                  />
-                )}
-                <select
-                  className="w-full md:w-[170px] px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
-                  value={cond.operator}
-                  onChange={(e) => {
-                    const op = e.target.value
-                    const patch: Partial<Condition> = { operator: op }
-                    if (op === 'exists' || op === 'not_exists') {
-                      patch.value = ''
-                    }
-                    updateCondition(ruleIdx, condIdx, patch)
-                  }}
-                >
-                  {OPERATOR_GROUPS.map((group) => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.operators.map((op) => (
-                        <option key={op.value} value={op.value}>{op.label}</option>
+                {cond.operator === 'segment_match' ? (
+                  <>
+                    <select
+                      className="w-full md:w-[170px] px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
+                      value={cond.operator}
+                      onChange={(e) => {
+                        const op = e.target.value
+                        const patch: Partial<Condition> = { operator: op }
+                        if (op !== 'segment_match') {
+                          patch.attribute = ''
+                          patch.value = ''
+                        }
+                        updateCondition(ruleIdx, condIdx, patch)
+                      }}
+                    >
+                      {OPERATOR_GROUPS.map((group) => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.operators.map((op) => (
+                            <option key={op.value} value={op.value}>{op.label}</option>
+                          ))}
+                        </optgroup>
                       ))}
-                    </optgroup>
-                  ))}
-                </select>
-                {cond.operator !== 'exists' && cond.operator !== 'not_exists' && (
-                  <Input
-                    className="flex-1 text-xs"
-                    placeholder={
-                      cond.operator === 'in' || cond.operator === 'not_in'
-                        ? 'comma-separated values'
-                        : 'Value'
-                    }
-                    value={String(cond.value ?? '')}
-                    onChange={(e) => updateCondition(ruleIdx, condIdx, { value: e.target.value })}
-                  />
+                    </select>
+                    <SegmentPicker
+                      projectKey={projectKey}
+                      value={String(cond.value ?? '')}
+                      onChange={(segKey) => updateCondition(ruleIdx, condIdx, { attribute: '', value: segKey })}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {autocompleteEnabled ? (
+                      <AttributeCombobox
+                        value={cond.attribute}
+                        onChange={(val) => updateCondition(ruleIdx, condIdx, { attribute: val })}
+                      />
+                    ) : (
+                      <Input
+                        className="w-full md:w-[180px] text-xs"
+                        placeholder="Attribute"
+                        value={cond.attribute}
+                        onChange={(e) => updateCondition(ruleIdx, condIdx, { attribute: e.target.value })}
+                      />
+                    )}
+                    <select
+                      className="w-full md:w-[170px] px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
+                      value={cond.operator}
+                      onChange={(e) => {
+                        const op = e.target.value
+                        const patch: Partial<Condition> = { operator: op }
+                        if (op === 'exists' || op === 'not_exists') {
+                          patch.value = ''
+                        }
+                        if (op === 'segment_match') {
+                          patch.attribute = ''
+                          patch.value = ''
+                        }
+                        updateCondition(ruleIdx, condIdx, patch)
+                      }}
+                    >
+                      {OPERATOR_GROUPS.map((group) => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.operators.map((op) => (
+                            <option key={op.value} value={op.value}>{op.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    {cond.operator !== 'exists' && cond.operator !== 'not_exists' && (
+                      <Input
+                        className="flex-1 text-xs"
+                        placeholder={
+                          cond.operator === 'in' || cond.operator === 'not_in'
+                            ? 'comma-separated values'
+                            : 'Value'
+                        }
+                        value={String(cond.value ?? '')}
+                        onChange={(e) => updateCondition(ruleIdx, condIdx, { value: e.target.value })}
+                      />
+                    )}
+                  </>
                 )}
                 {rule.conditions.length > 1 && (
                   <Button
