@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type { Project } from '../api/types.ts'
@@ -130,6 +130,19 @@ export default function ProjectSettingsPage() {
 
   return (
     <div className="animate-[fadeIn_300ms_ease] max-w-[640px]">
+      {/* Breadcrumbs */}
+      <div className="flex items-center gap-2 mb-6 text-[13px] text-muted-foreground/60">
+        <Link to="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
+          Projects
+        </Link>
+        <span className="opacity-40">&rsaquo;</span>
+        <Link to={`/projects/${key}`} className="text-muted-foreground hover:text-foreground transition-colors">
+          {key}
+        </Link>
+        <span className="opacity-40">&rsaquo;</span>
+        <span className="text-foreground">Settings</span>
+      </div>
+
       <div className="mb-8">
         <h1 className="text-[22px] font-semibold text-foreground mb-1.5 tracking-tight">
           Project Settings
