@@ -95,9 +95,9 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
-	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore)
+	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore, projectSettingsStore)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
-	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore)
+	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore, environmentStore)
 	contextAttributeStore := store.NewContextAttributeStore(pool)
 	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
 	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore)
@@ -182,6 +182,10 @@ func main() {
 	// Project settings (flag lifetimes)
 	mux.Handle("GET /api/v1/projects/{key}/settings/flags", wrap(projectSettingsHandler.Get, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/settings/flags", wrap(projectSettingsHandler.Update, sessionAuth))
+
+	// Environment defaults
+	mux.Handle("GET /api/v1/projects/{key}/settings/environments", wrap(projectSettingsHandler.GetEnvironmentDefaults, sessionAuth))
+	mux.Handle("PUT /api/v1/projects/{key}/settings/environments", wrap(projectSettingsHandler.UpdateEnvironmentDefaults, sessionAuth))
 
 	// Context attributes
 	mux.Handle("GET /api/v1/projects/{key}/context-attributes", wrap(contextAttributeHandler.List, sessionAuth))

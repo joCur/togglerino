@@ -20,8 +20,9 @@ func NewFlagStore(pool *pgxpool.Pool) *FlagStore {
 }
 
 // Create inserts a new flag and creates a FlagEnvironmentConfig row for each
-// environment in the project (all disabled by default with default variants).
-func (s *FlagStore) Create(ctx context.Context, projectID, key, name, description string, valueType model.ValueType, flagType model.FlagType, defaultValue json.RawMessage, tags []string) (*model.Flag, error) {
+// environment in the project. The envEnabled map controls the initial enabled
+// state per environment key; environments not in the map default to disabled.
+func (s *FlagStore) Create(ctx context.Context, projectID, key, name, description string, valueType model.ValueType, flagType model.FlagType, defaultValue json.RawMessage, tags []string, envEnabled map[string]bool) (*model.Flag, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("beginning transaction: %w", err)
@@ -40,32 +41,42 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 	}
 
 	// Get all environments for this project
-	rows, err := tx.Query(ctx, `SELECT id FROM environments WHERE project_id = $1`, projectID)
+	rows, err := tx.Query(ctx, `SELECT id, key FROM environments WHERE project_id = $1`, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("querying environments: %w", err)
 	}
 	defer rows.Close()
 
-	var envIDs []string
+	type envInfo struct {
+		ID  string
+		Key string
+	}
+	var envs []envInfo
 	for rows.Next() {
-		var envID string
-		if err := rows.Scan(&envID); err != nil {
-			return nil, fmt.Errorf("scanning environment id: %w", err)
+		var e envInfo
+		if err := rows.Scan(&e.ID, &e.Key); err != nil {
+			return nil, fmt.Errorf("scanning environment: %w", err)
 		}
-		envIDs = append(envIDs, envID)
+		envs = append(envs, e)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating environments: %w", err)
 	}
 
 	// Create a FlagEnvironmentConfig for each environment
-	for _, envID := range envIDs {
+	for _, env := range envs {
+		enabled := false
+		if envEnabled != nil {
+			if v, ok := envEnabled[env.Key]; ok {
+				enabled = v
+			}
+		}
 		_, err := tx.Exec(ctx,
-			`INSERT INTO flag_environment_configs (flag_id, environment_id) VALUES ($1, $2)`,
-			f.ID, envID,
+			`INSERT INTO flag_environment_configs (flag_id, environment_id, enabled) VALUES ($1, $2, $3)`,
+			f.ID, env.ID, enabled,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("creating flag environment config for env %s: %w", envID, err)
+			return nil, fmt.Errorf("creating flag environment config for env %s: %w", env.ID, err)
 		}
 	}
 

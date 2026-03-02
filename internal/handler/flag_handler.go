@@ -25,10 +25,11 @@ type FlagHandler struct {
 	pool         *pgxpool.Pool
 	unknownFlags *store.UnknownFlagStore
 	schedules    *store.ScheduleStore
+	settings     *store.ProjectSettingsStore
 }
 
-func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool, unknownFlags *store.UnknownFlagStore, schedules *store.ScheduleStore) *FlagHandler {
-	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool, unknownFlags: unknownFlags, schedules: schedules}
+func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool, unknownFlags *store.UnknownFlagStore, schedules *store.ScheduleStore, settings *store.ProjectSettingsStore) *FlagHandler {
+	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool, unknownFlags: unknownFlags, schedules: schedules, settings: settings}
 }
 
 // refreshAllEnvironments refreshes the evaluation cache and broadcasts SSE events
@@ -63,13 +64,14 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Key          string          `json:"key"`
-		Name         string          `json:"name"`
-		Description  string          `json:"description"`
-		ValueType    model.ValueType `json:"value_type"`
-		FlagType     model.FlagType  `json:"flag_type"`
-		DefaultValue json.RawMessage `json:"default_value"`
-		Tags         []string        `json:"tags"`
+		Key                  string                              `json:"key"`
+		Name                 string                              `json:"name"`
+		Description          string                              `json:"description"`
+		ValueType            model.ValueType                     `json:"value_type"`
+		FlagType             model.FlagType                      `json:"flag_type"`
+		DefaultValue         json.RawMessage                     `json:"default_value"`
+		Tags                 []string                            `json:"tags"`
+		EnvironmentOverrides map[string]model.EnvironmentDefault `json:"environment_overrides"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -100,7 +102,24 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Tags = []string{}
 	}
 
-	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags)
+	// Resolve environment defaults
+	envs, err := h.environments.ListByProject(r.Context(), project.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list environments")
+		return
+	}
+	envKeys := make([]string, len(envs))
+	for i, e := range envs {
+		envKeys[i] = e.Key
+	}
+
+	projectSettings, err := h.settings.Get(r.Context(), project.ID)
+	if err != nil {
+		slog.Warn("failed to load project settings for env defaults, using fallbacks", "error", err)
+	}
+	envEnabled := projectSettings.ResolveEnvironmentDefaults(envKeys, req.EnvironmentOverrides)
+
+	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags, envEnabled)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
 			writeError(w, http.StatusConflict, "flag key already exists for this project")

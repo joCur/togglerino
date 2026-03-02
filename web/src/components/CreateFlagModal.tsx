@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type { Flag } from '../api/types.ts'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
 interface Props {
   open: boolean
@@ -50,10 +51,21 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
   const [boolValue, setBoolValue] = useState(false)
   const [tags, setTags] = useState('')
 
+  const { data: envDefaultsData } = useQuery({
+    queryKey: ['projects', projectKey, 'settings', 'environments'],
+    queryFn: () => api.get<{ environment_defaults: { key: string; name: string; enabled: boolean }[] }>(
+      `/projects/${projectKey}/settings/environments`
+    ),
+    enabled: open,
+  })
+
+  const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({})
+
   const mutation = useMutation({
     mutationFn: (data: {
       key: string; name: string; description: string
       value_type: string; flag_type: string; default_value: unknown; tags: string[]
+      environment_overrides?: Record<string, { enabled: boolean }>
     }) => api.post<Flag>(`/projects/${projectKey}/flags`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', projectKey, 'flags'] })
@@ -65,6 +77,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
   const resetAndClose = () => {
     setName(''); setKey(''); setKeyManual(false); setDescription('')
     setFlagType('boolean'); setFlagPurpose('release'); setDefaultValue('false'); setBoolValue(false); setTags('')
+    setEnvOverrides({})
     mutation.reset(); onClose()
   }
 
@@ -93,12 +106,22 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const parsedTags = tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+
+    // Build environment_overrides from any user changes
+    const environmentOverrides: Record<string, { enabled: boolean }> | undefined =
+      Object.keys(envOverrides).length > 0
+        ? Object.fromEntries(
+            Object.entries(envOverrides).map(([key, enabled]) => [key, { enabled }])
+          )
+        : undefined
+
     mutation.mutate({
       key, name, description,
       value_type: flagType,
       flag_type: flagPurpose,
       default_value: getDefaultValueParsed(),
       tags: parsedTags,
+      environment_overrides: environmentOverrides,
     })
   }
 
@@ -187,6 +210,48 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
               <Label>Tags (comma-separated)</Label>
               <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="ui, experiment, beta" />
             </div>
+
+            {envDefaultsData && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <button type="button" className="flex items-center justify-between w-full text-left py-2 text-[13px] font-medium text-foreground hover:text-foreground/80 transition-colors">
+                    <span>Environment Configuration</span>
+                    <span className="text-[11px] text-muted-foreground font-normal">
+                      {envDefaultsData.environment_defaults.map(e => {
+                        const enabled = envOverrides[e.key] ?? e.enabled
+                        return `${e.key}: ${enabled ? 'on' : 'off'}`
+                      }).join(', ')}
+                    </span>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="flex flex-col gap-2.5 pt-1 pb-2">
+                    {envDefaultsData.environment_defaults.map((env) => {
+                      const enabled = envOverrides[env.key] ?? env.enabled
+                      return (
+                        <div key={env.key} className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[13px] text-foreground">{env.name}</span>
+                            <span className="text-[11px] text-muted-foreground ml-2 font-mono">{env.key}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={enabled}
+                              onCheckedChange={(checked: boolean) =>
+                                setEnvOverrides(prev => ({ ...prev, [env.key]: checked }))
+                              }
+                            />
+                            <span className="text-xs text-muted-foreground w-[52px]">
+                              {enabled ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
 
           <div className="flex justify-end gap-2.5 mt-6">
