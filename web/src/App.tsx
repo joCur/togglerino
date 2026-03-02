@@ -21,6 +21,10 @@ import SettingsPage from './pages/SettingsPage.tsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.tsx'
 import AccountPage from './pages/AccountPage.tsx'
 import SegmentsPage from './pages/SegmentsPage.tsx'
+import GeneralSettingsTab from './pages/settings/GeneralSettingsTab.tsx'
+import FlagLifetimesTab from './pages/settings/FlagLifetimesTab.tsx'
+import EnvironmentDefaultsTab from './pages/settings/EnvironmentDefaultsTab.tsx'
+import MembersTab from './pages/settings/MembersTab.tsx'
 
 const queryClient = new QueryClient()
 
@@ -77,7 +81,13 @@ function AuthRouter() {
         <Route path="environments" element={<EnvironmentsPage />} />
         <Route path="environments/:env/sdk-keys" element={<SDKKeysPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
-        <Route path="settings" element={<ProjectSettingsPage />} />
+        <Route path="settings" element={<ProjectSettingsPage />}>
+          <Route index element={<Navigate to="general" replace />} />
+          <Route path="general" element={<GeneralSettingsTab />} />
+          <Route path="lifetimes" element={<FlagLifetimesTab />} />
+          <Route path="environments" element={<EnvironmentDefaultsTab />} />
+          <Route path="members" element={<MembersTab />} />
+        </Route>
         <Route path="segments" element={<SegmentsPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/projects" replace />} />
