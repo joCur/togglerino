@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/joCur/togglerino/compare/v0.10.0...v0.11.0) (2026-03-01)
+
+
+### Features
+
+* add scheduled flag changes ([#57](https://github.com/joCur/togglerino/issues/57)) ([7dab23d](https://github.com/joCur/togglerino/commit/7dab23d4e44dcd3f705208fd9fda71fd214e8e6d))
+* reusable segments for targeting rules ([#31](https://github.com/joCur/togglerino/issues/31)) ([#58](https://github.com/joCur/togglerino/issues/58)) ([fb33b79](https://github.com/joCur/togglerino/commit/fb33b7929b74bc0202a78d9ba3c79c8eab91675c))
+* **web:** add user dropdown and account page ([#44](https://github.com/joCur/togglerino/issues/44)) ([22881e6](https://github.com/joCur/togglerino/commit/22881e6c62bf9bbfba2c8cf9e67a07538c1c479f))
+
+
+### Bug Fixes
+
+* add breadcrumb navigation to ProjectSettingsPage ([#30](https://github.com/joCur/togglerino/issues/30)) ([12573f9](https://github.com/joCur/togglerino/commit/12573f926b7840d3a329a45f2c7d8f9efd22b30f))
+
 ## [0.10.0](https://github.com/joCur/togglerino/compare/v0.9.0...v0.10.0) (2026-03-01)
 
 
