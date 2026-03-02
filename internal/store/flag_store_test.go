@@ -636,3 +636,101 @@ func TestFlagStore_CreateWithoutOwner(t *testing.T) {
 		t.Errorf("expected nil Owner, got %+v", found.Owner)
 	}
 }
+
+func TestFlagStore_ListByProject_OwnerFilter(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("ownerfilter")
+	project, err := ps.Create(ctx, projKey, "Owner Filter Project", "test")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+	_, err = es.Create(ctx, project.ID, "dev", "Development")
+	if err != nil {
+		t.Fatalf("creating env: %v", err)
+	}
+
+	user, err := us.Create(ctx, uniqueEmail("filter"), "hash", model.RoleAdmin)
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+
+	// Create one flag with owner, one without
+	_, err = fs.Create(ctx, project.ID, "owned", "Owned", "", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, &user.ID)
+	if err != nil {
+		t.Fatalf("creating owned flag: %v", err)
+	}
+	_, err = fs.Create(ctx, project.ID, "unowned", "Unowned", "", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil)
+	if err != nil {
+		t.Fatalf("creating unowned flag: %v", err)
+	}
+
+	// Filter by owner
+	flags, err := fs.ListByProject(ctx, project.ID, "", "", "", "", user.ID)
+	if err != nil {
+		t.Fatalf("ListByProject with owner filter: %v", err)
+	}
+	if len(flags) != 1 {
+		t.Fatalf("expected 1 flag, got %d", len(flags))
+	}
+	if flags[0].Key != "owned" {
+		t.Errorf("expected key 'owned', got %q", flags[0].Key)
+	}
+	// Verify owner is populated via LEFT JOIN
+	if flags[0].Owner == nil {
+		t.Fatal("expected Owner to be populated in list results")
+	}
+}
+
+func TestFlagStore_UpdateOwner(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("updateowner")
+	project, err := ps.Create(ctx, projKey, "Update Owner Project", "test")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+	_, err = es.Create(ctx, project.ID, "dev", "Development")
+	if err != nil {
+		t.Fatalf("creating env: %v", err)
+	}
+
+	user, err := us.Create(ctx, uniqueEmail("updateowner"), "hash", model.RoleAdmin)
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, "update-owner-flag", "Flag", "",
+		model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Set owner
+	updated, err := fs.Update(ctx, flag.ID, "Flag", "", []string{}, model.FlagTypeRelease, &user.ID)
+	if err != nil {
+		t.Fatalf("Update to set owner: %v", err)
+	}
+	if updated.OwnerID == nil || *updated.OwnerID != user.ID {
+		t.Errorf("expected OwnerID %q, got %v", user.ID, updated.OwnerID)
+	}
+
+	// Clear owner
+	updated, err = fs.Update(ctx, flag.ID, "Flag", "", []string{}, model.FlagTypeRelease, nil)
+	if err != nil {
+		t.Fatalf("Update to clear owner: %v", err)
+	}
+	if updated.OwnerID != nil {
+		t.Errorf("expected nil OwnerID, got %v", updated.OwnerID)
+	}
+}
