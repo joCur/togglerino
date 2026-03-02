@@ -50,6 +50,14 @@ type Flag struct {
 	LifecycleStatusChangedAt *time.Time      `json:"lifecycle_status_changed_at"`
 	CreatedAt                time.Time       `json:"created_at"`
 	UpdatedAt                time.Time       `json:"updated_at"`
+	OwnerID                  *string         `json:"owner_id,omitempty"`
+	Owner                    *FlagOwner      `json:"owner,omitempty"`
+}
+
+type FlagOwner struct {
+	ID          string  `json:"id"`
+	Email       string  `json:"email"`
+	DisplayName *string `json:"display_name,omitempty"`
 }
 
 type FlagEnvironmentConfig struct {
