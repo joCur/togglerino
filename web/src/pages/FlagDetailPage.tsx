@@ -136,13 +136,18 @@ export default function FlagDetailPage() {
 
   return (
     <div className="animate-[fadeIn_300ms_ease]">
-      {/* Back link */}
-      <Link
-        to={`/projects/${key}`}
-        className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground transition-colors mb-6"
-      >
-        &larr; Back to flags
-      </Link>
+      {/* Breadcrumbs */}
+      <div className="flex items-center gap-2 mb-6 text-[13px] text-muted-foreground/60">
+        <Link to="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
+          Projects
+        </Link>
+        <span className="opacity-40">&rsaquo;</span>
+        <Link to={`/projects/${key}`} className="text-muted-foreground hover:text-foreground transition-colors">
+          {key}
+        </Link>
+        <span className="opacity-40">&rsaquo;</span>
+        <span className="text-foreground">{flag.key}</span>
+      </div>
 
       {/* Header: flag key + settings dropdown */}
       <div className="flex items-start justify-between mb-1">
