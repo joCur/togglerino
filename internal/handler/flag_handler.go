@@ -71,6 +71,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		FlagType             model.FlagType                      `json:"flag_type"`
 		DefaultValue         json.RawMessage                     `json:"default_value"`
 		Tags                 []string                            `json:"tags"`
+		OwnerID              *string                             `json:"owner_id"`
 		EnvironmentOverrides map[string]model.EnvironmentDefault `json:"environment_overrides"`
 	}
 	if err := readJSON(r, &req); err != nil {
@@ -119,7 +120,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	envEnabled := projectSettings.ResolveEnvironmentDefaults(envKeys, req.EnvironmentOverrides)
 
-	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags, envEnabled)
+	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags, envEnabled, req.OwnerID)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
 			writeError(w, http.StatusConflict, "flag key already exists for this project")
@@ -170,8 +171,9 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 	lifecycleStatus := r.URL.Query().Get("lifecycle_status")
 	flagType := r.URL.Query().Get("flag_type")
+	owner := r.URL.Query().Get("owner")
 
-	flags, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType)
+	flags, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType, owner)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list flags")
 		return
@@ -254,6 +256,7 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Description string         `json:"description"`
 		Tags        []string       `json:"tags"`
 		FlagType    model.FlagType `json:"flag_type"`
+		OwnerID     *string        `json:"owner_id"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -267,7 +270,7 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid flag_type: must be one of release, experiment, operational, kill-switch, permission")
 		return
 	}
-	updated, err := h.flags.Update(r.Context(), flag.ID, req.Name, req.Description, req.Tags, flagTypeToUse)
+	updated, err := h.flags.Update(r.Context(), flag.ID, req.Name, req.Description, req.Tags, flagTypeToUse, req.OwnerID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update flag")
 		return

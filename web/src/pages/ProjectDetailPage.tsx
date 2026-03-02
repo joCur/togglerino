@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus, User } from '../api/types.ts'
 import { useFlag } from '@togglerino/react'
 import FlagCard from '../components/FlagCard.tsx'
 import CreateFlagModal from '../components/CreateFlagModal.tsx'
@@ -41,6 +41,7 @@ export default function ProjectDetailPage() {
   const [statusFilter, setStatusFilter] = useState<LifecycleStatus | ''>('')
   const [modalOpen, setModalOpen] = useState(false)
   const [createFromKey, setCreateFromKey] = useState('')
+  const [ownerFilter, setOwnerFilter] = useState('')
   const unknownFlagsEnabled = useFlag('unknown-flags', false)
   const isMobile = useIsMobile()
 
@@ -84,6 +85,11 @@ export default function ProjectDetailPage() {
     enabled: !!key && unknownFlagsEnabled,
   })
 
+  const { data: users } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<User[]>('/management/users'),
+  })
+
   const dismissMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/projects/${key}/unknown-flags/${id}`),
     onSuccess: () => {
@@ -108,9 +114,11 @@ export default function ProjectDetailPage() {
       const matchesTag = !tagFilter || (f.tags && f.tags.includes(tagFilter))
       const matchesPurpose = !purposeFilter || f.flag_type === purposeFilter
       const matchesStatus = !statusFilter || f.lifecycle_status === statusFilter
-      return matchesSearch && matchesTag && matchesPurpose && matchesStatus
+      const matchesOwner = !ownerFilter ||
+        (ownerFilter === 'unassigned' ? !f.owner_id : f.owner_id === ownerFilter)
+      return matchesSearch && matchesTag && matchesPurpose && matchesStatus && matchesOwner
     })
-  }, [flags, search, tagFilter, purposeFilter, statusFilter])
+  }, [flags, search, tagFilter, purposeFilter, statusFilter, ownerFilter])
 
   if (flagsLoading) {
     return (
@@ -210,6 +218,17 @@ export default function ProjectDetailPage() {
               <option value="potentially_stale">Potentially Stale</option>
               <option value="stale">Stale</option>
               <option value="archived">Archived</option>
+            </select>
+            <select
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
+              value={ownerFilter}
+              onChange={(e) => setOwnerFilter(e.target.value)}
+            >
+              <option value="">All Owners</option>
+              <option value="unassigned">Unassigned</option>
+              {users?.map((u) => (
+                <option key={u.id} value={u.id}>{u.display_name ?? u.email}</option>
+              ))}
             </select>
           </div>
 

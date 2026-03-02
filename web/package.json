@@ -13,6 +13,7 @@
     "@tanstack/react-query": "^5.90.21",
     "@togglerino/react": "^0.1.0",
     "@togglerino/sdk": "^0.1.0",
+    "blueimp-md5": "^2.19.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@tailwindcss/vite": "^4.2.1",
+    "@types/blueimp-md5": "^2.18.2",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { api } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, User } from '../api/types.ts'
 import ConfigEditor from '../components/ConfigEditor.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
 import PendingSchedules from '../components/PendingSchedules.tsx'
@@ -31,6 +31,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { gravatarUrl } from '@/lib/gravatar'
 import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react'
 
 interface FlagDetailResponse {
@@ -57,6 +59,11 @@ export default function FlagDetailPage() {
     queryKey: ['projects', key, 'environments'],
     queryFn: () => api.get<Environment[]>(`/projects/${key}/environments`),
     enabled: !!key,
+  })
+
+  const { data: users } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<User[]>('/management/users'),
   })
 
   const archiveMutation = useMutation({
@@ -95,6 +102,23 @@ export default function FlagDetailPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+    },
+  })
+
+  const ownerMutation = useMutation({
+    mutationFn: (ownerId: string | null) => {
+      const f = data!.flag
+      return api.put<Flag>(`/projects/${key}/flags/${flagKey}`, {
+        name: f.name,
+        description: f.description,
+        tags: f.tags,
+        flag_type: f.flag_type,
+        owner_id: ownerId,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
     },
   })
 
@@ -234,6 +258,39 @@ export default function FlagDetailPage() {
         </div>
       )}
       {!flag.description && <div className="mb-6" />}
+
+      {/* Owner */}
+      <div className="flex items-center gap-3 mb-6">
+        <span className="text-[11px] text-muted-foreground/50 uppercase tracking-wider font-mono">Owner</span>
+        <Select
+          value={flag.owner_id ?? 'unassigned'}
+          onValueChange={(value) => ownerMutation.mutate(value === 'unassigned' ? null : value)}
+        >
+          <SelectTrigger className="w-[220px] h-8 text-[13px]">
+            <SelectValue>
+              {flag.owner ? (
+                <span className="flex items-center gap-2">
+                  <img src={gravatarUrl(flag.owner.email, 20)} alt="" className="w-5 h-5 rounded-full" />
+                  {flag.owner.display_name ?? flag.owner.email}
+                </span>
+              ) : (
+                <span className="text-muted-foreground/60">Unassigned</span>
+              )}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {users?.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                <span className="flex items-center gap-2">
+                  <img src={gravatarUrl(u.email, 20)} alt="" className="w-5 h-5 rounded-full" />
+                  {u.display_name ?? u.email}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Mutation error alerts */}
       {archiveMutation.error && (

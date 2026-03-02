@@ -37,6 +37,12 @@ export type ValueType = 'boolean' | 'string' | 'number' | 'json'
 export type FlagPurpose = 'release' | 'experiment' | 'operational' | 'kill-switch' | 'permission'
 export type LifecycleStatus = 'active' | 'potentially_stale' | 'stale' | 'archived'
 
+export interface FlagOwner {
+  id: string
+  email: string
+  display_name?: string
+}
+
 export interface Flag {
   id: string
   project_id: string
@@ -51,6 +57,8 @@ export interface Flag {
   lifecycle_status_changed_at: string | null
   created_at: string
   updated_at: string
+  owner_id?: string
+  owner?: FlagOwner
 }
 
 export interface ProjectFlagSettings {
