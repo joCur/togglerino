@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
 import type { Flag, User } from '../api/types.ts'
+import { useAuth } from '../hooks/useAuth.ts'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +42,7 @@ function slugify(text: string): string {
 
 export default function CreateFlagModal({ open, projectKey, onClose, onCreated, initialKey }: Props) {
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuth()
   const [name, setName] = useState('')
   const [key, setKey] = useState(initialKey ?? '')
   const [keyManual, setKeyManual] = useState(!!initialKey)
@@ -64,7 +66,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     queryFn: () => api.get<User[]>('/management/users'),
     enabled: open,
   })
-  const [ownerId, setOwnerId] = useState<string>('')
+  const [ownerId, setOwnerId] = useState<string>(currentUser?.id ?? '')
 
   const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({})
 
@@ -85,7 +87,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
   const resetAndClose = () => {
     setName(''); setKey(''); setKeyManual(false); setDescription('')
     setFlagType('boolean'); setFlagPurpose('release'); setDefaultValue('false'); setBoolValue(false); setTags('')
-    setOwnerId('')
+    setOwnerId(currentUser?.id ?? '')
     setEnvOverrides({})
     mutation.reset(); onClose()
   }
