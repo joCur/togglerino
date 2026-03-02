@@ -5,8 +5,6 @@ services:
       POSTGRES_USER: togglerino
       POSTGRES_PASSWORD: togglerino
       POSTGRES_DB: togglerino
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
