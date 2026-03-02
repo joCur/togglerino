@@ -20,7 +20,8 @@ func NewFlagStore(pool *pgxpool.Pool) *FlagStore {
 }
 
 // Create inserts a new flag and creates a FlagEnvironmentConfig row for each
-// environment in the project (all disabled by default with default variants).
+// environment in the project. The envEnabled map controls the initial enabled
+// state per environment key; environments not in the map default to disabled.
 func (s *FlagStore) Create(ctx context.Context, projectID, key, name, description string, valueType model.ValueType, flagType model.FlagType, defaultValue json.RawMessage, tags []string, envEnabled map[string]bool) (*model.Flag, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
