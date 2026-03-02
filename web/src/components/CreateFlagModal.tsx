@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag } from '../api/types.ts'
+import type { Flag, User } from '../api/types.ts'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -59,6 +59,13 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     enabled: open,
   })
 
+  const { data: users } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<User[]>('/management/users'),
+    enabled: open,
+  })
+  const [ownerId, setOwnerId] = useState<string>('')
+
   const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({})
 
   const mutation = useMutation({
@@ -66,6 +73,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
       key: string; name: string; description: string
       value_type: string; flag_type: string; default_value: unknown; tags: string[]
       environment_overrides?: Record<string, { enabled: boolean }>
+      owner_id?: string
     }) => api.post<Flag>(`/projects/${projectKey}/flags`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', projectKey, 'flags'] })
@@ -77,6 +85,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
   const resetAndClose = () => {
     setName(''); setKey(''); setKeyManual(false); setDescription('')
     setFlagType('boolean'); setFlagPurpose('release'); setDefaultValue('false'); setBoolValue(false); setTags('')
+    setOwnerId('')
     setEnvOverrides({})
     mutation.reset(); onClose()
   }
@@ -122,6 +131,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
       default_value: getDefaultValueParsed(),
       tags: parsedTags,
       environment_overrides: environmentOverrides,
+      owner_id: ownerId || undefined,
     })
   }
 
@@ -154,6 +164,23 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
             <div className="space-y-1.5">
               <Label>Description</Label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" className="min-h-[72px] resize-y" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Owner</Label>
+              <Select value={ownerId || 'none'} onValueChange={(v) => setOwnerId(v === 'none' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No owner</SelectItem>
+                  {users?.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.display_name ?? u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
