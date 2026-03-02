@@ -95,7 +95,7 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
-	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore)
+	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore, projectSettingsStore)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
 	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore, environmentStore)
 	contextAttributeStore := store.NewContextAttributeStore(pool)
