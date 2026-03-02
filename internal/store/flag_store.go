@@ -22,7 +22,7 @@ func NewFlagStore(pool *pgxpool.Pool) *FlagStore {
 // Create inserts a new flag and creates a FlagEnvironmentConfig row for each
 // environment in the project. The envEnabled map controls the initial enabled
 // state per environment key; environments not in the map default to disabled.
-func (s *FlagStore) Create(ctx context.Context, projectID, key, name, description string, valueType model.ValueType, flagType model.FlagType, defaultValue json.RawMessage, tags []string, envEnabled map[string]bool) (*model.Flag, error) {
+func (s *FlagStore) Create(ctx context.Context, projectID, key, name, description string, valueType model.ValueType, flagType model.FlagType, defaultValue json.RawMessage, tags []string, envEnabled map[string]bool, ownerID *string) (*model.Flag, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("beginning transaction: %w", err)
@@ -31,11 +31,11 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 
 	var f model.Flag
 	err = tx.QueryRow(ctx,
-		`INSERT INTO flags (project_id, key, name, description, value_type, flag_type, default_value, tags)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at`,
-		projectID, key, name, description, valueType, flagType, defaultValue, tags,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt)
+		`INSERT INTO flags (project_id, key, name, description, value_type, flag_type, default_value, tags, owner_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id`,
+		projectID, key, name, description, valueType, flagType, defaultValue, tags, ownerID,
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("creating flag: %w", err)
 	}
@@ -92,40 +92,49 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 }
 
 // ListByProject returns all flags for a project. Supports optional tag filter, search query,
-// lifecycle status filter, and flag type filter.
-func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string) ([]model.Flag, error) {
-	query := `SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at
-		FROM flags WHERE project_id = $1`
+// lifecycle status filter, flag type filter, and owner filter.
+func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string) ([]model.Flag, error) {
+	query := `SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id,
+	       u.id, u.email, u.display_name
+		FROM flags f
+		LEFT JOIN users u ON f.owner_id = u.id
+		WHERE f.project_id = $1`
 	args := []any{projectID}
 	argIdx := 2
 
 	if tag != "" {
-		query += fmt.Sprintf(" AND $%d = ANY(tags)", argIdx)
+		query += fmt.Sprintf(" AND $%d = ANY(f.tags)", argIdx)
 		args = append(args, tag)
 		argIdx++
 	}
 
 	if search != "" {
-		query += fmt.Sprintf(" AND (key ILIKE '%%' || $%d || '%%' OR name ILIKE '%%' || $%d || '%%')", argIdx, argIdx)
+		query += fmt.Sprintf(" AND (f.key ILIKE '%%' || $%d || '%%' OR f.name ILIKE '%%' || $%d || '%%')", argIdx, argIdx)
 		args = append(args, search)
 		argIdx++
 	}
 
 	if lifecycleStatus != "" {
 		values := strings.Split(lifecycleStatus, ",")
-		query += fmt.Sprintf(" AND lifecycle_status = ANY($%d)", argIdx)
+		query += fmt.Sprintf(" AND f.lifecycle_status = ANY($%d)", argIdx)
 		args = append(args, values)
 		argIdx++
 	}
 
 	if flagType != "" {
 		values := strings.Split(flagType, ",")
-		query += fmt.Sprintf(" AND flag_type = ANY($%d)", argIdx)
+		query += fmt.Sprintf(" AND f.flag_type = ANY($%d)", argIdx)
 		args = append(args, values)
 		argIdx++
 	}
 
-	query += " ORDER BY created_at DESC"
+	if owner != "" {
+		query += fmt.Sprintf(" AND f.owner_id = $%d", argIdx)
+		args = append(args, owner)
+		argIdx++
+	}
+
+	query += " ORDER BY f.created_at DESC"
 
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -136,8 +145,14 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 	var flags []model.Flag
 	for rows.Next() {
 		var f model.Flag
-		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		var ownerUserID, ownerEmail *string
+		var ownerDisplayName *string
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID,
+			&ownerUserID, &ownerEmail, &ownerDisplayName); err != nil {
 			return nil, fmt.Errorf("scanning flag: %w", err)
+		}
+		if ownerUserID != nil {
+			f.Owner = &model.FlagOwner{ID: *ownerUserID, Email: *ownerEmail, DisplayName: ownerDisplayName}
 		}
 		if f.Tags == nil {
 			f.Tags = []string{}
@@ -153,13 +168,22 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 // FindByKey returns a flag by project ID and flag key.
 func (s *FlagStore) FindByKey(ctx context.Context, projectID, key string) (*model.Flag, error) {
 	var f model.Flag
+	var ownerUserID, ownerEmail *string
+	var ownerDisplayName *string
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at
-		 FROM flags WHERE project_id = $1 AND key = $2`,
+		`SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id,
+		       u.id, u.email, u.display_name
+		 FROM flags f
+		 LEFT JOIN users u ON f.owner_id = u.id
+		 WHERE f.project_id = $1 AND f.key = $2`,
 		projectID, key,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt)
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID,
+		&ownerUserID, &ownerEmail, &ownerDisplayName)
 	if err != nil {
 		return nil, fmt.Errorf("finding flag by key: %w", err)
+	}
+	if ownerUserID != nil {
+		f.Owner = &model.FlagOwner{ID: *ownerUserID, Email: *ownerEmail, DisplayName: ownerDisplayName}
 	}
 	if f.Tags == nil {
 		f.Tags = []string{}
@@ -167,14 +191,14 @@ func (s *FlagStore) FindByKey(ctx context.Context, projectID, key string) (*mode
 	return &f, nil
 }
 
-// Update updates a flag's metadata (name, description, tags, flag_type).
-func (s *FlagStore) Update(ctx context.Context, flagID, name, description string, tags []string, flagType model.FlagType) (*model.Flag, error) {
+// Update updates a flag's metadata (name, description, tags, flag_type, owner_id).
+func (s *FlagStore) Update(ctx context.Context, flagID, name, description string, tags []string, flagType model.FlagType, ownerID *string) (*model.Flag, error) {
 	var f model.Flag
 	err := s.pool.QueryRow(ctx,
-		`UPDATE flags SET name=$2, description=$3, tags=$4, flag_type=$5, updated_at=NOW() WHERE id=$1
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at`,
-		flagID, name, description, tags, flagType,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt)
+		`UPDATE flags SET name=$2, description=$3, tags=$4, flag_type=$5, owner_id=$6, updated_at=NOW() WHERE id=$1
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id`,
+		flagID, name, description, tags, flagType, ownerID,
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("updating flag: %w", err)
 	}
@@ -189,9 +213,9 @@ func (s *FlagStore) SetLifecycleStatus(ctx context.Context, flagID string, statu
 	var f model.Flag
 	err := s.pool.QueryRow(ctx,
 		`UPDATE flags SET lifecycle_status=$2, lifecycle_status_changed_at=NOW(), updated_at=NOW() WHERE id=$1
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at`,
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id`,
 		flagID, status,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt)
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("setting flag lifecycle status: %w", err)
 	}
@@ -204,7 +228,7 @@ func (s *FlagStore) SetLifecycleStatus(ctx context.Context, flagID string, statu
 // ListNonArchived returns all flags that are not archived (for cache loading and staleness checks).
 func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at
+		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id
 		 FROM flags WHERE lifecycle_status != 'archived'`)
 	if err != nil {
 		return nil, fmt.Errorf("listing non-archived flags: %w", err)
@@ -214,7 +238,7 @@ func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	var flags []model.Flag
 	for rows.Next() {
 		var f model.Flag
-		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID); err != nil {
 			return nil, fmt.Errorf("scanning flag: %w", err)
 		}
 		if f.Tags == nil {

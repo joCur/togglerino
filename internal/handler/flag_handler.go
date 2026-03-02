@@ -119,7 +119,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	envEnabled := projectSettings.ResolveEnvironmentDefaults(envKeys, req.EnvironmentOverrides)
 
-	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags, envEnabled)
+	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags, envEnabled, nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
 			writeError(w, http.StatusConflict, "flag key already exists for this project")
@@ -171,7 +171,7 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 	lifecycleStatus := r.URL.Query().Get("lifecycle_status")
 	flagType := r.URL.Query().Get("flag_type")
 
-	flags, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType)
+	flags, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType, "")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list flags")
 		return
@@ -267,7 +267,7 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid flag_type: must be one of release, experiment, operational, kill-switch, permission")
 		return
 	}
-	updated, err := h.flags.Update(r.Context(), flag.ID, req.Name, req.Description, req.Tags, flagTypeToUse)
+	updated, err := h.flags.Update(r.Context(), flag.ID, req.Name, req.Description, req.Tags, flagTypeToUse, nil)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update flag")
 		return

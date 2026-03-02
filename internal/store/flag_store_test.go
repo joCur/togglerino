@@ -34,7 +34,7 @@ func TestFlagStore_Create(t *testing.T) {
 	}
 
 	defaultValue := json.RawMessage(`false`)
-	flag, err := fs.Create(ctx, project.ID, "dark-mode", "Dark Mode", "Toggle dark mode", model.ValueTypeBoolean, model.FlagTypeRelease, defaultValue, []string{"ui", "frontend"}, nil)
+	flag, err := fs.Create(ctx, project.ID, "dark-mode", "Dark Mode", "Toggle dark mode", model.ValueTypeBoolean, model.FlagTypeRelease, defaultValue, []string{"ui", "frontend"}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -117,23 +117,23 @@ func TestFlagStore_ListByProject(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	_, err = fs.Create(ctx, project.ID, "flag-a", "Flag A", "first flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"ui"}, nil)
+	_, err = fs.Create(ctx, project.ID, "flag-a", "Flag A", "first flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"ui"}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create flag-a: %v", err)
 	}
 
-	_, err = fs.Create(ctx, project.ID, "flag-b", "Flag B", "second flag", model.ValueTypeString, model.FlagTypeRelease, json.RawMessage(`"default"`), []string{"backend"}, nil)
+	_, err = fs.Create(ctx, project.ID, "flag-b", "Flag B", "second flag", model.ValueTypeString, model.FlagTypeRelease, json.RawMessage(`"default"`), []string{"backend"}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create flag-b: %v", err)
 	}
 
-	_, err = fs.Create(ctx, project.ID, "flag-c", "Dark Theme", "third flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`true`), []string{"ui", "frontend"}, nil)
+	_, err = fs.Create(ctx, project.ID, "flag-c", "Dark Theme", "third flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`true`), []string{"ui", "frontend"}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create flag-c: %v", err)
 	}
 
 	// Basic list — should return all 3
-	flags, err := fs.ListByProject(ctx, project.ID, "", "", "", "")
+	flags, err := fs.ListByProject(ctx, project.ID, "", "", "", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Filter by tag "ui" — should return flag-a and flag-c
-	flags, err = fs.ListByProject(ctx, project.ID, "ui", "", "", "")
+	flags, err = fs.ListByProject(ctx, project.ID, "ui", "", "", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject with tag: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Filter by tag "backend" — should return flag-b
-	flags, err = fs.ListByProject(ctx, project.ID, "backend", "", "", "")
+	flags, err = fs.ListByProject(ctx, project.ID, "backend", "", "", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject with tag 'backend': %v", err)
 	}
@@ -163,7 +163,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Search by name "Dark" — should return flag-c
-	flags, err = fs.ListByProject(ctx, project.ID, "", "Dark", "", "")
+	flags, err = fs.ListByProject(ctx, project.ID, "", "Dark", "", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject with search 'Dark': %v", err)
 	}
@@ -175,7 +175,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Search by key "flag-a" — should match flag-a
-	flags, err = fs.ListByProject(ctx, project.ID, "", "flag-a", "", "")
+	flags, err = fs.ListByProject(ctx, project.ID, "", "flag-a", "", "", "")
 	if err != nil {
 		t.Fatalf("ListByProject with search 'flag-a': %v", err)
 	}
@@ -205,7 +205,7 @@ func TestFlagStore_FindByKey(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	created, err := fs.Create(ctx, project.ID, "find-me", "Find Me", "findable flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"test"}, nil)
+	created, err := fs.Create(ctx, project.ID, "find-me", "Find Me", "findable flag", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"test"}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -262,12 +262,12 @@ func TestFlagStore_Update(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	created, err := fs.Create(ctx, project.ID, "update-me", "Old Name", "old description", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"old"}, nil)
+	created, err := fs.Create(ctx, project.ID, "update-me", "Old Name", "old description", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{"old"}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	updated, err := fs.Update(ctx, created.ID, "New Name", "new description", []string{"new", "updated"}, model.FlagTypeRelease)
+	updated, err := fs.Update(ctx, created.ID, "New Name", "new description", []string{"new", "updated"}, model.FlagTypeRelease, nil)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestFlagStore_Delete(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "delete-me", "Delete Me", "to be deleted", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil)
+	flag, err := fs.Create(ctx, project.ID, "delete-me", "Delete Me", "to be deleted", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestFlagStore_GetEnvironmentConfig(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "env-cfg-flag", "Env Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil)
+	flag, err := fs.Create(ctx, project.ID, "env-cfg-flag", "Env Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -409,7 +409,7 @@ func TestFlagStore_GetAllEnvironmentConfigs(t *testing.T) {
 		t.Fatalf("creating env3: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "all-cfg-flag", "All Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil)
+	flag, err := fs.Create(ctx, project.ID, "all-cfg-flag", "All Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestFlagStore_SetLifecycleStatus(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "archive-me", "Archive Me", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil)
+	flag, err := fs.Create(ctx, project.ID, "archive-me", "Archive Me", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -491,7 +491,7 @@ func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 		t.Fatalf("creating env: %v", err)
 	}
 
-	flag, err := fs.Create(ctx, project.ID, "upd-cfg-flag", "Update Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil)
+	flag, err := fs.Create(ctx, project.ID, "upd-cfg-flag", "Update Config Flag", "test", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -551,5 +551,88 @@ func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 	}
 	if len(readCfg.Variants) != 2 {
 		t.Errorf("Variants length after re-read: got %d, want 2", len(readCfg.Variants))
+	}
+}
+
+func TestFlagStore_CreateWithOwner(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("flagowner")
+	project, err := ps.Create(ctx, projKey, "Owner Test Project", "test")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+	_, err = es.Create(ctx, project.ID, "dev", "Development")
+	if err != nil {
+		t.Fatalf("creating env: %v", err)
+	}
+
+	email := uniqueEmail("owner")
+	user, err := us.Create(ctx, email, "hash", model.RoleAdmin)
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, "owned-flag", "Owned Flag", "desc",
+		model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`),
+		[]string{}, nil, &user.ID)
+	if err != nil {
+		t.Fatalf("Create with owner: %v", err)
+	}
+	if flag.OwnerID == nil || *flag.OwnerID != user.ID {
+		t.Errorf("OwnerID: got %v, want %q", flag.OwnerID, user.ID)
+	}
+
+	// FindByKey should return owner info via LEFT JOIN
+	found, err := fs.FindByKey(ctx, project.ID, "owned-flag")
+	if err != nil {
+		t.Fatalf("FindByKey: %v", err)
+	}
+	if found.Owner == nil {
+		t.Fatal("expected Owner to be populated")
+	}
+	if found.Owner.Email != email {
+		t.Errorf("Owner.Email: got %q, want %q", found.Owner.Email, email)
+	}
+}
+
+func TestFlagStore_CreateWithoutOwner(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("flagnoowner")
+	project, err := ps.Create(ctx, projKey, "No Owner Project", "test")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+	_, err = es.Create(ctx, project.ID, "dev", "Development")
+	if err != nil {
+		t.Fatalf("creating env: %v", err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, "no-owner-flag", "No Owner", "desc",
+		model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`),
+		[]string{}, nil, nil)
+	if err != nil {
+		t.Fatalf("Create without owner: %v", err)
+	}
+	if flag.OwnerID != nil {
+		t.Errorf("expected nil OwnerID, got %v", flag.OwnerID)
+	}
+
+	found, err := fs.FindByKey(ctx, project.ID, "no-owner-flag")
+	if err != nil {
+		t.Fatalf("FindByKey: %v", err)
+	}
+	if found.Owner != nil {
+		t.Errorf("expected nil Owner, got %+v", found.Owner)
 	}
 }
