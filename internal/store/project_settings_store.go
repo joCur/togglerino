@@ -34,7 +34,8 @@ func (s *ProjectSettingsStore) Get(ctx context.Context, projectID string) (*mode
 	}
 
 	var raw struct {
-		FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
+		FlagLifetimes       map[model.FlagType]*int            `json:"flag_lifetimes"`
+		EnvironmentDefaults map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
 	}
 	if len(settingsJSON) > 0 {
 		if err := json.Unmarshal(settingsJSON, &raw); err != nil {
@@ -42,18 +43,42 @@ func (s *ProjectSettingsStore) Get(ctx context.Context, projectID string) (*mode
 		}
 	}
 	ps.FlagLifetimes = raw.FlagLifetimes
+	ps.EnvironmentDefaults = raw.EnvironmentDefaults
 	return &ps, nil
 }
 
-// Upsert creates or updates project settings.
+// Upsert creates or updates the flag_lifetimes portion of project settings,
+// preserving other settings (e.g., environment_defaults).
 func (s *ProjectSettingsStore) Upsert(ctx context.Context, projectID string, flagLifetimes map[model.FlagType]*int) (*model.ProjectSettings, error) {
-	settings := struct {
-		FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
-	}{FlagLifetimes: flagLifetimes}
+	// Read existing settings to preserve other keys (environment_defaults).
+	var existingJSON []byte
+	err := s.pool.QueryRow(ctx,
+		`SELECT settings FROM project_settings WHERE project_id = $1`,
+		projectID,
+	).Scan(&existingJSON)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, fmt.Errorf("reading existing settings: %w", err)
+	}
 
-	settingsJSON, err := json.Marshal(settings)
+	var full map[string]json.RawMessage
+	if len(existingJSON) > 0 {
+		if err := json.Unmarshal(existingJSON, &full); err != nil {
+			return nil, fmt.Errorf("unmarshaling existing settings: %w", err)
+		}
+	}
+	if full == nil {
+		full = make(map[string]json.RawMessage)
+	}
+
+	lifetimesJSON, err := json.Marshal(flagLifetimes)
 	if err != nil {
-		return nil, fmt.Errorf("marshaling settings: %w", err)
+		return nil, fmt.Errorf("marshaling flag lifetimes: %w", err)
+	}
+	full["flag_lifetimes"] = lifetimesJSON
+
+	mergedJSON, err := json.Marshal(full)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling merged settings: %w", err)
 	}
 
 	var ps model.ProjectSettings
@@ -63,19 +88,21 @@ func (s *ProjectSettingsStore) Upsert(ctx context.Context, projectID string, fla
 		 VALUES ($1, $2)
 		 ON CONFLICT (project_id) DO UPDATE SET settings = $2, updated_at = NOW()
 		 RETURNING id, project_id, settings, updated_at`,
-		projectID, settingsJSON,
+		projectID, mergedJSON,
 	).Scan(&ps.ID, &ps.ProjectID, &returnedJSON, &ps.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("upserting project settings: %w", err)
 	}
 
 	var raw struct {
-		FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
+		FlagLifetimes       map[model.FlagType]*int            `json:"flag_lifetimes"`
+		EnvironmentDefaults map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
 	}
 	if err := json.Unmarshal(returnedJSON, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshaling upserted settings: %w", err)
 	}
 	ps.FlagLifetimes = raw.FlagLifetimes
+	ps.EnvironmentDefaults = raw.EnvironmentDefaults
 	return &ps, nil
 }
 
@@ -95,13 +122,74 @@ func (s *ProjectSettingsStore) GetAll(ctx context.Context) (map[string]*model.Pr
 			return nil, fmt.Errorf("scanning project settings: %w", err)
 		}
 		var raw struct {
-			FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
+			FlagLifetimes       map[model.FlagType]*int            `json:"flag_lifetimes"`
+			EnvironmentDefaults map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
 		}
 		if err := json.Unmarshal(settingsJSON, &raw); err != nil {
 			return nil, fmt.Errorf("unmarshaling project settings row: %w", err)
 		}
 		ps.FlagLifetimes = raw.FlagLifetimes
+		ps.EnvironmentDefaults = raw.EnvironmentDefaults
 		result[ps.ProjectID] = &ps
 	}
 	return result, rows.Err()
+}
+
+// UpsertEnvironmentDefaults creates or updates just the environment_defaults
+// portion of project settings, preserving other settings (e.g., flag_lifetimes).
+func (s *ProjectSettingsStore) UpsertEnvironmentDefaults(ctx context.Context, projectID string, envDefaults map[string]model.EnvironmentDefault) (*model.ProjectSettings, error) {
+	// Read existing settings to preserve other keys (flag_lifetimes).
+	var existingJSON []byte
+	err := s.pool.QueryRow(ctx,
+		`SELECT settings FROM project_settings WHERE project_id = $1`,
+		projectID,
+	).Scan(&existingJSON)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, fmt.Errorf("reading existing settings: %w", err)
+	}
+
+	var full map[string]json.RawMessage
+	if len(existingJSON) > 0 {
+		if err := json.Unmarshal(existingJSON, &full); err != nil {
+			return nil, fmt.Errorf("unmarshaling existing settings: %w", err)
+		}
+	}
+	if full == nil {
+		full = make(map[string]json.RawMessage)
+	}
+
+	envJSON, err := json.Marshal(envDefaults)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling environment defaults: %w", err)
+	}
+	full["environment_defaults"] = envJSON
+
+	mergedJSON, err := json.Marshal(full)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling merged settings: %w", err)
+	}
+
+	var ps model.ProjectSettings
+	var returnedJSON []byte
+	err = s.pool.QueryRow(ctx,
+		`INSERT INTO project_settings (project_id, settings)
+		 VALUES ($1, $2)
+		 ON CONFLICT (project_id) DO UPDATE SET settings = $2, updated_at = NOW()
+		 RETURNING id, project_id, settings, updated_at`,
+		projectID, mergedJSON,
+	).Scan(&ps.ID, &ps.ProjectID, &returnedJSON, &ps.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("upserting environment defaults: %w", err)
+	}
+
+	var raw struct {
+		FlagLifetimes       map[model.FlagType]*int            `json:"flag_lifetimes"`
+		EnvironmentDefaults map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+	}
+	if err := json.Unmarshal(returnedJSON, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshaling upserted settings: %w", err)
+	}
+	ps.FlagLifetimes = raw.FlagLifetimes
+	ps.EnvironmentDefaults = raw.EnvironmentDefaults
+	return &ps, nil
 }
