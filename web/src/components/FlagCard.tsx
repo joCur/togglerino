@@ -1,6 +1,7 @@
 import type { Flag, Environment } from '../api/types.ts'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { gravatarUrl } from '@/lib/gravatar'
 
 interface Props {
   flag: Flag
@@ -76,8 +77,22 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick }: 
         })}
       </div>
 
-      {/* Row 4: Purpose */}
-      <div className="flex justify-end">
+      {/* Row 4: Owner + Purpose */}
+      <div className="flex items-center justify-between">
+        {flag.owner ? (
+          <div className="flex items-center gap-1.5">
+            <img
+              src={gravatarUrl(flag.owner.email, 20)}
+              alt=""
+              className="w-5 h-5 rounded-full"
+            />
+            <span className="text-[11px] text-muted-foreground/60 truncate max-w-[140px]">
+              {flag.owner.display_name ?? flag.owner.email}
+            </span>
+          </div>
+        ) : (
+          <span />
+        )}
         <span className="text-[11px] text-muted-foreground/50 capitalize">{flag.flag_type}</span>
       </div>
     </div>
