@@ -161,13 +161,11 @@ func (h *HistoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine snapshot to restore: for "update" entries, old_value is the state before that change.
-	// For "restore" entries, old_value is the state before the restore was applied.
-	// We restore to old_value (the state before the recorded change).
-	snapshot := entry.OldValue
+	// Determine snapshot to restore: new_value is the config that resulted from this change,
+	// which is what the user expects when clicking "Restore this version".
+	snapshot := entry.NewValue
 	if snapshot == nil {
-		// Fall back to new_value if old_value isn't available
-		snapshot = entry.NewValue
+		snapshot = entry.OldValue
 	}
 	if snapshot == nil {
 		writeError(w, http.StatusBadRequest, "no snapshot available to restore from this entry")
@@ -182,8 +180,23 @@ func (h *HistoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Marshal variants and targeting rules back to JSON for the store method
-	variantsJSON, _ := json.Marshal(cfg.Variants)
-	rulesJSON, _ := json.Marshal(cfg.TargetingRules)
+	variantsJSON, err := json.Marshal(cfg.Variants)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to marshal variants from snapshot")
+		return
+	}
+	rulesJSON, err := json.Marshal(cfg.TargetingRules)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to marshal targeting rules from snapshot")
+		return
+	}
+
+	// Verify the environment still exists before attempting restore
+	env, err := h.environments.FindByID(r.Context(), *entry.EnvironmentID)
+	if err != nil {
+		writeError(w, http.StatusConflict, "the environment for this configuration no longer exists")
+		return
+	}
 
 	// Fetch current config before restore for audit old_value
 	oldConfig, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, *entry.EnvironmentID)
@@ -196,12 +209,6 @@ func (h *HistoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to restore config")
 		return
-	}
-
-	// Look up environment key for cache refresh and SSE broadcast
-	env, err := h.environments.FindByID(r.Context(), *entry.EnvironmentID)
-	if err != nil {
-		slog.Warn("failed to look up environment for cache refresh", "error", err)
 	}
 
 	// Audit the restore action
@@ -227,17 +234,15 @@ func (h *HistoryHandler) Restore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Refresh cache and broadcast SSE
-	if env != nil {
-		if err := h.cache.Refresh(r.Context(), h.pool, projectKey, env.Key); err != nil {
-			slog.Warn("failed to refresh cache after restore", "error", err)
-		}
-		h.hub.Broadcast(projectKey, env.Key, stream.Event{
-			Type:    "flag_update",
-			FlagKey: flagKey,
-			Value:   updated.Enabled,
-			Variant: updated.DefaultVariant,
-		})
+	if err := h.cache.Refresh(r.Context(), h.pool, projectKey, env.Key); err != nil {
+		slog.Warn("failed to refresh cache after restore", "error", err)
 	}
+	h.hub.Broadcast(projectKey, env.Key, stream.Event{
+		Type:    "flag_update",
+		FlagKey: flagKey,
+		Value:   updated.Enabled,
+		Variant: updated.DefaultVariant,
+	})
 
 	writeJSON(w, http.StatusOK, updated)
 }
