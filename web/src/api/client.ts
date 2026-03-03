@@ -1,4 +1,4 @@
-import type { Condition, Segment } from './types'
+import type { Condition, Segment, BulkActionRequest, BulkActionResponse } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -40,6 +40,14 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+
+  flags: {
+    bulk: (projectKey: string, body: BulkActionRequest) =>
+      request<BulkActionResponse>(`/projects/${projectKey}/flags/bulk`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+  },
 
   segments: {
     list: (projectKey: string) => request<Segment[]>(`/projects/${projectKey}/segments`),

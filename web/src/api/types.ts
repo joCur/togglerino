@@ -158,3 +158,24 @@ export interface ScheduledFlagChange {
   cancelled_at?: string
   cancel_reason?: string
 }
+
+export type BulkAction = 'enable' | 'disable' | 'archive' | 'add_tags' | 'remove_tags' | 'set_owner'
+
+export interface BulkActionRequest {
+  action: BulkAction
+  flag_keys: string[]
+  environment_key?: string
+  tags?: string[]
+  owner_id?: string | null
+}
+
+export interface BulkActionResult {
+  flag_key: string
+  success: boolean
+  error?: string
+}
+
+export interface BulkActionResponse {
+  batch_id: string
+  results: BulkActionResult[]
+}
