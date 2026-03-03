@@ -141,6 +141,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
+			UserEmail:  &user.Email,
 			Action:     "create",
 			EntityType: "flag",
 			EntityID:   flag.Key,
@@ -283,6 +284,7 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
+			UserEmail:  &user.Email,
 			Action:     "update",
 			EntityType: "flag",
 			EntityID:   flag.Key,
@@ -344,6 +346,7 @@ func (h *FlagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
+			UserEmail:  &user.Email,
 			Action:     "delete",
 			EntityType: "flag",
 			EntityID:   flag.Key,
@@ -426,6 +429,7 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
+			UserEmail:  &user.Email,
 			Action:     action,
 			EntityType: "flag",
 			EntityID:   flag.Key,
@@ -502,6 +506,13 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		req.TargetingRules = json.RawMessage(`[]`)
 	}
 
+	// Fetch old config for audit logging
+	oldConfig, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, env.ID)
+	if err != nil {
+		slog.Warn("failed to fetch old config for audit", "error", err)
+		// Continue — audit old_value will be nil, but the update should still proceed
+	}
+
 	cfg, err := h.flags.UpdateEnvironmentConfig(r.Context(), flag.ID, env.ID, req.Enabled, req.DefaultVariant, req.Variants, req.TargetingRules)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update environment config")
@@ -510,14 +521,21 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 
 	// Best-effort audit logging
 	if user := auth.UserFromContext(r.Context()); user != nil {
+		var oldVal json.RawMessage
+		if oldConfig != nil {
+			oldVal, _ = json.Marshal(oldConfig)
+		}
 		newVal, _ := json.Marshal(cfg)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
-			ProjectID:  &project.ID,
-			UserID:     &user.ID,
-			Action:     "update",
-			EntityType: "flag_config",
-			EntityID:   flag.Key,
-			NewValue:   newVal,
+			ProjectID:     &project.ID,
+			UserID:        &user.ID,
+			UserEmail:     &user.Email,
+			EnvironmentID: &env.ID,
+			Action:        "update",
+			EntityType:    "flag_config",
+			EntityID:      flag.Key,
+			OldValue:      oldVal,
+			NewValue:      newVal,
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
@@ -582,6 +600,7 @@ func (h *FlagHandler) SetStaleness(w http.ResponseWriter, r *http.Request) {
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
+			UserEmail:  &user.Email,
 			Action:     "staleness_change",
 			EntityType: "flag",
 			EntityID:   flag.Key,

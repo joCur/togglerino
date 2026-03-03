@@ -123,7 +123,7 @@ export default function AuditLogPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs text-muted-foreground font-mono">
-                        {entry.user_id ? entry.user_id.slice(0, 8) + '...' : '--'}
+                        {entry.user_email ?? (entry.user_id ? entry.user_id.slice(0, 8) + '...' : '--')}
                       </span>
                     </TableCell>
                     <TableCell>

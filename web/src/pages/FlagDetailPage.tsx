@@ -7,6 +7,7 @@ import type { Flag, Environment, FlagEnvironmentConfig, User } from '../api/type
 import NotFoundState from '../components/NotFoundState.tsx'
 import ConfigEditor from '../components/ConfigEditor.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
+import FlagHistory from '../components/FlagHistory.tsx'
 import PendingSchedules from '../components/PendingSchedules.tsx'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gravatarUrl } from '@/lib/gravatar'
 import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react'
 
@@ -304,110 +306,129 @@ export default function FlagDetailPage() {
         </Select>
       </div>
 
-      {/* Mutation error alerts */}
-      {archiveMutation.error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>
-            Failed to update flag: {archiveMutation.error instanceof Error ? archiveMutation.error.message : 'Unknown error'}
-          </AlertDescription>
-        </Alert>
-      )}
-      {deleteMutation.error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>
-            Failed to delete flag: {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Unknown error'}
-          </AlertDescription>
-        </Alert>
-      )}
+      <Tabs defaultValue="configuration" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
 
-      {/* Environment Configuration section */}
-      {environments && environments.length > 0 && (
-        <>
-          <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-4">
-            Environment Configuration
-          </div>
+        <TabsContent value="configuration">
+          {/* Mutation error alerts */}
+          {archiveMutation.error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Failed to update flag: {archiveMutation.error instanceof Error ? archiveMutation.error.message : 'Unknown error'}
+              </AlertDescription>
+            </Alert>
+          )}
+          {deleteMutation.error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Failed to delete flag: {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Unknown error'}
+              </AlertDescription>
+            </Alert>
+          )}
 
-          <div className="flex flex-col gap-3">
-            {environments.map((env) => {
-              const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
-              const enabled = config?.enabled ?? false
-              const isExpanded = effectiveExpandedEnvs.has(env.key)
+          {/* Environment Configuration section */}
+          {environments && environments.length > 0 && (
+            <>
+              <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-4">
+                Environment Configuration
+              </div>
 
-              return (
-                <Collapsible
-                  key={env.id}
-                  open={isExpanded}
-                  onOpenChange={(open) => setEnvExpanded(env.key, open)}
-                >
-                  <div className={cn(
-                    'rounded-lg border transition-colors duration-200',
-                    isExpanded ? 'border-[#d4956a]/40' : 'border-border',
-                  )}>
-                    <CollapsibleTrigger className="flex items-center w-full px-4 py-3 cursor-pointer group">
-                      <ChevronRight className={cn(
-                        'w-4 h-4 text-muted-foreground transition-transform duration-200 mr-3 shrink-0',
-                        isExpanded && 'rotate-90',
-                      )} />
-                      <span className="text-[14px] font-medium text-foreground mr-3">
-                        {env.name}
-                      </span>
-                      <div
-                        className="flex items-center gap-2 ml-auto"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <span className={cn(
-                          'text-[11px] font-mono font-medium',
-                          enabled ? 'text-emerald-400' : 'text-muted-foreground/50',
-                        )}>
-                          {enabled ? 'ON' : 'OFF'}
-                        </span>
-                        <Switch
-                          checked={enabled}
-                          disabled={!config || toggleMutation.isPending}
-                          onCheckedChange={() => {
-                            if (config) toggleMutation.mutate({ envKey: env.key, config })
-                          }}
-                        />
+              <div className="flex flex-col gap-3">
+                {environments.map((env) => {
+                  const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
+                  const enabled = config?.enabled ?? false
+                  const isExpanded = effectiveExpandedEnvs.has(env.key)
+
+                  return (
+                    <Collapsible
+                      key={env.id}
+                      open={isExpanded}
+                      onOpenChange={(open) => setEnvExpanded(env.key, open)}
+                    >
+                      <div className={cn(
+                        'rounded-lg border transition-colors duration-200',
+                        isExpanded ? 'border-[#d4956a]/40' : 'border-border',
+                      )}>
+                        <CollapsibleTrigger className="flex items-center w-full px-4 py-3 cursor-pointer group">
+                          <ChevronRight className={cn(
+                            'w-4 h-4 text-muted-foreground transition-transform duration-200 mr-3 shrink-0',
+                            isExpanded && 'rotate-90',
+                          )} />
+                          <span className="text-[14px] font-medium text-foreground mr-3">
+                            {env.name}
+                          </span>
+                          <div
+                            className="flex items-center gap-2 ml-auto"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className={cn(
+                              'text-[11px] font-mono font-medium',
+                              enabled ? 'text-emerald-400' : 'text-muted-foreground/50',
+                            )}>
+                              {enabled ? 'ON' : 'OFF'}
+                            </span>
+                            <Switch
+                              checked={enabled}
+                              disabled={!config || toggleMutation.isPending}
+                              onCheckedChange={() => {
+                                if (config) toggleMutation.mutate({ envKey: env.key, config })
+                              }}
+                            />
+                          </div>
+                        </CollapsibleTrigger>
+
+                        <CollapsibleContent>
+                          <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                            <div className="mb-4 mt-3">
+                              <EvaluationFlow config={config} />
+                            </div>
+                            <PendingSchedules
+                              projectKey={key!}
+                              flagKey={flagKey!}
+                              envKey={env.key}
+                              flagId={flag.id}
+                              environmentId={env.id}
+                            />
+                            <ConfigEditor
+                              key={env.key}
+                              config={config}
+                              flag={flag}
+                              envKey={env.key}
+                              projectKey={key!}
+                              flagKey={flagKey!}
+                              allConfigs={data.environment_configs}
+                              environments={environments}
+                            />
+                          </div>
+                        </CollapsibleContent>
                       </div>
-                    </CollapsibleTrigger>
+                    </Collapsible>
+                  )
+                })}
+              </div>
+            </>
+          )}
 
-                    <CollapsibleContent>
-                      <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                        <div className="mb-4 mt-3">
-                          <EvaluationFlow config={config} />
-                        </div>
-                        <PendingSchedules
-                          projectKey={key!}
-                          flagKey={flagKey!}
-                          envKey={env.key}
-                          flagId={flag.id}
-                          environmentId={env.id}
-                        />
-                        <ConfigEditor
-                          key={env.key}
-                          config={config}
-                          flag={flag}
-                          envKey={env.key}
-                          projectKey={key!}
-                          flagKey={flagKey!}
-                          allConfigs={data.environment_configs}
-                          environments={environments}
-                        />
-                      </div>
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
-              )
-            })}
-          </div>
-        </>
-      )}
+          {(!environments || environments.length === 0) && (
+            <div className="py-8 text-center text-muted-foreground/60 text-[13px]">
+              No environments found for this project.
+            </div>
+          )}
+        </TabsContent>
 
-      {(!environments || environments.length === 0) && (
-        <div className="py-8 text-center text-muted-foreground/60 text-[13px]">
-          No environments found for this project.
-        </div>
-      )}
+        <TabsContent value="history">
+          {environments && environments.length > 0 && (
+            <FlagHistory
+              projectKey={key!}
+              flagKey={flagKey!}
+              environments={environments}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Archive Confirmation Dialog */}
       <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
