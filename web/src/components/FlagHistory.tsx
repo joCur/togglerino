@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { AuditEntry, Environment } from '../api/types'
 import { Badge } from '@/components/ui/badge'
@@ -11,17 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import ConfigDiff from './ConfigDiff'
-import { RotateCcw, ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 
 const PAGE_SIZE = 50
 
@@ -51,13 +43,11 @@ function formatAction(action: string): string {
 }
 
 export default function FlagHistory({ projectKey, flagKey, environments }: FlagHistoryProps) {
-  const queryClient = useQueryClient()
   const [envFilter, setEnvFilter] = useState<string>('all')
   const [offset, setOffset] = useState(0)
   const [allEntries, setAllEntries] = useState<AuditEntry[]>([])
   const [hasMore, setHasMore] = useState(true)
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set())
-  const [restoreEntry, setRestoreEntry] = useState<AuditEntry | null>(null)
 
   const envParam = envFilter === 'all' ? '' : `&env=${envFilter}`
 
@@ -78,19 +68,6 @@ export default function FlagHistory({ projectKey, flagKey, environments }: FlagH
     enabled: !!projectKey && !!flagKey,
   })
 
-  const restoreMutation = useMutation({
-    mutationFn: (entryId: string) =>
-      api.post(`/projects/${projectKey}/flags/${flagKey}/history/${entryId}/restore`),
-    onSuccess: () => {
-      setRestoreEntry(null)
-      queryClient.invalidateQueries({ queryKey: ['projects', projectKey, 'flags', flagKey] })
-      // Reset history to refetch from scratch
-      setOffset(0)
-      setAllEntries([])
-      queryClient.invalidateQueries({ queryKey: ['projects', projectKey, 'flags', flagKey, 'history'] })
-    },
-  })
-
   const handleEnvChange = (value: string) => {
     setEnvFilter(value)
     setOffset(0)
@@ -108,16 +85,6 @@ export default function FlagHistory({ projectKey, flagKey, environments }: FlagH
   }
 
   const envNameMap = new Map(environments.map((e) => [e.id, e.name]))
-
-  const canRestore = (entry: AuditEntry): boolean => {
-    return entry.entity_type === 'flag_config' &&
-      entry.environment_id != null &&
-      (entry.old_value != null || entry.new_value != null)
-  }
-
-  const restoreEnvName = restoreEntry?.environment_id
-    ? envNameMap.get(restoreEntry.environment_id) ?? 'unknown'
-    : 'unknown'
 
   return (
     <div>
@@ -232,22 +199,6 @@ export default function FlagHistory({ projectKey, flagKey, environments }: FlagH
                       )}
                     </div>
 
-                    {canRestore(entry) && (
-                      <div className="mt-3 flex justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-[12px]"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setRestoreEntry(entry)
-                          }}
-                        >
-                          <RotateCcw className="w-3 h-3 mr-1.5" />
-                          Restore this version
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -269,40 +220,6 @@ export default function FlagHistory({ projectKey, flagKey, environments }: FlagH
         </div>
       )}
 
-      {/* Restore confirmation dialog */}
-      <Dialog open={restoreEntry !== null} onOpenChange={(open) => !open && setRestoreEntry(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Restore configuration?</DialogTitle>
-            <DialogDescription>
-              This will apply the configuration from{' '}
-              <span className="font-mono text-foreground">
-                {restoreEntry && new Date(restoreEntry.created_at).toLocaleString()}
-              </span>{' '}
-              to <span className="font-medium text-foreground">{restoreEnvName}</span>.
-              This creates a new change entry and does not delete any history.
-            </DialogDescription>
-          </DialogHeader>
-          {restoreMutation.error && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {restoreMutation.error instanceof Error ? restoreMutation.error.message : 'Failed to restore'}
-              </AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRestoreEntry(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => restoreEntry && restoreMutation.mutate(restoreEntry.id)}
-              disabled={restoreMutation.isPending}
-            >
-              {restoreMutation.isPending ? 'Restoring...' : 'Restore'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

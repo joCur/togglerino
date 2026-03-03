@@ -97,7 +97,7 @@ func main() {
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
 	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore, projectSettingsStore)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
-	historyHandler := handler.NewHistoryHandler(auditStore, flagStore, projectStore, environmentStore, hub, cache, pool)
+	historyHandler := handler.NewHistoryHandler(auditStore, flagStore, projectStore, environmentStore)
 	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore, environmentStore)
 	contextAttributeStore := store.NewContextAttributeStore(pool)
 	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
@@ -176,7 +176,7 @@ func main() {
 	// Flag history
 	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/history", wrap(historyHandler.List, sessionAuth))
 	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/history/{id}", wrap(historyHandler.Get, sessionAuth))
-	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/history/{id}/restore", wrap(historyHandler.Restore, sessionAuth))
+
 
 	// Unknown flags
 	mux.Handle("GET /api/v1/projects/{key}/unknown-flags", wrap(unknownFlagHandler.List, sessionAuth))
