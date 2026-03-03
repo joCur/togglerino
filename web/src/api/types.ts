@@ -99,6 +99,7 @@ export interface AuditEntry {
   user_id?: string
   user_email?: string
   environment_id?: string
+  batch_id?: string
   action: string
   entity_type: string
   entity_id: string
