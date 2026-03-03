@@ -1,5 +1,15 @@
 import type { Condition, Segment } from './types'
 
+export class ApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 const API_BASE = '/api/v1'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -13,7 +23,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(error.error || res.statusText)
+    throw new ApiError(res.status, error.error || res.statusText)
   }
 
   if (res.status === 204) {

@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useParams, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useFlag } from '@togglerino/react'
+import { api, ApiError } from '../api/client.ts'
+import type { Project } from '../api/types.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useIsMobile } from '../hooks/useIsMobile.ts'
 import Topbar from './Topbar.tsx'
 import ProjectSwitcher from './ProjectSwitcher.tsx'
+import NotFoundState from './NotFoundState.tsx'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { navLinkClass } from './navLinkClass'
@@ -18,6 +22,38 @@ export default function ProjectLayout() {
   const navigate = useNavigate()
   const isThemeToggleEnabled = useFlag('enable-theme-toggle', false)
   const closeDrawer = () => setDrawerOpen(false)
+
+  const { error: projectError, isLoading: projectLoading } = useQuery({
+    queryKey: ['projects', key],
+    queryFn: () => api.get<Project>(`/projects/${key}`),
+    enabled: !!key,
+  })
+
+  if (projectLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen text-muted-foreground/60 text-[13px] animate-pulse">
+        Loading project...
+      </div>
+    )
+  }
+
+  if (projectError instanceof ApiError && projectError.status === 404) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Topbar onMenuClick={() => setDrawerOpen(true)} />
+        <div className="flex flex-1">
+          <main className="flex-1 p-4 md:p-9">
+            <NotFoundState
+              title="Project not found"
+              description={`The project "${key}" could not be found. It may have been deleted.`}
+              backTo="/projects"
+              backLabel="Projects"
+            />
+          </main>
+        </div>
+      </div>
+    )
+  }
 
   const navLinks = (onNavigate?: () => void) => (
     <>
