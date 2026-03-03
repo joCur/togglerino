@@ -68,6 +68,18 @@ func (s *EnvironmentStore) FindByKey(ctx context.Context, projectID, key string)
 	return &e, nil
 }
 
+// FindByID returns an environment by its ID.
+func (s *EnvironmentStore) FindByID(ctx context.Context, id string) (*model.Environment, error) {
+	var e model.Environment
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, project_id, key, name, created_at FROM environments WHERE id = $1`, id,
+	).Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("finding environment by id: %w", err)
+	}
+	return &e, nil
+}
+
 // Delete deletes an environment by ID.
 func (s *EnvironmentStore) Delete(ctx context.Context, id string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM environments WHERE id = $1`, id)
