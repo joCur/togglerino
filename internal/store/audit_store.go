@@ -19,9 +19,9 @@ func NewAuditStore(pool *pgxpool.Pool) *AuditStore {
 // Record inserts an audit log entry.
 func (s *AuditStore) Record(ctx context.Context, entry model.AuditEntry) error {
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO audit_log (project_id, user_id, user_email, environment_id, action, entity_type, entity_id, old_value, new_value)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		entry.ProjectID, entry.UserID, entry.UserEmail, entry.EnvironmentID, entry.Action, entry.EntityType, entry.EntityID, entry.OldValue, entry.NewValue,
+		`INSERT INTO audit_log (project_id, user_id, user_email, environment_id, batch_id, action, entity_type, entity_id, old_value, new_value)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		entry.ProjectID, entry.UserID, entry.UserEmail, entry.EnvironmentID, entry.BatchID, entry.Action, entry.EntityType, entry.EntityID, entry.OldValue, entry.NewValue,
 	)
 	if err != nil {
 		return fmt.Errorf("recording audit entry: %w", err)
@@ -32,7 +32,7 @@ func (s *AuditStore) Record(ctx context.Context, entry model.AuditEntry) error {
 // ListByProject returns audit entries for a project, ordered by created_at DESC, with pagination.
 func (s *AuditStore) ListByProject(ctx context.Context, projectID string, limit, offset int) ([]model.AuditEntry, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, user_id, user_email, environment_id, action, entity_type, entity_id, old_value, new_value, created_at
+		`SELECT id, project_id, user_id, user_email, environment_id, batch_id, action, entity_type, entity_id, old_value, new_value, created_at
 		 FROM audit_log WHERE project_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
 		projectID, limit, offset,
 	)
@@ -44,7 +44,7 @@ func (s *AuditStore) ListByProject(ctx context.Context, projectID string, limit,
 	var entries []model.AuditEntry
 	for rows.Next() {
 		var e model.AuditEntry
-		if err := rows.Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.BatchID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning audit entry: %w", err)
 		}
 		entries = append(entries, e)
@@ -59,10 +59,10 @@ func (s *AuditStore) ListByProject(ctx context.Context, projectID string, limit,
 func (s *AuditStore) GetByID(ctx context.Context, id string) (*model.AuditEntry, error) {
 	var e model.AuditEntry
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, project_id, user_id, user_email, environment_id, action, entity_type, entity_id, old_value, new_value, created_at
+		`SELECT id, project_id, user_id, user_email, environment_id, batch_id, action, entity_type, entity_id, old_value, new_value, created_at
 		 FROM audit_log WHERE id = $1`,
 		id,
-	).Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt)
+	).Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.BatchID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("getting audit entry by id: %w", err)
 	}
@@ -71,7 +71,7 @@ func (s *AuditStore) GetByID(ctx context.Context, id string) (*model.AuditEntry,
 
 // ListByFlag returns audit entries for a specific flag, optionally filtered by environment.
 func (s *AuditStore) ListByFlag(ctx context.Context, projectID, flagKey string, envID *string, limit, offset int) ([]model.AuditEntry, error) {
-	query := `SELECT id, project_id, user_id, user_email, environment_id, action, entity_type, entity_id, old_value, new_value, created_at
+	query := `SELECT id, project_id, user_id, user_email, environment_id, batch_id, action, entity_type, entity_id, old_value, new_value, created_at
 		 FROM audit_log
 		 WHERE project_id = $1 AND entity_id = $2 AND entity_type IN ('flag', 'flag_config')`
 	args := []any{projectID, flagKey}
@@ -95,7 +95,7 @@ func (s *AuditStore) ListByFlag(ctx context.Context, projectID, flagKey string, 
 	var entries []model.AuditEntry
 	for rows.Next() {
 		var e model.AuditEntry
-		if err := rows.Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.BatchID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning audit entry: %w", err)
 		}
 		entries = append(entries, e)
