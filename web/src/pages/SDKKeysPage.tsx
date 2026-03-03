@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../api/client.ts'
+import { api, ApiError } from '../api/client.ts'
 import type { SDKKey } from '../api/types.ts'
+import NotFoundState from '../components/NotFoundState.tsx'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -77,6 +78,17 @@ export default function SDKKeysPage() {
       <div className="text-center py-16 text-muted-foreground/60 text-[13px] animate-pulse">
         Loading SDK keys...
       </div>
+    )
+  }
+
+  if (error instanceof ApiError && error.status === 404) {
+    return (
+      <NotFoundState
+        title="Environment not found"
+        description={`The environment "${env}" could not be found. It may have been deleted.`}
+        backTo={`/projects/${key}/environments`}
+        backLabel="Environments"
+      />
     )
   }
 

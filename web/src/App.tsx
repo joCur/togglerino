@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TogglerioProvider } from '@togglerino/react'
 import { ThemeProvider } from './components/ThemeProvider.tsx'
 import { useAuth } from './hooks/useAuth.ts'
+import { ApiError } from './api/client.ts'
 import SetupPage from './pages/SetupPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import ProjectsPage from './pages/ProjectsPage.tsx'
@@ -26,7 +27,18 @@ import FlagLifetimesTab from './pages/settings/FlagLifetimesTab.tsx'
 import EnvironmentDefaultsTab from './pages/settings/EnvironmentDefaultsTab.tsx'
 import MembersTab from './pages/settings/MembersTab.tsx'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+          return false
+        }
+        return failureCount < 3
+      },
+    },
+  },
+})
 
 const togglerinoConfig = {
   serverUrl: 'https://flags.curth.dev',
