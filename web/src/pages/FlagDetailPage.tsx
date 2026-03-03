@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
-import { api } from '../api/client.ts'
+import { api, ApiError } from '../api/client.ts'
 import type { Flag, Environment, FlagEnvironmentConfig, User } from '../api/types.ts'
+import NotFoundState from '../components/NotFoundState.tsx'
 import ConfigEditor from '../components/ConfigEditor.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
 import PendingSchedules from '../components/PendingSchedules.tsx'
@@ -143,6 +144,17 @@ export default function FlagDetailPage() {
       <div className="text-center py-16 text-muted-foreground/60 text-[13px] animate-pulse">
         Loading flag details...
       </div>
+    )
+  }
+
+  if (error instanceof ApiError && error.status === 404) {
+    return (
+      <NotFoundState
+        title="Flag not found"
+        description={`The flag "${flagKey}" could not be found. It may have been deleted.`}
+        backTo={`/projects/${key}`}
+        backLabel="Flags"
+      />
     )
   }
 
