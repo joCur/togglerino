@@ -218,14 +218,11 @@ func TestAuditStore_Record_WithNewFields(t *testing.T) {
 		t.Fatalf("Create project: %v", err)
 	}
 
-	envs, err := es.ListByProject(ctx, project.ID)
+	env, err := es.Create(ctx, project.ID, "dev", "Development")
 	if err != nil {
-		t.Fatalf("ListByProject envs: %v", err)
+		t.Fatalf("Create environment: %v", err)
 	}
-	if len(envs) == 0 {
-		t.Fatal("expected at least one environment")
-	}
-	envID := envs[0].ID
+	envID := env.ID
 	email := "test@example.com"
 
 	entry := model.AuditEntry{
@@ -365,12 +362,16 @@ func TestAuditStore_ListByFlag_EnvFilter(t *testing.T) {
 		t.Fatalf("Create project: %v", err)
 	}
 
-	envs, err := es.ListByProject(ctx, project.ID)
-	if err != nil || len(envs) < 2 {
-		t.Fatalf("expected at least 2 environments, got %d (err: %v)", len(envs), err)
+	env1, err := es.Create(ctx, project.ID, "dev", "Development")
+	if err != nil {
+		t.Fatalf("Create environment 1: %v", err)
 	}
-	env1ID := envs[0].ID
-	env2ID := envs[1].ID
+	env2, err := es.Create(ctx, project.ID, "staging", "Staging")
+	if err != nil {
+		t.Fatalf("Create environment 2: %v", err)
+	}
+	env1ID := env1.ID
+	env2ID := env2.ID
 
 	// Record 2 entries for env1, 1 for env2
 	for i := 0; i < 2; i++ {
