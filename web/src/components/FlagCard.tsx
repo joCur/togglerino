@@ -8,9 +8,11 @@ interface Props {
   environments: Environment[]
   getEnvStatus: (flagKey: string, envId: string) => boolean
   onClick: () => void
+  selected?: boolean
+  onSelect?: (flagKey: string) => void
 }
 
-export default function FlagCard({ flag, environments, getEnvStatus, onClick }: Props) {
+export default function FlagCard({ flag, environments, getEnvStatus, onClick, selected, onSelect }: Props) {
   const isArchived = flag.lifecycle_status === 'archived'
 
   return (
@@ -22,6 +24,17 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick }: 
         isArchived && 'opacity-60',
       )}
     >
+      {onSelect && (
+        <div className="flex items-center mb-2">
+          <input
+            type="checkbox"
+            checked={selected ?? false}
+            onChange={(e) => { e.stopPropagation(); onSelect(flag.key) }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-4 h-4 rounded border-muted-foreground/30 accent-[#d4956a] cursor-pointer"
+          />
+        </div>
+      )}
       {/* Row 1: Key + Type */}
       <div className="flex items-center justify-between mb-1">
         <span className="font-mono text-sm text-[#d4956a] tracking-wide">{flag.key}</span>
