@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -612,4 +614,327 @@ func (h *FlagHandler) SetStaleness(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, updated)
+}
+
+// BulkAction handles POST /api/v1/projects/{key}/flags/bulk
+func (h *FlagHandler) BulkAction(w http.ResponseWriter, r *http.Request) {
+	projectKey := r.PathValue("key")
+	if projectKey == "" {
+		writeError(w, http.StatusBadRequest, "project key is required")
+		return
+	}
+
+	project, err := h.projects.FindByKey(r.Context(), projectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	var req struct {
+		Action         string   `json:"action"`
+		FlagKeys       []string `json:"flag_keys"`
+		EnvironmentKey string   `json:"environment_key"`
+		Tags           []string `json:"tags"`
+		OwnerID        *string  `json:"owner_id"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.FlagKeys) == 0 {
+		writeError(w, http.StatusBadRequest, "flag_keys is required and must not be empty")
+		return
+	}
+	if len(req.FlagKeys) > 200 {
+		writeError(w, http.StatusBadRequest, "flag_keys must not exceed 200 entries")
+		return
+	}
+
+	validActions := map[string]bool{
+		"enable": true, "disable": true, "archive": true,
+		"add_tags": true, "remove_tags": true, "set_owner": true,
+	}
+	if !validActions[req.Action] {
+		writeError(w, http.StatusBadRequest, "invalid action: must be one of enable, disable, archive, add_tags, remove_tags, set_owner")
+		return
+	}
+
+	if (req.Action == "enable" || req.Action == "disable") && req.EnvironmentKey == "" {
+		writeError(w, http.StatusBadRequest, "environment_key is required for enable/disable actions")
+		return
+	}
+	if (req.Action == "add_tags" || req.Action == "remove_tags") && len(req.Tags) == 0 {
+		writeError(w, http.StatusBadRequest, "tags is required and must not be empty for tag actions")
+		return
+	}
+
+	var env *model.Environment
+	if req.Action == "enable" || req.Action == "disable" {
+		env, err = h.environments.FindByKey(r.Context(), project.ID, req.EnvironmentKey)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "environment not found: "+req.EnvironmentKey)
+			return
+		}
+	}
+
+	user := auth.UserFromContext(r.Context())
+	batchID := generateUUID()
+
+	type bulkResult struct {
+		FlagKey string `json:"flag_key"`
+		Success bool   `json:"success"`
+		Error   string `json:"error,omitempty"`
+	}
+
+	results := make([]bulkResult, 0, len(req.FlagKeys))
+
+	for _, flagKey := range req.FlagKeys {
+		flag, err := h.flags.FindByKey(r.Context(), project.ID, flagKey)
+		if err != nil {
+			results = append(results, bulkResult{FlagKey: flagKey, Error: "flag not found"})
+			continue
+		}
+
+		var opErr error
+		switch req.Action {
+		case "enable", "disable":
+			opErr = h.bulkEnableDisable(r.Context(), project, flag, env, req.Action == "enable", user, &batchID)
+		case "archive":
+			opErr = h.bulkArchive(r.Context(), project, flag, user, &batchID)
+		case "add_tags":
+			opErr = h.bulkAddTags(r.Context(), project, flag, req.Tags, user, &batchID)
+		case "remove_tags":
+			opErr = h.bulkRemoveTags(r.Context(), project, flag, req.Tags, user, &batchID)
+		case "set_owner":
+			opErr = h.bulkSetOwner(r.Context(), project, flag, req.OwnerID, user, &batchID)
+		}
+
+		if opErr != nil {
+			results = append(results, bulkResult{FlagKey: flagKey, Error: opErr.Error()})
+		} else {
+			results = append(results, bulkResult{FlagKey: flagKey, Success: true})
+		}
+	}
+
+	// Deduplicated cache refresh + SSE broadcast for enable/disable
+	if env != nil {
+		if err := h.cache.Refresh(r.Context(), h.pool, projectKey, req.EnvironmentKey); err != nil {
+			slog.Warn("failed to refresh cache after bulk action", "error", err)
+		}
+		h.hub.Broadcast(projectKey, req.EnvironmentKey, stream.Event{
+			Type: "flag_update",
+		})
+	}
+
+	// For archive actions, refresh all environments
+	if req.Action == "archive" {
+		envs, err := h.environments.ListByProject(r.Context(), project.ID)
+		if err != nil {
+			slog.Warn("failed to list environments for bulk archive cache refresh", "error", err)
+		} else {
+			for _, e := range envs {
+				if err := h.cache.Refresh(r.Context(), h.pool, projectKey, e.Key); err != nil {
+					slog.Warn("failed to refresh cache", "project", projectKey, "env", e.Key, "error", err)
+				}
+				h.hub.Broadcast(projectKey, e.Key, stream.Event{Type: "flag_update"})
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"batch_id": batchID,
+		"results":  results,
+	})
+}
+
+func generateUUID() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func (h *FlagHandler) bulkEnableDisable(ctx context.Context, project *model.Project, flag *model.Flag, env *model.Environment, enable bool, user *model.User, batchID *string) error {
+	if flag.LifecycleStatus == model.LifecycleArchived {
+		return fmt.Errorf("flag is archived")
+	}
+
+	oldConfig, err := h.flags.GetEnvironmentConfig(ctx, flag.ID, env.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get environment config")
+	}
+
+	cfg, err := h.flags.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, enable, oldConfig.DefaultVariant,
+		marshalJSON(oldConfig.Variants), marshalJSON(oldConfig.TargetingRules))
+	if err != nil {
+		return fmt.Errorf("failed to update environment config")
+	}
+
+	if user != nil {
+		oldVal, _ := json.Marshal(oldConfig)
+		newVal, _ := json.Marshal(cfg)
+		action := "enable"
+		if !enable {
+			action = "disable"
+		}
+		if err := h.audit.Record(ctx, model.AuditEntry{
+			ProjectID:     &project.ID,
+			UserID:        &user.ID,
+			UserEmail:     &user.Email,
+			EnvironmentID: &env.ID,
+			BatchID:       batchID,
+			Action:        action,
+			EntityType:    "flag_config",
+			EntityID:      flag.Key,
+			OldValue:      oldVal,
+			NewValue:      newVal,
+		}); err != nil {
+			slog.Warn("failed to record bulk audit log", "error", err)
+		}
+	}
+	return nil
+}
+
+func (h *FlagHandler) bulkArchive(ctx context.Context, project *model.Project, flag *model.Flag, user *model.User, batchID *string) error {
+	if flag.LifecycleStatus == model.LifecycleArchived {
+		return fmt.Errorf("flag is already archived")
+	}
+
+	updated, err := h.flags.SetLifecycleStatus(ctx, flag.ID, model.LifecycleArchived)
+	if err != nil {
+		return fmt.Errorf("failed to archive flag")
+	}
+
+	if err := h.schedules.CancelByFlag(ctx, flag.ID, "bulk_archived"); err != nil {
+		slog.Warn("failed to cancel schedules for bulk archived flag", "flag", flag.Key, "error", err)
+	}
+
+	if user != nil {
+		oldVal, _ := json.Marshal(flag)
+		newVal, _ := json.Marshal(updated)
+		if err := h.audit.Record(ctx, model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			BatchID:    batchID,
+			Action:     "archive",
+			EntityType: "flag",
+			EntityID:   flag.Key,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record bulk audit log", "error", err)
+		}
+	}
+	return nil
+}
+
+func (h *FlagHandler) bulkAddTags(ctx context.Context, project *model.Project, flag *model.Flag, tags []string, user *model.User, batchID *string) error {
+	existing := make(map[string]bool, len(flag.Tags))
+	for _, t := range flag.Tags {
+		existing[t] = true
+	}
+	newTags := append([]string{}, flag.Tags...)
+	for _, t := range tags {
+		if !existing[t] {
+			newTags = append(newTags, t)
+		}
+	}
+
+	updated, err := h.flags.Update(ctx, flag.ID, flag.Name, flag.Description, newTags, flag.FlagType, flag.OwnerID)
+	if err != nil {
+		return fmt.Errorf("failed to update tags")
+	}
+
+	if user != nil {
+		oldVal, _ := json.Marshal(flag)
+		newVal, _ := json.Marshal(updated)
+		if err := h.audit.Record(ctx, model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			BatchID:    batchID,
+			Action:     "add_tags",
+			EntityType: "flag",
+			EntityID:   flag.Key,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record bulk audit log", "error", err)
+		}
+	}
+	return nil
+}
+
+func (h *FlagHandler) bulkRemoveTags(ctx context.Context, project *model.Project, flag *model.Flag, tags []string, user *model.User, batchID *string) error {
+	toRemove := make(map[string]bool, len(tags))
+	for _, t := range tags {
+		toRemove[t] = true
+	}
+	newTags := make([]string, 0, len(flag.Tags))
+	for _, t := range flag.Tags {
+		if !toRemove[t] {
+			newTags = append(newTags, t)
+		}
+	}
+
+	updated, err := h.flags.Update(ctx, flag.ID, flag.Name, flag.Description, newTags, flag.FlagType, flag.OwnerID)
+	if err != nil {
+		return fmt.Errorf("failed to update tags")
+	}
+
+	if user != nil {
+		oldVal, _ := json.Marshal(flag)
+		newVal, _ := json.Marshal(updated)
+		if err := h.audit.Record(ctx, model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			BatchID:    batchID,
+			Action:     "remove_tags",
+			EntityType: "flag",
+			EntityID:   flag.Key,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record bulk audit log", "error", err)
+		}
+	}
+	return nil
+}
+
+func (h *FlagHandler) bulkSetOwner(ctx context.Context, project *model.Project, flag *model.Flag, ownerID *string, user *model.User, batchID *string) error {
+	updated, err := h.flags.Update(ctx, flag.ID, flag.Name, flag.Description, flag.Tags, flag.FlagType, ownerID)
+	if err != nil {
+		return fmt.Errorf("failed to set owner")
+	}
+
+	if user != nil {
+		oldVal, _ := json.Marshal(flag)
+		newVal, _ := json.Marshal(updated)
+		if err := h.audit.Record(ctx, model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			BatchID:    batchID,
+			Action:     "set_owner",
+			EntityType: "flag",
+			EntityID:   flag.Key,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record bulk audit log", "error", err)
+		}
+	}
+	return nil
+}
+
+func marshalJSON(v any) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return json.RawMessage(`null`)
+	}
+	return b
 }

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus, User } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus, User, BulkAction } from '../api/types.ts'
 import { useFlag } from '@togglerino/react'
 import FlagCard from '../components/FlagCard.tsx'
 import CreateFlagModal from '../components/CreateFlagModal.tsx'
@@ -10,10 +10,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { Plus } from 'lucide-react'
+import BulkActionBar from '../components/BulkActionBar.tsx'
+import BulkConfirmDialog from '../components/BulkConfirmDialog.tsx'
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -42,6 +45,14 @@ export default function ProjectDetailPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [createFromKey, setCreateFromKey] = useState('')
   const [ownerFilter, setOwnerFilter] = useState('')
+  const [selectedFlags, setSelectedFlags] = useState<Set<string>>(new Set())
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+  const [bulkAction, setBulkAction] = useState<{
+    action: BulkAction
+    environmentKey?: string
+    tags?: string[]
+    ownerId?: string | null
+  } | null>(null)
   const unknownFlagsEnabled = useFlag('unknown-flags', false)
   const isMobile = useIsMobile()
 
@@ -120,6 +131,48 @@ export default function ProjectDetailPage() {
     })
   }, [flags, search, tagFilter, purposeFilter, statusFilter, ownerFilter])
 
+  const selectAllChecked: boolean | 'indeterminate' =
+    selectedFlags.size === 0
+      ? false
+      : selectedFlags.size === filtered.length
+        ? true
+        : 'indeterminate'
+
+  const toggleSelect = (flagKey: string) => {
+    setSelectedFlags((prev) => {
+      const next = new Set(prev)
+      if (next.has(flagKey)) {
+        next.delete(flagKey)
+      } else {
+        next.add(flagKey)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedFlags.size === filtered.length) {
+      setSelectedFlags(new Set())
+    } else {
+      setSelectedFlags(new Set(filtered.map((f) => f.key)))
+    }
+  }
+
+  const handleBulkExecute = (action: BulkAction, params: {
+    environmentKey?: string
+    tags?: string[]
+    ownerId?: string | null
+  }) => {
+    setBulkAction({ action, ...params })
+    setBulkDialogOpen(true)
+  }
+
+  const handleBulkComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
+    queryClient.invalidateQueries({ queryKey: ['projects', key, 'all-configs'] })
+    setSelectedFlags(new Set())
+  }
+
   if (flagsLoading) {
     return (
       <div className="text-center py-16 text-muted-foreground/60 text-[13px] animate-pulse">
@@ -178,17 +231,27 @@ export default function ProjectDetailPage() {
         <TabsContent value="flags">
           {/* Filters */}
           <div className="flex flex-col md:flex-row gap-2.5 mb-5 mt-5">
+            <label
+              className="flex items-center gap-2 cursor-pointer whitespace-nowrap select-none"
+              onClick={(e) => { e.preventDefault(); toggleSelectAll() }}
+            >
+              <Checkbox
+                checked={selectAllChecked}
+                className="cursor-pointer"
+              />
+              <span className="text-[13px] text-muted-foreground">All</span>
+            </label>
             <Input
               className="w-full md:flex-1 md:max-w-[300px]"
               placeholder="Search flags..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setSelectedFlags(new Set()) }}
             />
             {allTags.length > 0 && (
               <select
                 className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
                 value={tagFilter}
-                onChange={(e) => setTagFilter(e.target.value)}
+                onChange={(e) => { setTagFilter(e.target.value); setSelectedFlags(new Set()) }}
               >
                 <option value="">All Tags</option>
                 {allTags.map((tag) => (
@@ -199,7 +262,7 @@ export default function ProjectDetailPage() {
             <select
               className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={purposeFilter}
-              onChange={(e) => setPurposeFilter(e.target.value as FlagPurpose | '')}
+              onChange={(e) => { setPurposeFilter(e.target.value as FlagPurpose | ''); setSelectedFlags(new Set()) }}
             >
               <option value="">All Purposes</option>
               <option value="release">Release</option>
@@ -211,7 +274,7 @@ export default function ProjectDetailPage() {
             <select
               className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as LifecycleStatus | '')}
+              onChange={(e) => { setStatusFilter(e.target.value as LifecycleStatus | ''); setSelectedFlags(new Set()) }}
             >
               <option value="">All Statuses</option>
               <option value="active">Active</option>
@@ -222,7 +285,7 @@ export default function ProjectDetailPage() {
             <select
               className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={ownerFilter}
-              onChange={(e) => setOwnerFilter(e.target.value)}
+              onChange={(e) => { setOwnerFilter(e.target.value); setSelectedFlags(new Set()) }}
             >
               <option value="">All Owners</option>
               <option value="unassigned">Unassigned</option>
@@ -252,6 +315,8 @@ export default function ProjectDetailPage() {
                   environments={environments ?? []}
                   getEnvStatus={getEnvStatus}
                   onClick={() => navigate(`/projects/${key}/flags/${flag.key}`)}
+                  selected={selectedFlags.has(flag.key)}
+                  onSelect={toggleSelect}
                 />
               ))}
             </div>
@@ -336,7 +401,7 @@ export default function ProjectDetailPage() {
         onCreated={() => queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] })}
       />
 
-      {isMobile && (
+      {isMobile && selectedFlags.size === 0 && (
         <button
           onClick={() => setModalOpen(true)}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#d4956a] text-white shadow-lg flex items-center justify-center hover:bg-[#e0a87a] active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#d4956a] focus-visible:ring-offset-2"
@@ -344,6 +409,30 @@ export default function ProjectDetailPage() {
         >
           <Plus className="w-6 h-6" />
         </button>
+      )}
+
+      {selectedFlags.size > 0 && (
+        <BulkActionBar
+          selectedCount={selectedFlags.size}
+          environments={environments ?? []}
+          users={users ?? []}
+          onExecute={handleBulkExecute}
+          onClear={() => setSelectedFlags(new Set())}
+        />
+      )}
+
+      {bulkAction && (
+        <BulkConfirmDialog
+          open={bulkDialogOpen}
+          onClose={() => { setBulkDialogOpen(false); setBulkAction(null) }}
+          projectKey={key!}
+          flagKeys={Array.from(selectedFlags)}
+          action={bulkAction.action}
+          environmentKey={bulkAction.environmentKey}
+          tags={bulkAction.tags}
+          ownerId={bulkAction.ownerId}
+          onComplete={handleBulkComplete}
+        />
       )}
     </div>
   )

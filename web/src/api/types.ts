@@ -99,6 +99,7 @@ export interface AuditEntry {
   user_id?: string
   user_email?: string
   environment_id?: string
+  batch_id?: string
   action: string
   entity_type: string
   entity_id: string
@@ -156,4 +157,25 @@ export interface ScheduledFlagChange {
   executed_at?: string
   cancelled_at?: string
   cancel_reason?: string
+}
+
+export type BulkAction = 'enable' | 'disable' | 'archive' | 'add_tags' | 'remove_tags' | 'set_owner'
+
+export interface BulkActionRequest {
+  action: BulkAction
+  flag_keys: string[]
+  environment_key?: string
+  tags?: string[]
+  owner_id?: string | null
+}
+
+export interface BulkActionResult {
+  flag_key: string
+  success: boolean
+  error?: string
+}
+
+export interface BulkActionResponse {
+  batch_id: string
+  results: BulkActionResult[]
 }

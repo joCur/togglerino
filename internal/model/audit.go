@@ -11,6 +11,7 @@ type AuditEntry struct {
 	UserID        *string         `json:"user_id,omitempty"`
 	UserEmail     *string         `json:"user_email,omitempty"`
 	EnvironmentID *string         `json:"environment_id,omitempty"`
+	BatchID       *string         `json:"batch_id,omitempty"`
 	Action        string          `json:"action"`
 	EntityType    string          `json:"entity_type"`
 	EntityID      string          `json:"entity_id"`
