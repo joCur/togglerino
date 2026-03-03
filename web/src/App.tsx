@@ -21,6 +21,7 @@ import AcceptInvitePage from './pages/AcceptInvitePage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.tsx'
 import AccountPage from './pages/AccountPage.tsx'
+import LinkAccountPage from './pages/LinkAccountPage.tsx'
 import SegmentsPage from './pages/SegmentsPage.tsx'
 import GeneralSettingsTab from './pages/settings/GeneralSettingsTab.tsx'
 import FlagLifetimesTab from './pages/settings/FlagLifetimesTab.tsx'
@@ -117,6 +118,7 @@ function App() {
             <Routes>
               <Route path="/invite/:token" element={<AcceptInvitePage />} />
               <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+              <Route path="/link-account" element={<LinkAccountPage />} />
               <Route path="*" element={<AuthRouter />} />
             </Routes>
           </BrowserRouter>

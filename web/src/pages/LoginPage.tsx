@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function LoginPage() {
-  const { login, loginError } = useAuth()
+  const { login, loginError, oidcEnabled } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -63,6 +63,25 @@ export default function LoginPage() {
           <Button className="w-full mt-6" disabled={submitting}>
             {submitting ? 'Signing In...' : 'Sign In'}
           </Button>
+
+          {oidcEnabled && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <a
+                href="/api/v1/auth/oidc/authorize"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground w-full no-underline"
+              >
+                Sign in with SSO
+              </a>
+            </>
+          )}
         </form>
       </div>
     </div>

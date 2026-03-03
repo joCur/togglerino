@@ -179,3 +179,24 @@ export interface BulkActionResponse {
   batch_id: string
   results: BulkActionResult[]
 }
+
+export interface OIDCProvider {
+  id: string
+  name: string
+  issuer_url: string
+  client_id: string
+  scopes: string
+  default_role: 'admin' | 'member'
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface OIDCIdentity {
+  id: string
+  user_id: string
+  provider_id: string
+  subject: string
+  email?: string
+  created_at: string
+}
