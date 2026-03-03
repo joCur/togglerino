@@ -140,6 +140,12 @@ export default function BulkConfirmDialog({
           </div>
         )}
 
+        {mutation.isError && (
+          <div className="text-[13px] text-red-400 px-2 py-1">
+            Request failed: {mutation.error instanceof Error ? mutation.error.message : 'Unknown error'}
+          </div>
+        )}
+
         <DialogFooter>
           {!results ? (
             <>

@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus, User } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus, User, BulkAction } from '../api/types.ts'
 import { useFlag } from '@togglerino/react'
 import FlagCard from '../components/FlagCard.tsx'
 import CreateFlagModal from '../components/CreateFlagModal.tsx'
@@ -16,7 +16,6 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { Plus } from 'lucide-react'
 import BulkActionBar from '../components/BulkActionBar.tsx'
 import BulkConfirmDialog from '../components/BulkConfirmDialog.tsx'
-import type { BulkAction } from '../api/types.ts'
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -131,6 +130,14 @@ export default function ProjectDetailPage() {
     })
   }, [flags, search, tagFilter, purposeFilter, statusFilter, ownerFilter])
 
+  const selectAllRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = selectedFlags.size > 0 && selectedFlags.size < filtered.length
+    }
+  }, [selectedFlags.size, filtered.length])
+
   const toggleSelect = (flagKey: string) => {
     setSelectedFlags((prev) => {
       const next = new Set(prev)
@@ -226,6 +233,7 @@ export default function ProjectDetailPage() {
           <div className="flex flex-col md:flex-row gap-2.5 mb-5 mt-5">
             <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
               <input
+                ref={selectAllRef}
                 type="checkbox"
                 checked={filtered.length > 0 && selectedFlags.size === filtered.length}
                 onChange={toggleSelectAll}
@@ -237,13 +245,13 @@ export default function ProjectDetailPage() {
               className="w-full md:flex-1 md:max-w-[300px]"
               placeholder="Search flags..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setSelectedFlags(new Set()) }}
             />
             {allTags.length > 0 && (
               <select
                 className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
                 value={tagFilter}
-                onChange={(e) => setTagFilter(e.target.value)}
+                onChange={(e) => { setTagFilter(e.target.value); setSelectedFlags(new Set()) }}
               >
                 <option value="">All Tags</option>
                 {allTags.map((tag) => (
@@ -254,7 +262,7 @@ export default function ProjectDetailPage() {
             <select
               className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={purposeFilter}
-              onChange={(e) => setPurposeFilter(e.target.value as FlagPurpose | '')}
+              onChange={(e) => { setPurposeFilter(e.target.value as FlagPurpose | ''); setSelectedFlags(new Set()) }}
             >
               <option value="">All Purposes</option>
               <option value="release">Release</option>
@@ -266,7 +274,7 @@ export default function ProjectDetailPage() {
             <select
               className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as LifecycleStatus | '')}
+              onChange={(e) => { setStatusFilter(e.target.value as LifecycleStatus | ''); setSelectedFlags(new Set()) }}
             >
               <option value="">All Statuses</option>
               <option value="active">Active</option>
@@ -277,7 +285,7 @@ export default function ProjectDetailPage() {
             <select
               className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
               value={ownerFilter}
-              onChange={(e) => setOwnerFilter(e.target.value)}
+              onChange={(e) => { setOwnerFilter(e.target.value); setSelectedFlags(new Set()) }}
             >
               <option value="">All Owners</option>
               <option value="unassigned">Unassigned</option>
@@ -393,7 +401,7 @@ export default function ProjectDetailPage() {
         onCreated={() => queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] })}
       />
 
-      {isMobile && (
+      {isMobile && selectedFlags.size === 0 && (
         <button
           onClick={() => setModalOpen(true)}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#d4956a] text-white shadow-lg flex items-center justify-center hover:bg-[#e0a87a] active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#d4956a] focus-visible:ring-offset-2"
