@@ -406,3 +406,43 @@ func TestAuditStore_ListByFlag_EnvFilter(t *testing.T) {
 		t.Fatalf("expected 2 entries for env1, got %d", len(entries))
 	}
 }
+
+func TestAuditStore_Record_WithBatchID(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	as := store.NewAuditStore(pool)
+	ctx := context.Background()
+
+	key := uniqueKey("audit-batch")
+	project, err := ps.Create(ctx, key, "Batch ID Project", "testing batch_id")
+	if err != nil {
+		t.Fatalf("Create project: %v", err)
+	}
+
+	batchID := "550e8400-e29b-41d4-a716-446655440000"
+	entry := model.AuditEntry{
+		ProjectID:  &project.ID,
+		BatchID:    &batchID,
+		Action:     "enable",
+		EntityType: "flag_config",
+		EntityID:   "test-flag",
+		NewValue:   json.RawMessage(`{"enabled":true}`),
+	}
+
+	err = as.Record(ctx, entry)
+	if err != nil {
+		t.Fatalf("Record with batch_id: %v", err)
+	}
+
+	// Verify the batch_id was stored and can be read back
+	entries, err := as.ListByProject(ctx, project.ID, 1, 0)
+	if err != nil {
+		t.Fatalf("ListByProject: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected at least 1 entry")
+	}
+	if entries[0].BatchID == nil || *entries[0].BatchID != batchID {
+		t.Errorf("BatchID: got %v, want %q", entries[0].BatchID, batchID)
+	}
+}
