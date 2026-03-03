@@ -1,5 +1,6 @@
 import type { Flag, Environment } from '../api/types.ts'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { gravatarUrl } from '@/lib/gravatar'
 
@@ -14,27 +15,33 @@ interface Props {
 
 export default function FlagCard({ flag, environments, getEnvStatus, onClick, selected, onSelect }: Props) {
   const isArchived = flag.lifecycle_status === 'archived'
+  const isSelectable = !!onSelect
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        'p-4 rounded-lg border bg-card cursor-pointer transition-all duration-200',
+        'relative rounded-lg border bg-card cursor-pointer transition-all duration-200',
         'hover:border-[#d4956a]/40 hover:shadow-[0_0_12px_rgba(212,149,106,0.06)]',
+        isSelectable ? 'pl-11 pr-4 py-4' : 'p-4',
         isArchived && 'opacity-60',
+        selected && 'border-[#d4956a]/50 bg-[#d4956a]/[0.04] shadow-[0_0_16px_rgba(212,149,106,0.08)]',
       )}
     >
-      {onSelect && (
-        <div className="flex items-center mb-2">
-          <input
-            type="checkbox"
+      {/* Checkbox gutter */}
+      {isSelectable && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-11 flex items-center justify-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
             checked={selected ?? false}
-            onChange={(e) => { e.stopPropagation(); onSelect(flag.key) }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-4 h-4 rounded border-muted-foreground/30 accent-[#d4956a] cursor-pointer"
+            onCheckedChange={() => onSelect(flag.key)}
+            className="cursor-pointer"
           />
         </div>
       )}
+
       {/* Row 1: Key + Type */}
       <div className="flex items-center justify-between mb-1">
         <span className="font-mono text-sm text-[#d4956a] tracking-wide">{flag.key}</span>

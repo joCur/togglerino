@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -130,13 +131,12 @@ export default function ProjectDetailPage() {
     })
   }, [flags, search, tagFilter, purposeFilter, statusFilter, ownerFilter])
 
-  const selectAllRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (selectAllRef.current) {
-      selectAllRef.current.indeterminate = selectedFlags.size > 0 && selectedFlags.size < filtered.length
-    }
-  }, [selectedFlags.size, filtered.length])
+  const selectAllChecked: boolean | 'indeterminate' =
+    selectedFlags.size === 0
+      ? false
+      : selectedFlags.size === filtered.length
+        ? true
+        : 'indeterminate'
 
   const toggleSelect = (flagKey: string) => {
     setSelectedFlags((prev) => {
@@ -231,13 +231,13 @@ export default function ProjectDetailPage() {
         <TabsContent value="flags">
           {/* Filters */}
           <div className="flex flex-col md:flex-row gap-2.5 mb-5 mt-5">
-            <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-              <input
-                ref={selectAllRef}
-                type="checkbox"
-                checked={filtered.length > 0 && selectedFlags.size === filtered.length}
-                onChange={toggleSelectAll}
-                className="w-4 h-4 rounded border-muted-foreground/30 accent-[#d4956a] cursor-pointer"
+            <label
+              className="flex items-center gap-2 cursor-pointer whitespace-nowrap select-none"
+              onClick={(e) => { e.preventDefault(); toggleSelectAll() }}
+            >
+              <Checkbox
+                checked={selectAllChecked}
+                className="cursor-pointer"
               />
               <span className="text-[13px] text-muted-foreground">All</span>
             </label>
