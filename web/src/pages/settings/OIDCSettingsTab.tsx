@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client.ts'
 import type { OIDCProvider } from '@/api/types.ts'
@@ -21,37 +21,18 @@ interface OIDCConfigResponse {
   provider?: OIDCProvider
 }
 
-export default function OIDCSettingsTab() {
-  const { user } = useAuth()
+function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configured: boolean }) {
   const queryClient = useQueryClient()
 
-  const configQuery = useQuery({
-    queryKey: ['oidc', 'config'],
-    queryFn: () => api.get<OIDCConfigResponse>('/auth/oidc/config'),
-    enabled: user?.role === 'admin',
-  })
-
-  const [name, setName] = useState('')
-  const [issuerUrl, setIssuerUrl] = useState('')
-  const [clientId, setClientId] = useState('')
+  const [name, setName] = useState(provider?.name ?? '')
+  const [issuerUrl, setIssuerUrl] = useState(provider?.issuer_url ?? '')
+  const [clientId, setClientId] = useState(provider?.client_id ?? '')
   const [clientSecret, setClientSecret] = useState('')
-  const [scopes, setScopes] = useState('openid email profile')
-  const [defaultRole, setDefaultRole] = useState<'admin' | 'member'>('member')
-  const [enabled, setEnabled] = useState(true)
+  const [scopes, setScopes] = useState(provider?.scopes ?? 'openid email profile')
+  const [defaultRole, setDefaultRole] = useState<'admin' | 'member'>(provider?.default_role ?? 'member')
+  const [enabled, setEnabled] = useState(provider?.enabled ?? true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-
-  useEffect(() => {
-    if (configQuery.data?.provider) {
-      const p = configQuery.data.provider
-      setName(p.name)
-      setIssuerUrl(p.issuer_url)
-      setClientId(p.client_id)
-      setScopes(p.scopes)
-      setDefaultRole(p.default_role)
-      setEnabled(p.enabled)
-    }
-  }, [configQuery.data])
 
   const saveMutation = useMutation({
     mutationFn: (data: {
@@ -81,13 +62,6 @@ export default function OIDCSettingsTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oidc', 'config'] })
       queryClient.invalidateQueries({ queryKey: ['auth', 'status'] })
-      setName('')
-      setIssuerUrl('')
-      setClientId('')
-      setClientSecret('')
-      setScopes('openid email profile')
-      setDefaultRole('member')
-      setEnabled(true)
       setSuccess('OIDC configuration removed')
       setError('')
     },
@@ -97,17 +71,13 @@ export default function OIDCSettingsTab() {
     },
   })
 
-  if (user?.role !== 'admin') {
-    return <div className="text-sm text-muted-foreground">Admin access required.</div>
-  }
-
   const callbackUrl = `${window.location.origin}/api/v1/auth/oidc/callback`
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setSuccess('')
-    if (!clientSecret && !configQuery.data?.configured) {
+    if (!clientSecret && !configured) {
       setError('Client secret is required for initial setup')
       return
     }
@@ -123,12 +93,7 @@ export default function OIDCSettingsTab() {
   }
 
   return (
-    <div className="max-w-2xl">
-      <h2 className="text-sm font-medium mb-1">OpenID Connect (OIDC)</h2>
-      <p className="text-xs text-muted-foreground mb-6">
-        Configure SSO with your identity provider (Okta, Azure AD, Google Workspace, etc.)
-      </p>
-
+    <>
       <Card className="mb-5">
         <CardContent className="p-6">
           <div className="text-xs font-mono text-muted-foreground mb-1">Callback URL</div>
@@ -174,7 +139,7 @@ export default function OIDCSettingsTab() {
                 type="password"
                 value={clientSecret}
                 onChange={(e) => setClientSecret(e.target.value)}
-                placeholder={configQuery.data?.configured ? '(unchanged)' : 'your-client-secret'}
+                placeholder={configured ? '(unchanged)' : 'your-client-secret'}
               />
             </div>
 
@@ -208,7 +173,7 @@ export default function OIDCSettingsTab() {
               <Button type="submit" size="sm" disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
               </Button>
-              {configQuery.data?.configured && (
+              {configured && (
                 <Button
                   type="button"
                   variant="outline"
@@ -223,6 +188,36 @@ export default function OIDCSettingsTab() {
           </form>
         </CardContent>
       </Card>
+    </>
+  )
+}
+
+export default function OIDCSettingsTab() {
+  const { user } = useAuth()
+
+  const configQuery = useQuery({
+    queryKey: ['oidc', 'config'],
+    queryFn: () => api.get<OIDCConfigResponse>('/auth/oidc/config'),
+    enabled: user?.role === 'admin',
+  })
+
+  if (user?.role !== 'admin') {
+    return <div className="text-sm text-muted-foreground">Admin access required.</div>
+  }
+
+  const configured = configQuery.data?.configured ?? false
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-sm font-medium mb-1">OpenID Connect (OIDC)</h2>
+      <p className="text-xs text-muted-foreground mb-6">
+        Configure SSO with your identity provider (Okta, Azure AD, Google Workspace, etc.)
+      </p>
+      <OIDCForm
+        key={configQuery.dataUpdatedAt}
+        provider={configQuery.data?.provider}
+        configured={configured}
+      />
     </div>
   )
 }
