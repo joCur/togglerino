@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A self-hosted feature flag management platform. Single Go binary serves: management API, client/SDK evaluation API, embedded React dashboard, and SSE streaming for real-time flag updates.
 
-Go module: `github.com/togglerino/togglerino` (Go 1.25.0, stdlib `net/http` + `log/slog`, no external HTTP or logging frameworks). Key deps: `pgx/v5`, `golang.org/x/crypto`.
+Go module: `github.com/togglerino/togglerino` (Go 1.25.0, stdlib `net/http` + `log/slog`, no external HTTP or logging frameworks). Key deps: `pgx/v5`, `golang.org/x/crypto`, `coreos/go-oidc/v3`, `golang.org/x/oauth2`.
 
 ## Build & Run Commands
 
@@ -55,6 +55,12 @@ Multi-stage Dockerfile: `node:20-alpine` (frontend build) → `golang:1.25-alpin
 - `DATABASE_URL` — PostgreSQL connection string (default: `postgres://togglerino:togglerino@localhost:5432/togglerino?sslmode=disable`)
 - `CORS_ORIGINS` — Comma-separated allowed origins (default: `*`)
 - `LOG_FORMAT` — Log format: `json` or `text` (default: `json`)
+- `SESSION_SECRET` — HMAC key for OIDC state/link cookies (auto-generated if unset; set for persistence across restarts)
+- `BASE_URL` — External base URL for OIDC callback (auto-derived from requests if unset)
+- `OIDC_ISSUER_URL` — OIDC issuer URL (env var override for DB config)
+- `OIDC_CLIENT_ID` — OIDC client ID (env var override for DB config)
+- `OIDC_CLIENT_SECRET` — OIDC client secret (env var override for DB config)
+- `OIDC_DEFAULT_ROLE` — Default role for OIDC-provisioned users: `admin` or `member` (default: `member`)
 
 ## Architecture
 
@@ -74,6 +80,7 @@ Key internal packages:
 | `model` | Domain types: Flag (value types: `boolean`, `string`, `number`, `json`; flag types: `release`, `experiment`, `operational`, `kill-switch`, `permission`; lifecycle: `active`, `potentially_stale`, `stale`, `archived`), FlagEnvironmentConfig, Variant, TargetingRule, Condition, EvaluationContext, Segment, User (roles: `admin`, `member`, optional `display_name`), ProjectSettings, UnknownFlag, ContextAttribute |
 | `ratelimit` | Fixed-window per-IP rate limiter, applied to auth endpoints (10 req/60s) |
 | `staleness` | Automated flag staleness checker — periodic background goroutine (1hr interval) that transitions flags through lifecycle states based on per-project flag lifetime settings |
+| `oidc` | OIDC provider wrapper (`coreos/go-oidc/v3`), HMAC-signed state/link cookies, secure random generation |
 | `store` | PostgreSQL repositories using pgx/v5, database pool creation, migration runner |
 | `stream` | SSE pub/sub hub — broadcasts flag changes to subscribed SDK clients |
 
@@ -97,11 +104,12 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `/projects/:key/audit-log` — audit log
 - `/projects/:key/segments` — segment management
 - `/projects/:key/settings` — project settings
-- `/account` — user account page (display name, password change)
-- `/settings` — general settings
+- `/account` — user account page (display name, password change, SSO identities)
+- `/settings` — general settings (theme + OIDC config for admins)
 - `/settings/team` — team management
 - `/invite/:token` — accept invite (public)
 - `/reset-password/:token` — password reset (public)
+- `/link-account` — OIDC account linking (password confirmation, public)
 
 ### Client SDKs (`sdks/`)
 
@@ -121,12 +129,17 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `POST /api/v1/auth/logout` — delete session cookie
 - `POST /api/v1/auth/accept-invite` — create account from invite token (rate-limited)
 - `POST /api/v1/auth/reset-password` — reset password with token (rate-limited)
+- `GET /api/v1/auth/oidc/authorize` — redirects to OIDC identity provider
+- `GET /api/v1/auth/oidc/callback` — OIDC callback (exchanges code, creates/links session)
 
 ### Session-authed (management UI)
 
 - `GET /api/v1/auth/me` — current user
 - `PUT /api/v1/auth/me` — update profile (display name)
 - `POST /api/v1/auth/change-password` — change password (rate-limited)
+- `POST /api/v1/auth/oidc/link` — link OIDC identity to existing account (password confirmation)
+- `GET /api/v1/auth/oidc/identities` — list current user's linked OIDC identities
+- **OIDC config (admin-only)**: `GET /PUT /api/v1/auth/oidc/config`, `DELETE /api/v1/auth/oidc/config`
 - **Users (admin-only)**: `GET /api/v1/management/users`, `POST .../invite`, `GET .../invites`, `DELETE .../{id}`, `POST .../{id}/reset-password`
 - **Projects**: CRUD on `/api/v1/projects[/{key}]` (delete is admin-only)
 - **Environments**: `POST`, `GET` on `/api/v1/projects/{key}/environments`
@@ -167,11 +180,12 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **CORS**: When `CORS_ORIGINS=*`, all origins allowed. Specific list → exact-match only, 403 for unlisted origins on OPTIONS. Sends `Allow-Credentials: true`
 - **Dependency injection**: Stores and handlers created in `main.go` and passed via constructors
 - **SQL migrations**: Embedded via `migrations/` package using `embed.FS`, run on startup. Tracks versions in `schema_migrations` table, each migration runs in a transaction. Files: `NNN_name.up.sql` / `NNN_name.down.sql` (only `.up.sql` applied automatically)
+- **OIDC SSO**: Single OIDC provider (configurable via admin UI or env vars). Authorization Code Flow with HMAC-signed state/nonce cookies. Three callback outcomes: existing identity → session, email match → password-confirmed account linking, new user → auto-provisioned with configurable default role. Provider config stored in `oidc_providers` table, identity links in `oidc_identities`. `sync.RWMutex`-protected hot-reloadable provider in `OIDCHandler`
 - **SPA fallback**: Go file server tries static file first, falls back to `index.html` for React Router
 
 ## Database
 
-PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`. Migrations in `migrations/` (currently: `001_initial_schema` through `009_segments`).
+PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`, `oidc_providers`, `oidc_identities`. Migrations in `migrations/` (currently: `001_initial_schema` through `012_oidc`).
 
 ## Testing
 
