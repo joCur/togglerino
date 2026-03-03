@@ -6,6 +6,7 @@ import { api } from '../api/client.ts'
 import type { Flag, Environment, FlagEnvironmentConfig, User } from '../api/types.ts'
 import ConfigEditor from '../components/ConfigEditor.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
+import FlagHistory from '../components/FlagHistory.tsx'
 import PendingSchedules from '../components/PendingSchedules.tsx'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -407,9 +408,13 @@ export default function FlagDetailPage() {
         </TabsContent>
 
         <TabsContent value="history">
-          <div className="text-center py-12 text-muted-foreground/60 text-[13px]">
-            History tab — coming next
-          </div>
+          {environments && environments.length > 0 && (
+            <FlagHistory
+              projectKey={key!}
+              flagKey={flagKey!}
+              environments={environments}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
