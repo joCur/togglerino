@@ -160,6 +160,7 @@ func main() {
 	// Flags
 	mux.Handle("POST /api/v1/projects/{key}/flags", wrap(flagHandler.Create, sessionAuth))
 	mux.Handle("GET /api/v1/projects/{key}/flags", wrap(flagHandler.List, sessionAuth))
+	mux.Handle("POST /api/v1/projects/{key}/flags/bulk", wrap(flagHandler.BulkAction, sessionAuth))
 	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Get, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Update, sessionAuth))
 	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Delete, sessionAuth))
