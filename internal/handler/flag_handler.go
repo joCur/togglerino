@@ -646,6 +646,10 @@ func (h *FlagHandler) BulkAction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "flag_keys is required and must not be empty")
 		return
 	}
+	if len(req.FlagKeys) > 200 {
+		writeError(w, http.StatusBadRequest, "flag_keys must not exceed 200 entries")
+		return
+	}
 
 	validActions := map[string]bool{
 		"enable": true, "disable": true, "archive": true,
@@ -763,7 +767,7 @@ func (h *FlagHandler) bulkEnableDisable(ctx context.Context, project *model.Proj
 	}
 
 	cfg, err := h.flags.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, enable, oldConfig.DefaultVariant,
-		mustMarshal(oldConfig.Variants), mustMarshal(oldConfig.TargetingRules))
+		marshalJSON(oldConfig.Variants), marshalJSON(oldConfig.TargetingRules))
 	if err != nil {
 		return fmt.Errorf("failed to update environment config")
 	}
@@ -927,7 +931,10 @@ func (h *FlagHandler) bulkSetOwner(ctx context.Context, project *model.Project, 
 	return nil
 }
 
-func mustMarshal(v any) json.RawMessage {
-	b, _ := json.Marshal(v)
+func marshalJSON(v any) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return json.RawMessage(`null`)
+	}
 	return b
 }
