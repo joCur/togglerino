@@ -2,8 +2,10 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/model"
 )
@@ -24,7 +26,7 @@ func (s *OIDCStore) GetProvider(ctx context.Context) (*model.OIDCProvider, error
 		 FROM oidc_providers ORDER BY created_at LIMIT 1`,
 	).Scan(&p.ID, &p.Name, &p.IssuerURL, &p.ClientID, &p.ClientSecret, &p.Scopes, &p.DefaultRole, &p.Enabled, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("getting oidc provider: %w", err)
@@ -35,12 +37,18 @@ func (s *OIDCStore) GetProvider(ctx context.Context) (*model.OIDCProvider, error
 // UpsertProvider creates or updates the OIDC provider config.
 // For single-provider mode, this deletes any existing provider and inserts the new one.
 func (s *OIDCStore) UpsertProvider(ctx context.Context, p *model.OIDCProvider) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM oidc_providers`)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("starting transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `DELETE FROM oidc_providers`)
 	if err != nil {
 		return fmt.Errorf("clearing oidc providers: %w", err)
 	}
 
-	err = s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO oidc_providers (name, issuer_url, client_id, client_secret, scopes, default_role, enabled)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id, created_at, updated_at`,
@@ -49,7 +57,8 @@ func (s *OIDCStore) UpsertProvider(ctx context.Context, p *model.OIDCProvider) e
 	if err != nil {
 		return fmt.Errorf("upserting oidc provider: %w", err)
 	}
-	return nil
+
+	return tx.Commit(ctx)
 }
 
 // DeleteProvider removes an OIDC provider by ID.
@@ -73,7 +82,7 @@ func (s *OIDCStore) FindIdentity(ctx context.Context, providerID, subject string
 		providerID, subject,
 	).Scan(&ident.ID, &ident.UserID, &ident.ProviderID, &ident.Subject, &ident.Email, &ident.CreatedAt)
 	if err != nil {
-		if err.Error() == "no rows in result set" {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("finding oidc identity: %w", err)

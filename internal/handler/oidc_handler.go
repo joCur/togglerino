@@ -46,6 +46,10 @@ func (h *OIDCHandler) InitProvider(ctx context.Context, callbackURL string, envI
 	scopes := envScopes
 
 	if dbProvider != nil && issuer == "" {
+		if !dbProvider.Enabled {
+			slog.Info("oidc provider is disabled, skipping init")
+			return
+		}
 		issuer = dbProvider.IssuerURL
 		clientID = dbProvider.ClientID
 		clientSecret = dbProvider.ClientSecret
@@ -157,6 +161,12 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !dbProvider.Enabled {
+		slog.Warn("oidc provider is disabled")
+		http.Redirect(w, r, "/?error=oidc_disabled", http.StatusFound)
+		return
+	}
+
 	identity, err := h.oidcStore.FindIdentity(r.Context(), dbProvider.ID, claims.Subject)
 	if err != nil {
 		slog.Error("oidc identity lookup failed", "error", err)
@@ -184,6 +194,10 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/link-account", http.StatusFound)
 			return
 		}
+	} else {
+		slog.Error("oidc provider did not return an email claim, cannot provision user")
+		http.Redirect(w, r, "/?error=oidc_no_email", http.StatusFound)
+		return
 	}
 
 	user, err := h.userStore.Create(r.Context(), claims.Email, "", dbProvider.DefaultRole)
@@ -305,9 +319,19 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == "" || req.IssuerURL == "" || req.ClientID == "" || req.ClientSecret == "" {
-		writeError(w, http.StatusBadRequest, "name, issuer_url, client_id, and client_secret are required")
+	if req.Name == "" || req.IssuerURL == "" || req.ClientID == "" {
+		writeError(w, http.StatusBadRequest, "name, issuer_url, and client_id are required")
 		return
+	}
+
+	// On updates, allow omitting client_secret to keep the existing one
+	if req.ClientSecret == "" {
+		existing, err := h.oidcStore.GetProvider(r.Context())
+		if err != nil || existing == nil {
+			writeError(w, http.StatusBadRequest, "client_secret is required for initial setup")
+			return
+		}
+		req.ClientSecret = existing.ClientSecret
 	}
 
 	if req.DefaultRole != model.RoleAdmin && req.DefaultRole != model.RoleMember {
@@ -332,16 +356,20 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	callbackURL := callbackURLFromRequest(r)
-	p, err := oidc.NewProvider(r.Context(), req.IssuerURL, req.ClientID, req.ClientSecret, req.Scopes, callbackURL)
-	if err != nil {
-		slog.Error("oidc provider rebuild failed after config update", "error", err)
-		writeError(w, http.StatusBadRequest, "failed to connect to oidc issuer - config saved but provider not active")
-		return
-	}
-
 	h.mu.Lock()
-	h.provider = p
+	if req.Enabled {
+		callbackURL := callbackURLFromRequest(r)
+		p, err := oidc.NewProvider(r.Context(), req.IssuerURL, req.ClientID, req.ClientSecret, req.Scopes, callbackURL)
+		if err != nil {
+			h.mu.Unlock()
+			slog.Error("oidc provider rebuild failed after config update", "error", err)
+			writeError(w, http.StatusBadRequest, "failed to connect to oidc issuer - config saved but provider not active")
+			return
+		}
+		h.provider = p
+	} else {
+		h.provider = nil
+	}
 	h.mu.Unlock()
 
 	writeJSON(w, http.StatusOK, provider)
