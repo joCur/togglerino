@@ -200,3 +200,30 @@ export interface OIDCIdentity {
   email?: string
   created_at: string
 }
+
+export interface FlagTemplate {
+    id: string
+    project_id: string | null
+    key: string
+    name: string
+    description: string
+    flag_type: FlagPurpose
+    value_type: ValueType
+    default_value: unknown
+    tags: string[]
+    environment_defaults: Record<string, { enabled: boolean }>
+    variant_config: {
+        variants?: Variant[]
+        default_variant?: string
+        targeting_rules?: TargetingRule[]
+    }
+    is_system: boolean
+    sort_order: number
+    created_at: string
+    updated_at: string
+}
+
+export interface TemplatesForProject {
+    global: FlagTemplate[]
+    project: FlagTemplate[]
+}
