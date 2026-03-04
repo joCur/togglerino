@@ -131,13 +131,13 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `POST /api/v1/auth/reset-password` — reset password with token (rate-limited)
 - `GET /api/v1/auth/oidc/authorize` — redirects to OIDC identity provider
 - `GET /api/v1/auth/oidc/callback` — OIDC callback (exchanges code, creates/links session)
+- `POST /api/v1/auth/oidc/link` — link OIDC identity to existing account (rate-limited, protected by signed `oidc_pending` cookie)
 
 ### Session-authed (management UI)
 
 - `GET /api/v1/auth/me` — current user
 - `PUT /api/v1/auth/me` — update profile (display name)
 - `POST /api/v1/auth/change-password` — change password (rate-limited)
-- `POST /api/v1/auth/oidc/link` — link OIDC identity to existing account (password confirmation)
 - `GET /api/v1/auth/oidc/identities` — list current user's linked OIDC identities
 - **OIDC config (admin-only)**: `GET /PUT /api/v1/auth/oidc/config`, `DELETE /api/v1/auth/oidc/config`
 - **Users (admin-only)**: `GET /api/v1/management/users`, `POST .../invite`, `GET .../invites`, `DELETE .../{id}`, `POST .../{id}/reset-password`

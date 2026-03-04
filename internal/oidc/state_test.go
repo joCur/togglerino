@@ -3,7 +3,9 @@ package oidc
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestStateCookieRoundTrip(t *testing.T) {
@@ -63,6 +65,25 @@ func TestPendingLinkCookieRoundTrip(t *testing.T) {
 
 	if got.ProviderID != original.ProviderID || got.Subject != original.Subject || got.Email != original.Email {
 		t.Errorf("got %+v, want %+v", got, original)
+	}
+}
+
+func TestStateCookieExpired(t *testing.T) {
+	secret := []byte("test-secret-key-for-hmac-signing")
+
+	// Create a cookie that is already expired (negative maxAge puts Expires in the past)
+	w := httptest.NewRecorder()
+	if err := setSignedCookie(w, "oidc_state", secret, StateData{State: "abc123", Nonce: "nonce456"}, -1*time.Minute, false); err != nil {
+		t.Fatalf("setSignedCookie: %v", err)
+	}
+
+	r := &http.Request{Header: http.Header{"Cookie": w.Header()["Set-Cookie"]}}
+	_, err := GetStateCookie(r, secret)
+	if err == nil {
+		t.Fatal("expected error for expired cookie, got nil")
+	}
+	if !strings.Contains(err.Error(), "expired") {
+		t.Errorf("expected 'expired' in error, got: %v", err)
 	}
 }
 

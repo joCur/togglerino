@@ -70,8 +70,9 @@ func (h *OIDCHandler) InitProvider(ctx context.Context, callbackURL string, envI
 		return
 	}
 
-	if h.baseURL == "" {
-		slog.Warn("OIDC configured without BASE_URL — callback URL will be derived from requests, which may be inconsistent; set BASE_URL for reliable OIDC")
+	if callbackURL == "" {
+		slog.Error("OIDC configured but BASE_URL is not set — cannot determine callback URL at startup; set BASE_URL to enable OIDC")
+		return
 	}
 
 	p, err := oidc.NewProvider(ctx, issuer, clientID, clientSecret, scopes, callbackURL)
