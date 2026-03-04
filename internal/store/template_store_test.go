@@ -137,3 +137,90 @@ func TestTemplateStore_DuplicateKey(t *testing.T) {
 		t.Fatal("expected error for duplicate key, got nil")
 	}
 }
+
+func TestTemplateStore_GetByKey(t *testing.T) {
+	pool := testPool(t)
+	ts := store.NewTemplateStore(pool)
+	ctx := context.Background()
+
+	key := uniqueKey("getbykey")
+	created, err := ts.Create(ctx, nil, key, "Get Template", "desc",
+		model.FlagTypeRelease, model.ValueTypeBoolean,
+		json.RawMessage(`false`), nil,
+		json.RawMessage(`{}`), json.RawMessage(`{}`),
+		false, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := ts.GetByKey(ctx, nil, key)
+	if err != nil {
+		t.Fatalf("GetByKey: %v", err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("ID: got %q, want %q", got.ID, created.ID)
+	}
+
+	_, err = ts.GetByKey(ctx, nil, "nonexistent")
+	if err == nil {
+		t.Error("expected error for nonexistent key")
+	}
+}
+
+func TestTemplateStore_Update(t *testing.T) {
+	pool := testPool(t)
+	ts := store.NewTemplateStore(pool)
+	ctx := context.Background()
+
+	key := uniqueKey("update")
+	created, err := ts.Create(ctx, nil, key, "Original", "desc",
+		model.FlagTypeRelease, model.ValueTypeBoolean,
+		json.RawMessage(`false`), nil,
+		json.RawMessage(`{}`), json.RawMessage(`{}`),
+		false, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	updated, err := ts.Update(ctx, created.ID, "Updated Name", "new desc",
+		model.FlagTypeExperiment, model.ValueTypeString,
+		json.RawMessage(`"control"`), []string{"test"},
+		json.RawMessage(`{"production":{"enabled":true}}`),
+		json.RawMessage(`{"variants":[{"key":"a","value":"a"}]}`),
+		1)
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if updated.Name != "Updated Name" {
+		t.Errorf("Name: got %q, want %q", updated.Name, "Updated Name")
+	}
+	if updated.FlagType != model.FlagTypeExperiment {
+		t.Errorf("FlagType: got %q, want %q", updated.FlagType, model.FlagTypeExperiment)
+	}
+}
+
+func TestTemplateStore_Delete(t *testing.T) {
+	pool := testPool(t)
+	ts := store.NewTemplateStore(pool)
+	ctx := context.Background()
+
+	key := uniqueKey("delete")
+	created, err := ts.Create(ctx, nil, key, "Delete Me", "desc",
+		model.FlagTypeRelease, model.ValueTypeBoolean,
+		json.RawMessage(`false`), nil,
+		json.RawMessage(`{}`), json.RawMessage(`{}`),
+		false, 0)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	err = ts.Delete(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+
+	_, err = ts.GetByKey(ctx, nil, key)
+	if err == nil {
+		t.Error("expected error after delete")
+	}
+}

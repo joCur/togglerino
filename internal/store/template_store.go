@@ -48,6 +48,55 @@ func (s *TemplateStore) ListByProject(ctx context.Context, projectID string) ([]
 	return s.list(ctx, `SELECT id, project_id, key, name, description, flag_type, value_type, default_value, tags, environment_defaults, variant_config, is_system, sort_order, created_at, updated_at FROM flag_templates WHERE project_id = $1 ORDER BY sort_order, name`, projectID)
 }
 
+func (s *TemplateStore) GetByKey(ctx context.Context, projectID *string, key string) (*model.FlagTemplate, error) {
+	var t model.FlagTemplate
+	var query string
+	var args []any
+	if projectID == nil {
+		query = `SELECT id, project_id, key, name, description, flag_type, value_type, default_value, tags, environment_defaults, variant_config, is_system, sort_order, created_at, updated_at FROM flag_templates WHERE project_id IS NULL AND key = $1`
+		args = []any{key}
+	} else {
+		query = `SELECT id, project_id, key, name, description, flag_type, value_type, default_value, tags, environment_defaults, variant_config, is_system, sort_order, created_at, updated_at FROM flag_templates WHERE project_id = $1 AND key = $2`
+		args = []any{*projectID, key}
+	}
+	err := s.pool.QueryRow(ctx, query, args...).Scan(&t.ID, &t.ProjectID, &t.Key, &t.Name, &t.Description, &t.FlagType, &t.ValueType, &t.DefaultValue, &t.Tags, &t.EnvironmentDefaults, &t.VariantConfig, &t.IsSystem, &t.SortOrder, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("getting template by key: %w", err)
+	}
+	if t.Tags == nil {
+		t.Tags = []string{}
+	}
+	return &t, nil
+}
+
+func (s *TemplateStore) Update(ctx context.Context, id string, name, description string, flagType model.FlagType, valueType model.ValueType, defaultValue json.RawMessage, tags []string, environmentDefaults json.RawMessage, variantConfig json.RawMessage, sortOrder int) (*model.FlagTemplate, error) {
+	if tags == nil {
+		tags = []string{}
+	}
+	var t model.FlagTemplate
+	err := s.pool.QueryRow(ctx,
+		`UPDATE flag_templates SET name=$2, description=$3, flag_type=$4, value_type=$5, default_value=$6, tags=$7, environment_defaults=$8, variant_config=$9, sort_order=$10, updated_at=NOW()
+		 WHERE id=$1
+		 RETURNING id, project_id, key, name, description, flag_type, value_type, default_value, tags, environment_defaults, variant_config, is_system, sort_order, created_at, updated_at`,
+		id, name, description, flagType, valueType, defaultValue, tags, environmentDefaults, variantConfig, sortOrder,
+	).Scan(&t.ID, &t.ProjectID, &t.Key, &t.Name, &t.Description, &t.FlagType, &t.ValueType, &t.DefaultValue, &t.Tags, &t.EnvironmentDefaults, &t.VariantConfig, &t.IsSystem, &t.SortOrder, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("updating template: %w", err)
+	}
+	if t.Tags == nil {
+		t.Tags = []string{}
+	}
+	return &t, nil
+}
+
+func (s *TemplateStore) Delete(ctx context.Context, id string) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM flag_templates WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("deleting template: %w", err)
+	}
+	return nil
+}
+
 func (s *TemplateStore) list(ctx context.Context, query string, args ...any) ([]model.FlagTemplate, error) {
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
