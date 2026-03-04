@@ -22,6 +22,11 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
+	oidcRole := envOr("OIDC_DEFAULT_ROLE", "member")
+	if oidcRole != "admin" && oidcRole != "member" {
+		return nil, fmt.Errorf("invalid OIDC_DEFAULT_ROLE %q: must be \"admin\" or \"member\"", oidcRole)
+	}
+
 	cfg := &Config{
 		Port:        envOr("PORT", "8080"),
 		DatabaseURL: envOr("DATABASE_URL", "postgres://togglerino:togglerino@localhost:5432/togglerino?sslmode=disable"),
@@ -30,7 +35,7 @@ func Load() (*Config, error) {
 		OIDCIssuerURL:    os.Getenv("OIDC_ISSUER_URL"),
 		OIDCClientID:     os.Getenv("OIDC_CLIENT_ID"),
 		OIDCClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
-		OIDCDefaultRole:  envOr("OIDC_DEFAULT_ROLE", "member"),
+		OIDCDefaultRole:  oidcRole,
 		SessionSecret:    os.Getenv("SESSION_SECRET"),
 		BaseURL:          os.Getenv("BASE_URL"),
 	}

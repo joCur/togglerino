@@ -12,7 +12,7 @@ func TestStateCookieRoundTrip(t *testing.T) {
 	original := StateData{State: "abc123", Nonce: "nonce456"}
 
 	w := httptest.NewRecorder()
-	if err := SetStateCookie(w, secret, original); err != nil {
+	if err := SetStateCookie(w, secret, original, false); err != nil {
 		t.Fatalf("SetStateCookie: %v", err)
 	}
 
@@ -34,7 +34,7 @@ func TestStateCookieTamperedSignature(t *testing.T) {
 	original := StateData{State: "abc123", Nonce: "nonce456"}
 
 	w := httptest.NewRecorder()
-	if err := SetStateCookie(w, secret, original); err != nil {
+	if err := SetStateCookie(w, secret, original, false); err != nil {
 		t.Fatalf("SetStateCookie: %v", err)
 	}
 
@@ -51,7 +51,7 @@ func TestPendingLinkCookieRoundTrip(t *testing.T) {
 	original := PendingLink{ProviderID: "prov-1", Subject: "sub-123", Email: "user@example.com"}
 
 	w := httptest.NewRecorder()
-	if err := SetPendingLinkCookie(w, secret, original); err != nil {
+	if err := SetPendingLinkCookie(w, secret, original, false); err != nil {
 		t.Fatalf("SetPendingLinkCookie: %v", err)
 	}
 

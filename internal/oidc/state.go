@@ -35,8 +35,8 @@ func GenerateRandom(n int) (string, error) {
 }
 
 // SetStateCookie stores OIDC state+nonce in a signed, HttpOnly cookie.
-func SetStateCookie(w http.ResponseWriter, secret []byte, data StateData) error {
-	return setSignedCookie(w, "oidc_state", secret, data, 10*time.Minute)
+func SetStateCookie(w http.ResponseWriter, secret []byte, data StateData, secure bool) error {
+	return setSignedCookie(w, "oidc_state", secret, data, 10*time.Minute, secure)
 }
 
 // GetStateCookie reads and verifies the OIDC state cookie.
@@ -60,8 +60,10 @@ func ClearStateCookie(w http.ResponseWriter) {
 }
 
 // SetPendingLinkCookie stores pending link data in a signed, HttpOnly cookie.
-func SetPendingLinkCookie(w http.ResponseWriter, secret []byte, data PendingLink) error {
-	return setSignedCookie(w, "oidc_pending", secret, data, 5*time.Minute)
+// SameSite=Lax is intentional: the cookie is set during a redirect from the OIDC
+// provider callback and read on a same-site POST from the link-account page.
+func SetPendingLinkCookie(w http.ResponseWriter, secret []byte, data PendingLink, secure bool) error {
+	return setSignedCookie(w, "oidc_pending", secret, data, 5*time.Minute, secure)
 }
 
 // GetPendingLinkCookie reads and verifies the pending link cookie.
@@ -90,7 +92,7 @@ type signedEnvelope struct {
 	Expires int64           `json:"e"` // Unix timestamp
 }
 
-func setSignedCookie(w http.ResponseWriter, name string, secret []byte, data any, maxAge time.Duration) error {
+func setSignedCookie(w http.ResponseWriter, name string, secret []byte, data any, maxAge time.Duration, secure bool) error {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshaling cookie data: %w", err)
@@ -113,6 +115,7 @@ func setSignedCookie(w http.ResponseWriter, name string, secret []byte, data any
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(maxAge.Seconds()),
 	})

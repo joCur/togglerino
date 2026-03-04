@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,8 +35,14 @@ func NewOIDCHandler(oidcStore *store.OIDCStore, userStore *store.UserStore, sess
 	}
 }
 
+func (h *OIDCHandler) secureCookies() bool {
+	return strings.HasPrefix(h.baseURL, "https://")
+}
+
 // InitProvider loads the OIDC provider from DB config on startup.
-func (h *OIDCHandler) InitProvider(ctx context.Context, callbackURL string, envIssuer, envClientID, envClientSecret, envScopes string) {
+// When env vars are set, they take priority and are synced to the DB so the
+// callback flow can look up the provider record.
+func (h *OIDCHandler) InitProvider(ctx context.Context, callbackURL string, envIssuer, envClientID, envClientSecret, envScopes, envDefaultRole string) {
 	dbProvider, err := h.oidcStore.GetProvider(ctx)
 	if err != nil {
 		slog.Error("failed to load oidc provider from db", "error", err)
@@ -63,10 +70,38 @@ func (h *OIDCHandler) InitProvider(ctx context.Context, callbackURL string, envI
 		return
 	}
 
+	if h.baseURL == "" {
+		slog.Warn("OIDC configured without BASE_URL — callback URL will be derived from requests, which may be inconsistent; set BASE_URL for reliable OIDC")
+	}
+
 	p, err := oidc.NewProvider(ctx, issuer, clientID, clientSecret, scopes, callbackURL)
 	if err != nil {
 		slog.Error("failed to initialize oidc provider", "error", err)
 		return
+	}
+
+	// Sync env-var config to DB so the callback can find the provider record
+	if envIssuer != "" {
+		role := model.Role(envDefaultRole)
+		if role != model.RoleAdmin {
+			role = model.RoleMember
+		}
+		effectiveScopes := scopes
+		if effectiveScopes == "" {
+			effectiveScopes = "openid email profile"
+		}
+		dbP := &model.OIDCProvider{
+			Name:         "Environment",
+			IssuerURL:    issuer,
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Scopes:       effectiveScopes,
+			DefaultRole:  role,
+			Enabled:      true,
+		}
+		if err := h.oidcStore.UpsertProvider(ctx, dbP); err != nil {
+			slog.Error("failed to sync env oidc config to db", "error", err)
+		}
 	}
 
 	h.mu.Lock()
@@ -105,7 +140,7 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := oidc.SetStateCookie(w, h.secret, oidc.StateData{State: state, Nonce: nonce}); err != nil {
+	if err := oidc.SetStateCookie(w, h.secret, oidc.StateData{State: state, Nonce: nonce}, h.secureCookies()); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -188,7 +223,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 				ProviderID: dbProvider.ID,
 				Subject:    claims.Subject,
 				Email:      claims.Email,
-			}); err != nil {
+			}, h.secureCookies()); err != nil {
 				slog.Error("failed to set pending link cookie", "error", err)
 				http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
 				return
@@ -202,34 +237,14 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userStore.Create(r.Context(), claims.Email, "", dbProvider.DefaultRole)
+	userID, err := h.oidcStore.ProvisionUser(r.Context(), claims.Email, claims.Name, dbProvider.DefaultRole, dbProvider.ID, claims.Subject)
 	if err != nil {
 		slog.Error("oidc user provisioning failed", "error", err)
 		http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
 		return
 	}
 
-	if claims.Name != "" {
-		if _, err := h.userStore.UpdateProfile(r.Context(), user.ID, nil, &claims.Name); err != nil {
-			slog.Error("oidc profile update failed", "user_id", user.ID, "error", err)
-		}
-	}
-
-	if err := h.oidcStore.CreateIdentity(r.Context(), &model.OIDCIdentity{
-		UserID:     user.ID,
-		ProviderID: dbProvider.ID,
-		Subject:    claims.Subject,
-		Email:      claims.Email,
-	}); err != nil {
-		slog.Error("oidc identity creation failed", "error", err)
-		if delErr := h.userStore.Delete(r.Context(), user.ID); delErr != nil {
-			slog.Error("failed to clean up orphaned user after identity creation failure", "user_id", user.ID, "error", delErr)
-		}
-		http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
-		return
-	}
-
-	h.createSessionAndRedirect(w, r, user.ID)
+	h.createSessionAndRedirect(w, r, userID)
 }
 
 // Link confirms account linking with password verification.
@@ -263,14 +278,22 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.oidcStore.CreateIdentity(r.Context(), &model.OIDCIdentity{
-		UserID:     user.ID,
-		ProviderID: pending.ProviderID,
-		Subject:    pending.Subject,
-		Email:      pending.Email,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to link account")
+	// Check if identity is already linked (idempotent on duplicate submit)
+	existing, err := h.oidcStore.FindIdentity(r.Context(), pending.ProviderID, pending.Subject)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to check existing identity")
 		return
+	}
+	if existing == nil {
+		if err := h.oidcStore.CreateIdentity(r.Context(), &model.OIDCIdentity{
+			UserID:     user.ID,
+			ProviderID: pending.ProviderID,
+			Subject:    pending.Subject,
+			Email:      pending.Email,
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to link account")
+			return
+		}
 	}
 
 	oidc.ClearPendingLinkCookie(w)
@@ -286,6 +309,7 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 		Value:    session.ID,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   h.secureCookies(),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   7 * 24 * 60 * 60,
 	})
@@ -436,6 +460,7 @@ func (h *OIDCHandler) createSessionAndRedirect(w http.ResponseWriter, r *http.Re
 		Value:    session.ID,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   h.secureCookies(),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   7 * 24 * 60 * 60,
 	})

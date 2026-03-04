@@ -34,30 +34,19 @@ func (s *OIDCStore) GetProvider(ctx context.Context) (*model.OIDCProvider, error
 	return &p, nil
 }
 
-// UpsertProvider creates or updates the OIDC provider config.
-// For single-provider mode, this updates the existing provider or inserts a new one.
+// UpsertProvider creates or updates the single OIDC provider config.
+// Uses INSERT ON CONFLICT on the singleton constraint for atomic upsert.
 func (s *OIDCStore) UpsertProvider(ctx context.Context, p *model.OIDCProvider) error {
-	existing, err := s.GetProvider(ctx)
-	if err != nil {
-		return fmt.Errorf("checking existing provider: %w", err)
-	}
-
-	if existing != nil {
-		err = s.pool.QueryRow(ctx,
-			`UPDATE oidc_providers
-			 SET name = $1, issuer_url = $2, client_id = $3, client_secret = $4, scopes = $5, default_role = $6, enabled = $7, updated_at = NOW()
-			 WHERE id = $8
-			 RETURNING id, created_at, updated_at`,
-			p.Name, p.IssuerURL, p.ClientID, p.ClientSecret, p.Scopes, p.DefaultRole, p.Enabled, existing.ID,
-		).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
-	} else {
-		err = s.pool.QueryRow(ctx,
-			`INSERT INTO oidc_providers (name, issuer_url, client_id, client_secret, scopes, default_role, enabled)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7)
-			 RETURNING id, created_at, updated_at`,
-			p.Name, p.IssuerURL, p.ClientID, p.ClientSecret, p.Scopes, p.DefaultRole, p.Enabled,
-		).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
-	}
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO oidc_providers (name, issuer_url, client_id, client_secret, scopes, default_role, enabled)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (singleton) DO UPDATE SET
+		   name = EXCLUDED.name, issuer_url = EXCLUDED.issuer_url, client_id = EXCLUDED.client_id,
+		   client_secret = EXCLUDED.client_secret, scopes = EXCLUDED.scopes, default_role = EXCLUDED.default_role,
+		   enabled = EXCLUDED.enabled, updated_at = NOW()
+		 RETURNING id, created_at, updated_at`,
+		p.Name, p.IssuerURL, p.ClientID, p.ClientSecret, p.Scopes, p.DefaultRole, p.Enabled,
+	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("upserting oidc provider: %w", err)
 	}
@@ -74,6 +63,46 @@ func (s *OIDCStore) DeleteProvider(ctx context.Context, id string) error {
 		return fmt.Errorf("oidc provider not found")
 	}
 	return nil
+}
+
+// ProvisionUser creates a new user and links an OIDC identity in a single transaction.
+// Returns the new user's ID. If any step fails, the entire operation is rolled back.
+func (s *OIDCStore) ProvisionUser(ctx context.Context, email, displayName string, role model.Role, providerID, subject string) (string, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var userID string
+	err = tx.QueryRow(ctx,
+		`INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id`,
+		email, "", role,
+	).Scan(&userID)
+	if err != nil {
+		return "", fmt.Errorf("create user: %w", err)
+	}
+
+	if displayName != "" {
+		_, err = tx.Exec(ctx, `UPDATE users SET display_name = $1, updated_at = NOW() WHERE id = $2`, displayName, userID)
+		if err != nil {
+			return "", fmt.Errorf("update display name: %w", err)
+		}
+	}
+
+	_, err = tx.Exec(ctx,
+		`INSERT INTO oidc_identities (user_id, provider_id, subject, email) VALUES ($1, $2, $3, $4)`,
+		userID, providerID, subject, email,
+	)
+	if err != nil {
+		return "", fmt.Errorf("create identity: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("commit: %w", err)
+	}
+
+	return userID, nil
 }
 
 // FindIdentity looks up an OIDC identity by provider and subject.
