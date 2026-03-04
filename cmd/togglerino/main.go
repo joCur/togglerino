@@ -125,7 +125,7 @@ func main() {
 	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
 	streamHandler := handler.NewStreamHandler(hub)
 	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
-	templateHandler := handler.NewTemplateHandler(templateStore, projectStore)
+	templateHandler := handler.NewTemplateHandler(templateStore, projectStore, auditStore)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
 
 	// 7b. Initialize OIDC provider (non-blocking, logs errors)
@@ -249,6 +249,7 @@ func main() {
 	mux.Handle("DELETE /api/v1/templates/{key}", wrap(templateHandler.DeleteGlobal, sessionAuth, requireAdmin))
 
 	// Templates (project-scoped)
+	// TODO(#36): Add RBAC — mutation routes currently allow any authenticated member
 	mux.Handle("GET /api/v1/projects/{key}/templates", wrap(templateHandler.ListForProject, sessionAuth))
 	mux.Handle("POST /api/v1/projects/{key}/templates", wrap(templateHandler.CreateForProject, sessionAuth))
 	mux.Handle("PUT /api/v1/projects/{key}/templates/{templateKey}", wrap(templateHandler.UpdateForProject, sessionAuth))

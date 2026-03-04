@@ -28,7 +28,7 @@ import GeneralSettingsTab from './pages/settings/GeneralSettingsTab.tsx'
 import FlagLifetimesTab from './pages/settings/FlagLifetimesTab.tsx'
 import EnvironmentDefaultsTab from './pages/settings/EnvironmentDefaultsTab.tsx'
 import MembersTab from './pages/settings/MembersTab.tsx'
-import TemplatesTab from './pages/settings/TemplatesTab.tsx'
+import ProjectTemplatesPage from './pages/ProjectTemplatesPage.tsx'
 import TemplatesPage from './pages/TemplatesPage.tsx'
 
 const queryClient = new QueryClient({
@@ -99,7 +99,7 @@ function AuthRouter() {
         <Route path="environments" element={<EnvironmentsPage />} />
         <Route path="environments/:env/sdk-keys" element={<SDKKeysPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
-        <Route path="templates" element={<TemplatesTab />} />
+        <Route path="templates" element={<ProjectTemplatesPage />} />
         <Route path="settings" element={<ProjectSettingsPage />}>
           <Route index element={<Navigate to="general" replace />} />
           <Route path="general" element={<GeneralSettingsTab />} />

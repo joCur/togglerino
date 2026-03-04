@@ -90,9 +90,12 @@ func (s *TemplateStore) Update(ctx context.Context, id string, name, description
 }
 
 func (s *TemplateStore) Delete(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM flag_templates WHERE id = $1`, id)
+	result, err := s.pool.Exec(ctx, `DELETE FROM flag_templates WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("deleting template: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("template not found")
 	}
 	return nil
 }

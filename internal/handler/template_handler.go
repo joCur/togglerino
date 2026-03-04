@@ -2,9 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 
+	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
@@ -12,10 +14,37 @@ import (
 type TemplateHandler struct {
 	templates *store.TemplateStore
 	projects  *store.ProjectStore
+	audit     *store.AuditStore
 }
 
-func NewTemplateHandler(templates *store.TemplateStore, projects *store.ProjectStore) *TemplateHandler {
-	return &TemplateHandler{templates: templates, projects: projects}
+func NewTemplateHandler(templates *store.TemplateStore, projects *store.ProjectStore, audit *store.AuditStore) *TemplateHandler {
+	return &TemplateHandler{templates: templates, projects: projects, audit: audit}
+}
+
+func (h *TemplateHandler) recordAudit(r *http.Request, action string, projectID *string, entityID string, oldVal, newVal any) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		return
+	}
+	var oldJSON, newJSON json.RawMessage
+	if oldVal != nil {
+		oldJSON, _ = json.Marshal(oldVal)
+	}
+	if newVal != nil {
+		newJSON, _ = json.Marshal(newVal)
+	}
+	if err := h.audit.Record(r.Context(), model.AuditEntry{
+		ProjectID:  projectID,
+		UserID:     &user.ID,
+		UserEmail:  &user.Email,
+		Action:     action,
+		EntityType: "template",
+		EntityID:   entityID,
+		OldValue:   oldJSON,
+		NewValue:   newJSON,
+	}); err != nil {
+		slog.Warn("failed to record template audit log", "error", err)
+	}
 }
 
 // templateRequest is the shared request body for create/update operations.
@@ -101,6 +130,7 @@ func (h *TemplateHandler) CreateGlobal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.recordAudit(r, "create", nil, tmpl.Key, nil, tmpl)
 	writeJSON(w, http.StatusCreated, tmpl)
 }
 
@@ -142,6 +172,7 @@ func (h *TemplateHandler) UpdateGlobal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.recordAudit(r, "update", nil, existing.Key, existing, updated)
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -169,6 +200,7 @@ func (h *TemplateHandler) DeleteGlobal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.recordAudit(r, "delete", nil, existing.Key, existing, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -247,6 +279,7 @@ func (h *TemplateHandler) CreateForProject(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	h.recordAudit(r, "create", &project.ID, tmpl.Key, nil, tmpl)
 	writeJSON(w, http.StatusCreated, tmpl)
 }
 
@@ -300,6 +333,7 @@ func (h *TemplateHandler) UpdateForProject(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	h.recordAudit(r, "update", &project.ID, existing.Key, existing, updated)
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -339,5 +373,6 @@ func (h *TemplateHandler) DeleteForProject(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	h.recordAudit(r, "delete", &project.ID, existing.Key, existing, nil)
 	w.WriteHeader(http.StatusNoContent)
 }

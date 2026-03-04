@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { slugify } from '@/lib/utils'
 
 interface Props {
   open: boolean
@@ -35,10 +36,6 @@ const VALUE_TYPES = [
   { value: 'number', label: 'Number' },
   { value: 'json', label: 'JSON' },
 ]
-
-function slugify(text: string): string {
-  return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-}
 
 export default function CreateFlagModal({ open, projectKey, onClose, onCreated, initialKey }: Props) {
   const queryClient = useQueryClient()
@@ -175,7 +172,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
               for (const envKey of envKeys) {
                 result[envKey] = {
                   ...(result[envKey] || {}),
-                  enabled: result[envKey]?.enabled ?? envOverrides[envKey] ?? true,
+                  enabled: result[envKey]?.enabled ?? envOverrides[envKey] ?? false,
                   variants: selectedTemplate.variant_config.variants,
                   default_variant: selectedTemplate.variant_config.default_variant,
                   targeting_rules: selectedTemplate.variant_config.targeting_rules,
