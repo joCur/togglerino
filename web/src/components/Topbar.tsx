@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ChevronDown, User as UserIcon, LogOut, Menu } from 'lucide-react'
+import { ChevronDown, User as UserIcon, Settings, LogOut, Menu } from 'lucide-react'
 
 interface TopbarProps {
   children?: ReactNode
@@ -69,6 +69,10 @@ export default function Topbar({ children, onMenuClick }: TopbarProps) {
           <DropdownMenuItem onClick={() => navigate('/account')}>
             <UserIcon className="mr-2 h-4 w-4" />
             Account
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/user-settings')}>
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>

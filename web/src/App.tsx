@@ -21,6 +21,7 @@ import AcceptInvitePage from './pages/AcceptInvitePage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.tsx'
 import AccountPage from './pages/AccountPage.tsx'
+import UserSettingsPage from './pages/UserSettingsPage.tsx'
 import LinkAccountPage from './pages/LinkAccountPage.tsx'
 import SegmentsPage from './pages/SegmentsPage.tsx'
 import GeneralSettingsTab from './pages/settings/GeneralSettingsTab.tsx'
@@ -81,11 +82,12 @@ function AuthRouter() {
 
   return (
     <Routes>
-      <Route path="/account" element={<AccountPage />} />
       <Route element={<OrgLayout />}>
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/settings/team" element={<TeamPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/account" element={<AccountPage />} />
+        <Route path="/user-settings" element={<UserSettingsPage />} />
       </Route>
       <Route path="/projects/:key" element={<ProjectLayout />}>
         <Route index element={<ProjectDetailPage />} />
