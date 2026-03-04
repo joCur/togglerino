@@ -28,6 +28,7 @@ import GeneralSettingsTab from './pages/settings/GeneralSettingsTab.tsx'
 import FlagLifetimesTab from './pages/settings/FlagLifetimesTab.tsx'
 import EnvironmentDefaultsTab from './pages/settings/EnvironmentDefaultsTab.tsx'
 import MembersTab from './pages/settings/MembersTab.tsx'
+import TemplatesTab from './pages/settings/TemplatesTab.tsx'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -102,6 +103,7 @@ function AuthRouter() {
           <Route path="lifetimes" element={<FlagLifetimesTab />} />
           <Route path="environments" element={<EnvironmentDefaultsTab />} />
           <Route path="members" element={<MembersTab />} />
+          <Route path="templates" element={<TemplatesTab />} />
         </Route>
         <Route path="segments" element={<SegmentsPage />} />
       </Route>
