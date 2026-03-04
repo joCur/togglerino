@@ -69,6 +69,8 @@ func (s *TemplateStore) GetByKey(ctx context.Context, projectID *string, key str
 	return &t, nil
 }
 
+// Update modifies a template's mutable fields. The key and is_system columns are
+// intentionally excluded from the SET clause to prevent mutation after creation.
 func (s *TemplateStore) Update(ctx context.Context, id string, name, description string, flagType model.FlagType, valueType model.ValueType, defaultValue json.RawMessage, tags []string, environmentDefaults json.RawMessage, variantConfig json.RawMessage, sortOrder int) (*model.FlagTemplate, error) {
 	if tags == nil {
 		tags = []string{}
@@ -154,6 +156,8 @@ func (s *TemplateStore) SeedSystemTemplates(ctx context.Context) error {
 	}
 
 	for _, tmpl := range templates {
+		// ON CONFLICT DO NOTHING: existing system templates are not overwritten on upgrade.
+		// To push updated definitions to existing installs, use a migration instead.
 		_, err := s.pool.Exec(ctx,
 			`INSERT INTO flag_templates (project_id, key, name, description, flag_type, value_type, default_value, tags, environment_defaults, variant_config, is_system, sort_order)
 			 VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10)

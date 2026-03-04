@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { X, Plus, GripVertical } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 
 const labelClass = 'font-mono text-[10px] uppercase tracking-wider text-muted-foreground'
 
@@ -240,7 +240,6 @@ export function VariantConfigEditor({ value, onChange, valueType }: VariantConfi
         <div className="rounded-md border divide-y">
           {variants.map((variant, idx) => (
             <div key={idx} className="flex items-center gap-2 px-3 py-2">
-              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
               <Input
                 value={variant.key}
                 onChange={(e) => updateVariantKey(idx, e.target.value)}

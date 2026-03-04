@@ -151,6 +151,7 @@ export default function TemplatesPage() {
       </Card>
 
       <TemplateFormDialog
+        key={editing?.id ?? 'create'}
         open={dialogOpen}
         editing={editing}
         onClose={closeDialog}

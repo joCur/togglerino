@@ -155,14 +155,6 @@ export function TemplateFormDialog({
   const [error, setError] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const [lastEditing, setLastEditing] = useState<FlagTemplate | null>(null)
-  if (open && editing !== lastEditing) {
-    setLastEditing(editing)
-    setForm(editing ? templateToFormState(editing) : defaultFormState())
-    setError('')
-    setShowDeleteConfirm(false)
-  }
-
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 

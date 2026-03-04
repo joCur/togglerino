@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
+
+var templateKeyRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`)
 
 type TemplateHandler struct {
 	templates *store.TemplateStore
@@ -64,6 +67,9 @@ type templateRequest struct {
 func validateTemplateRequest(req *templateRequest, requireKey bool) string {
 	if requireKey && req.Key == "" {
 		return "key is required"
+	}
+	if requireKey && !templateKeyRegex.MatchString(req.Key) {
+		return "key must be 3-64 lowercase alphanumeric characters or hyphens, starting and ending with alphanumeric"
 	}
 	if req.Name == "" {
 		return "name is required"
