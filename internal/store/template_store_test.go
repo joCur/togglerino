@@ -199,6 +199,48 @@ func TestTemplateStore_Update(t *testing.T) {
 	}
 }
 
+func TestTemplateStore_SeedSystemTemplates(t *testing.T) {
+	pool := testPool(t)
+	ts := store.NewTemplateStore(pool)
+	ctx := context.Background()
+
+	err := ts.SeedSystemTemplates(ctx)
+	if err != nil {
+		t.Fatalf("SeedSystemTemplates: %v", err)
+	}
+
+	templates, err := ts.ListGlobal(ctx)
+	if err != nil {
+		t.Fatalf("ListGlobal: %v", err)
+	}
+
+	systemKeys := map[string]bool{
+		"gradual-rollout": false,
+		"kill-switch":     false,
+		"ab-test":         false,
+		"permission-gate": false,
+	}
+	for _, tmpl := range templates {
+		if _, ok := systemKeys[tmpl.Key]; ok {
+			systemKeys[tmpl.Key] = true
+			if !tmpl.IsSystem {
+				t.Errorf("template %q should be system", tmpl.Key)
+			}
+		}
+	}
+	for key, found := range systemKeys {
+		if !found {
+			t.Errorf("system template %q not found", key)
+		}
+	}
+
+	// Idempotent: run again, should not error or duplicate
+	err = ts.SeedSystemTemplates(ctx)
+	if err != nil {
+		t.Fatalf("second SeedSystemTemplates: %v", err)
+	}
+}
+
 func TestTemplateStore_Delete(t *testing.T) {
 	pool := testPool(t)
 	ts := store.NewTemplateStore(pool)

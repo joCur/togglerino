@@ -97,6 +97,79 @@ func (s *TemplateStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+func (s *TemplateStore) SeedSystemTemplates(ctx context.Context) error {
+	templates := []struct {
+		key, name, description string
+		flagType               model.FlagType
+		valueType              model.ValueType
+		defaultValue           string
+		tags                   []string
+		envDefaults            string
+		variantConfig          string
+		sortOrder              int
+	}{
+		{
+			key: "gradual-rollout", name: "Gradual Rollout",
+			description: "Boolean flag with gradual percentage rollout",
+			flagType: model.FlagTypeRelease, valueType: model.ValueTypeBoolean,
+			defaultValue:  `false`,
+			tags:          []string{},
+			envDefaults:   `{"development":{"enabled":true},"production":{"enabled":false}}`,
+			variantConfig: `{"variants":[{"key":"on","value":true},{"key":"off","value":false}],"default_variant":"off","targeting_rules":[{"conditions":[],"variant":"on","percentage_rollout":0}]}`,
+			sortOrder:     0,
+		},
+		{
+			key: "kill-switch", name: "Kill Switch",
+			description: "Emergency shutoff switch, enabled everywhere",
+			flagType: model.FlagTypeKillSwitch, valueType: model.ValueTypeBoolean,
+			defaultValue:  `true`,
+			tags:          []string{},
+			envDefaults:   `{"development":{"enabled":true},"staging":{"enabled":true},"production":{"enabled":true}}`,
+			variantConfig: `{"variants":[{"key":"on","value":true}],"default_variant":"on"}`,
+			sortOrder:     1,
+		},
+		{
+			key: "ab-test", name: "A/B Test",
+			description: "Experiment with two variants split 50/50",
+			flagType: model.FlagTypeExperiment, valueType: model.ValueTypeString,
+			defaultValue:  `"control"`,
+			tags:          []string{},
+			envDefaults:   `{"development":{"enabled":true},"production":{"enabled":false}}`,
+			variantConfig: `{"variants":[{"key":"control","value":"control"},{"key":"treatment","value":"treatment"}],"default_variant":"control","targeting_rules":[{"conditions":[],"variant":"treatment","percentage_rollout":50}]}`,
+			sortOrder:     2,
+		},
+		{
+			key: "permission-gate", name: "Permission Gate",
+			description: "Permission flag, disabled by default with targeting rules",
+			flagType: model.FlagTypePermission, valueType: model.ValueTypeBoolean,
+			defaultValue:  `false`,
+			tags:          []string{},
+			envDefaults:   `{"development":{"enabled":false},"staging":{"enabled":false},"production":{"enabled":false}}`,
+			variantConfig: `{"variants":[{"key":"on","value":true},{"key":"off","value":false}],"default_variant":"off"}`,
+			sortOrder:     3,
+		},
+	}
+
+	for _, tmpl := range templates {
+		_, err := s.pool.Exec(ctx,
+			`INSERT INTO flag_templates (project_id, key, name, description, flag_type, value_type, default_value, tags, environment_defaults, variant_config, is_system, sort_order)
+			 VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10)
+			 ON CONFLICT (COALESCE(project_id, '00000000-0000-0000-0000-000000000000'), key) DO UPDATE SET
+			   name=EXCLUDED.name, description=EXCLUDED.description, flag_type=EXCLUDED.flag_type,
+			   value_type=EXCLUDED.value_type, default_value=EXCLUDED.default_value, tags=EXCLUDED.tags,
+			   environment_defaults=EXCLUDED.environment_defaults, variant_config=EXCLUDED.variant_config,
+			   sort_order=EXCLUDED.sort_order, updated_at=NOW()`,
+			tmpl.key, tmpl.name, tmpl.description, tmpl.flagType, tmpl.valueType,
+			json.RawMessage(tmpl.defaultValue), tmpl.tags,
+			json.RawMessage(tmpl.envDefaults), json.RawMessage(tmpl.variantConfig), tmpl.sortOrder,
+		)
+		if err != nil {
+			return fmt.Errorf("seeding template %q: %w", tmpl.key, err)
+		}
+	}
+	return nil
+}
+
 func (s *TemplateStore) list(ctx context.Context, query string, args ...any) ([]model.FlagTemplate, error) {
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
