@@ -13,8 +13,8 @@ CREATE TABLE flag_templates (
     is_system BOOLEAN NOT NULL DEFAULT FALSE,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(COALESCE(project_id, '00000000-0000-0000-0000-000000000000'), key)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE UNIQUE INDEX idx_flag_templates_unique_key ON flag_templates(COALESCE(project_id, '00000000-0000-0000-0000-000000000000'), key);
 CREATE INDEX idx_flag_templates_project_id ON flag_templates(project_id);
