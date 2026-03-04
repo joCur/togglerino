@@ -715,8 +715,10 @@ func TestFlagStore_CreateWithVariantConfig(t *testing.T) {
 		},
 	}
 
+	envEnabled := map[string]bool{"development": true}
+
 	flag, err := fs.Create(ctx, project.ID, "test-flag", "Test Flag", "desc",
-		model.ValueTypeBoolean, model.FlagTypeRelease, defaultValue, []string{}, nil, nil, envOverrides)
+		model.ValueTypeBoolean, model.FlagTypeRelease, defaultValue, []string{}, envEnabled, nil, envOverrides)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
