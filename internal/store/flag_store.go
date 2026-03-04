@@ -79,9 +79,6 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 
 		if envOverrides != nil {
 			if override, ok := envOverrides[env.Key]; ok {
-				if envEnabled == nil {
-					enabled = override.Enabled
-				}
 				if override.DefaultVariant != "" {
 					defaultVariant = override.DefaultVariant
 				}

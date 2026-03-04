@@ -118,6 +118,11 @@ func (h *TemplateHandler) UpdateGlobal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if existing.IsSystem {
+		writeError(w, http.StatusForbidden, "system templates cannot be modified")
+		return
+	}
+
 	var req templateRequest
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -273,6 +278,11 @@ func (h *TemplateHandler) UpdateForProject(w http.ResponseWriter, r *http.Reques
 	existing, err := h.templates.GetByKey(r.Context(), &project.ID, templateKey)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "template not found")
+		return
+	}
+
+	if existing.IsSystem {
+		writeError(w, http.StatusForbidden, "system templates cannot be modified")
 		return
 	}
 
