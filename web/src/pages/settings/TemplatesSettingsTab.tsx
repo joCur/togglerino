@@ -574,8 +574,6 @@ export default function TemplatesSettingsTab() {
                             size="sm"
                             className="text-xs h-7"
                             onClick={() => openEdit(t)}
-                            disabled={t.is_system}
-                            title={t.is_system ? 'System templates cannot be edited' : undefined}
                           >
                             Edit
                           </Button>

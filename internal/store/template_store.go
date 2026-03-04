@@ -154,11 +154,7 @@ func (s *TemplateStore) SeedSystemTemplates(ctx context.Context) error {
 		_, err := s.pool.Exec(ctx,
 			`INSERT INTO flag_templates (project_id, key, name, description, flag_type, value_type, default_value, tags, environment_defaults, variant_config, is_system, sort_order)
 			 VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10)
-			 ON CONFLICT (COALESCE(project_id, '00000000-0000-0000-0000-000000000000'), key) DO UPDATE SET
-			   name=EXCLUDED.name, description=EXCLUDED.description, flag_type=EXCLUDED.flag_type,
-			   value_type=EXCLUDED.value_type, default_value=EXCLUDED.default_value, tags=EXCLUDED.tags,
-			   environment_defaults=EXCLUDED.environment_defaults, variant_config=EXCLUDED.variant_config,
-			   sort_order=EXCLUDED.sort_order, updated_at=NOW()`,
+			 ON CONFLICT (COALESCE(project_id, '00000000-0000-0000-0000-000000000000'), key) DO NOTHING`,
 			tmpl.key, tmpl.name, tmpl.description, tmpl.flagType, tmpl.valueType,
 			json.RawMessage(tmpl.defaultValue), tmpl.tags,
 			json.RawMessage(tmpl.envDefaults), json.RawMessage(tmpl.variantConfig), tmpl.sortOrder,
