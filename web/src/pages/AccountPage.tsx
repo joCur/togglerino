@@ -1,16 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.ts'
 import { api } from '../api/client.ts'
 import type { User, OIDCIdentity } from '../api/types.ts'
-import Topbar from '@/components/Topbar.tsx'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft } from 'lucide-react'
 
 export default function AccountPage() {
   const { user } = useAuth()
@@ -88,24 +85,9 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Topbar />
-      <div className="mx-auto max-w-2xl px-4 md:px-6 py-8 md:py-10 animate-[fadeIn_300ms_ease]">
-        <div className="mb-8">
-          <Link
-            to="/projects"
-            className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground/60 hover:text-foreground transition-colors mb-4 no-underline"
-          >
-            <ArrowLeft className="h-3 w-3" />
-            Back
-          </Link>
-          <h1 className="text-[22px] font-semibold text-foreground mb-1.5 tracking-tight">
-            Account
-          </h1>
-          <div className="text-[13px] text-muted-foreground/60">
-            Manage your profile and security settings.
-          </div>
-        </div>
+    <div className="max-w-2xl">
+      <h1 className="text-lg font-semibold mb-1">Account</h1>
+      <p className="text-sm text-muted-foreground mb-8">Manage your profile and security settings.</p>
 
         {/* Profile */}
         <Card className="mb-5">
@@ -235,7 +217,6 @@ export default function AccountPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
     </div>
   )
 }
