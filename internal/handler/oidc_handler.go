@@ -217,8 +217,10 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if claims.Email != "" {
-		existingUser, err := h.userStore.FindByEmail(r.Context(), claims.Email)
-		if err == nil && existingUser != nil {
+		_, err := h.userStore.FindByEmail(r.Context(), claims.Email)
+		switch {
+		case err == nil:
+			// Existing user found — redirect to account linking
 			if err := oidc.SetPendingLinkCookie(w, h.secret, oidc.PendingLink{
 				ProviderID: dbProvider.ID,
 				Subject:    claims.Subject,
@@ -230,7 +232,13 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 			}
 			http.Redirect(w, r, "/link-account", http.StatusFound)
 			return
+		case !store.IsNotFound(err):
+			// Transient DB error — do not fall through to provisioning
+			slog.Error("oidc email lookup failed", "email", claims.Email, "error", err)
+			http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
+			return
 		}
+		// err is pgx.ErrNoRows — user doesn't exist, proceed to provisioning
 	} else {
 		slog.Error("oidc provider did not return an email claim, cannot provision user")
 		http.Redirect(w, r, "/?error=oidc_no_email", http.StatusFound)
@@ -270,6 +278,11 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userStore.FindByEmail(r.Context(), pending.Email)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	if user.PasswordHash == "" {
+		writeError(w, http.StatusConflict, "this account was created via SSO and has no password - set a password first via account settings")
 		return
 	}
 
@@ -372,6 +385,19 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		req.Scopes = "openid email profile"
 	}
 
+	// Validate OIDC discovery before persisting — reject broken configs early
+	var newProvider *oidc.Provider
+	if req.Enabled {
+		callbackURL := h.callbackURL(r)
+		p, err := oidc.NewProvider(r.Context(), req.IssuerURL, req.ClientID, req.ClientSecret, req.Scopes, callbackURL)
+		if err != nil {
+			slog.Error("oidc discovery validation failed", "error", err)
+			writeError(w, http.StatusBadRequest, "failed to connect to oidc issuer - check issuer_url and try again")
+			return
+		}
+		newProvider = p
+	}
+
 	provider := &model.OIDCProvider{
 		Name:         req.Name,
 		IssuerURL:    req.IssuerURL,
@@ -388,19 +414,7 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.Lock()
-	if req.Enabled {
-		callbackURL := h.callbackURL(r)
-		p, err := oidc.NewProvider(r.Context(), req.IssuerURL, req.ClientID, req.ClientSecret, req.Scopes, callbackURL)
-		if err != nil {
-			h.mu.Unlock()
-			slog.Error("oidc provider rebuild failed after config update", "error", err)
-			writeError(w, http.StatusBadRequest, "failed to connect to oidc issuer - config saved but provider not active")
-			return
-		}
-		h.provider = p
-	} else {
-		h.provider = nil
-	}
+	h.provider = newProvider // nil when disabled
 	h.mu.Unlock()
 
 	writeJSON(w, http.StatusOK, provider)

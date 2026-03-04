@@ -86,12 +86,7 @@ func (p *Provider) Exchange(ctx context.Context, code, nonce string) (*Claims, e
 }
 
 func parseScopes(scopes string) []string {
-	var result []string
-	for _, s := range splitAndTrim(scopes) {
-		if s != "" {
-			result = append(result, s)
-		}
-	}
+	result := splitAndTrim(scopes)
 	if len(result) == 0 {
 		return []string{gooidc.ScopeOpenID, "email", "profile"}
 	}

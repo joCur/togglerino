@@ -266,6 +266,64 @@ func TestOIDCStore_DeleteProvider(t *testing.T) {
 	}
 }
 
+func TestOIDCStore_ProvisionUser(t *testing.T) {
+	pool := testPool(t)
+	s := store.NewOIDCStore(pool)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	// Clean up any existing provider
+	existing, _ := s.GetProvider(ctx)
+	if existing != nil {
+		s.DeleteProvider(ctx, existing.ID)
+	}
+
+	p := createTestProvider(t, s)
+
+	email := uniqueEmail("oidc-provision")
+	userID, err := s.ProvisionUser(ctx, email, "Jane Doe", model.RoleMember, p.ID, "sub-prov-123")
+	if err != nil {
+		t.Fatalf("ProvisionUser: %v", err)
+	}
+	if userID == "" {
+		t.Fatal("expected non-empty user ID")
+	}
+
+	// Verify user was created
+	user, err := us.FindByEmail(ctx, email)
+	if err != nil {
+		t.Fatalf("FindByEmail: %v", err)
+	}
+	if user.Email != email {
+		t.Errorf("email: got %q, want %q", user.Email, email)
+	}
+	if user.DisplayName == nil || *user.DisplayName != "Jane Doe" {
+		t.Errorf("display_name: got %v, want %q", user.DisplayName, "Jane Doe")
+	}
+	if user.PasswordHash != "" {
+		t.Errorf("expected empty password_hash for OIDC-provisioned user, got %q", user.PasswordHash)
+	}
+
+	// Verify identity was created
+	ident, err := s.FindIdentity(ctx, p.ID, "sub-prov-123")
+	if err != nil {
+		t.Fatalf("FindIdentity: %v", err)
+	}
+	if ident == nil {
+		t.Fatal("expected identity to be created")
+	}
+	if ident.UserID != userID {
+		t.Errorf("identity user_id: got %q, want %q", ident.UserID, userID)
+	}
+	if ident.Email != email {
+		t.Errorf("identity email: got %q, want %q", ident.Email, email)
+	}
+
+	// Clean up
+	s.DeleteProvider(ctx, p.ID)
+	us.Delete(ctx, userID)
+}
+
 func TestOIDCStore_GetProvider_Empty(t *testing.T) {
 	pool := testPool(t)
 	s := store.NewOIDCStore(pool)

@@ -185,7 +185,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 
 ## Database
 
-PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`, `oidc_providers`, `oidc_identities`. Migrations in `migrations/` (currently: `001_initial_schema` through `012_oidc`).
+PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`, `oidc_providers`, `oidc_identities`. Migrations in `migrations/` (currently: `001_initial_schema` through `014_oidc_singleton`).
 
 ## Testing
 
