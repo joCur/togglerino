@@ -3,6 +3,7 @@ package oidc
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -98,19 +99,7 @@ func parseScopes(scopes string) []string {
 }
 
 func splitAndTrim(s string) []string {
-	var parts []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == ' ' || s[i] == ',' {
-			part := s[start:i]
-			if part != "" {
-				parts = append(parts, part)
-			}
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		parts = append(parts, s[start:])
-	}
-	return parts
+	return strings.FieldsFunc(s, func(r rune) bool {
+		return r == ' ' || r == ','
+	})
 }

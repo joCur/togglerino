@@ -120,7 +120,7 @@ func main() {
 	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool)
 	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
 	streamHandler := handler.NewStreamHandler(hub)
-	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret))
+	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
 
 	// 7b. Initialize OIDC provider (non-blocking, logs errors)

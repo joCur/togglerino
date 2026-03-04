@@ -18,17 +18,19 @@ type OIDCHandler struct {
 	userStore    *store.UserStore
 	sessionStore *store.SessionStore
 	secret       []byte
+	baseURL      string
 
 	mu       sync.RWMutex
 	provider *oidc.Provider
 }
 
-func NewOIDCHandler(oidcStore *store.OIDCStore, userStore *store.UserStore, sessionStore *store.SessionStore, secret []byte) *OIDCHandler {
+func NewOIDCHandler(oidcStore *store.OIDCStore, userStore *store.UserStore, sessionStore *store.SessionStore, secret []byte, baseURL string) *OIDCHandler {
 	return &OIDCHandler{
 		oidcStore:    oidcStore,
 		userStore:    userStore,
 		sessionStore: sessionStore,
 		secret:       secret,
+		baseURL:      baseURL,
 	}
 }
 
@@ -208,7 +210,9 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if claims.Name != "" {
-		h.userStore.UpdateProfile(r.Context(), user.ID, nil, &claims.Name)
+		if _, err := h.userStore.UpdateProfile(r.Context(), user.ID, nil, &claims.Name); err != nil {
+			slog.Error("oidc profile update failed", "user_id", user.ID, "error", err)
+		}
 	}
 
 	if err := h.oidcStore.CreateIdentity(r.Context(), &model.OIDCIdentity{
@@ -218,6 +222,9 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		Email:      claims.Email,
 	}); err != nil {
 		slog.Error("oidc identity creation failed", "error", err)
+		if delErr := h.userStore.Delete(r.Context(), user.ID); delErr != nil {
+			slog.Error("failed to clean up orphaned user after identity creation failure", "user_id", user.ID, "error", delErr)
+		}
 		http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
 		return
 	}
@@ -358,7 +365,7 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	h.mu.Lock()
 	if req.Enabled {
-		callbackURL := callbackURLFromRequest(r)
+		callbackURL := h.callbackURL(r)
 		p, err := oidc.NewProvider(r.Context(), req.IssuerURL, req.ClientID, req.ClientSecret, req.Scopes, callbackURL)
 		if err != nil {
 			h.mu.Unlock()
@@ -436,10 +443,13 @@ func (h *OIDCHandler) createSessionAndRedirect(w http.ResponseWriter, r *http.Re
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func callbackURLFromRequest(r *http.Request) string {
+func (h *OIDCHandler) callbackURL(r *http.Request) string {
+	if h.baseURL != "" {
+		return h.baseURL + "/api/v1/auth/oidc/callback"
+	}
 	scheme := "https"
 	if r.TLS == nil {
-		if fwd := r.Header.Get("X-Forwarded-Proto"); fwd != "" {
+		if fwd := r.Header.Get("X-Forwarded-Proto"); fwd == "http" || fwd == "https" {
 			scheme = fwd
 		} else {
 			scheme = "http"

@@ -84,10 +84,25 @@ func ClearPendingLinkCookie(w http.ResponseWriter) {
 	})
 }
 
+// signedEnvelope wraps cookie data with a server-side expiration timestamp.
+type signedEnvelope struct {
+	Data    json.RawMessage `json:"d"`
+	Expires int64           `json:"e"` // Unix timestamp
+}
+
 func setSignedCookie(w http.ResponseWriter, name string, secret []byte, data any, maxAge time.Duration) error {
-	payload, err := json.Marshal(data)
+	raw, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshaling cookie data: %w", err)
+	}
+
+	envelope := signedEnvelope{
+		Data:    raw,
+		Expires: time.Now().Add(maxAge).Unix(),
+	}
+	payload, err := json.Marshal(envelope)
+	if err != nil {
+		return fmt.Errorf("marshaling cookie envelope: %w", err)
 	}
 
 	sig := sign(secret, payload)
@@ -138,7 +153,16 @@ func getSignedCookie(r *http.Request, name string, secret []byte, dest any) erro
 		return fmt.Errorf("invalid cookie signature")
 	}
 
-	if err := json.Unmarshal(payload, dest); err != nil {
+	var envelope signedEnvelope
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return fmt.Errorf("unmarshaling cookie envelope: %w", err)
+	}
+
+	if time.Now().Unix() > envelope.Expires {
+		return fmt.Errorf("cookie expired")
+	}
+
+	if err := json.Unmarshal(envelope.Data, dest); err != nil {
 		return fmt.Errorf("unmarshaling cookie data: %w", err)
 	}
 

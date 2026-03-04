@@ -35,30 +35,33 @@ func (s *OIDCStore) GetProvider(ctx context.Context) (*model.OIDCProvider, error
 }
 
 // UpsertProvider creates or updates the OIDC provider config.
-// For single-provider mode, this deletes any existing provider and inserts the new one.
+// For single-provider mode, this updates the existing provider or inserts a new one.
 func (s *OIDCStore) UpsertProvider(ctx context.Context, p *model.OIDCProvider) error {
-	tx, err := s.pool.Begin(ctx)
+	existing, err := s.GetProvider(ctx)
 	if err != nil {
-		return fmt.Errorf("starting transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	_, err = tx.Exec(ctx, `DELETE FROM oidc_providers`)
-	if err != nil {
-		return fmt.Errorf("clearing oidc providers: %w", err)
+		return fmt.Errorf("checking existing provider: %w", err)
 	}
 
-	err = tx.QueryRow(ctx,
-		`INSERT INTO oidc_providers (name, issuer_url, client_id, client_secret, scopes, default_role, enabled)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
-		 RETURNING id, created_at, updated_at`,
-		p.Name, p.IssuerURL, p.ClientID, p.ClientSecret, p.Scopes, p.DefaultRole, p.Enabled,
-	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+	if existing != nil {
+		err = s.pool.QueryRow(ctx,
+			`UPDATE oidc_providers
+			 SET name = $1, issuer_url = $2, client_id = $3, client_secret = $4, scopes = $5, default_role = $6, enabled = $7, updated_at = NOW()
+			 WHERE id = $8
+			 RETURNING id, created_at, updated_at`,
+			p.Name, p.IssuerURL, p.ClientID, p.ClientSecret, p.Scopes, p.DefaultRole, p.Enabled, existing.ID,
+		).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+	} else {
+		err = s.pool.QueryRow(ctx,
+			`INSERT INTO oidc_providers (name, issuer_url, client_id, client_secret, scopes, default_role, enabled)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)
+			 RETURNING id, created_at, updated_at`,
+			p.Name, p.IssuerURL, p.ClientID, p.ClientSecret, p.Scopes, p.DefaultRole, p.Enabled,
+		).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+	}
 	if err != nil {
 		return fmt.Errorf("upserting oidc provider: %w", err)
 	}
-
-	return tx.Commit(ctx)
+	return nil
 }
 
 // DeleteProvider removes an OIDC provider by ID.
