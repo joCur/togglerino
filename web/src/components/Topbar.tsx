@@ -70,9 +70,9 @@ export default function Topbar({ children, onMenuClick }: TopbarProps) {
             <UserIcon className="mr-2 h-4 w-4" />
             Account
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate('/user-settings')}>
+          <DropdownMenuItem onClick={() => navigate('/preferences')}>
             <Settings className="mr-2 h-4 w-4" />
-            Settings
+            Preferences
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>

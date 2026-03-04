@@ -44,12 +44,12 @@ const themes: { value: Theme; label: string; description: string; icon: React.Re
   },
 ]
 
-export default function UserSettingsPage() {
+export default function PreferencesPage() {
   const { theme, setTheme } = useTheme()
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-lg font-semibold mb-1">Settings</h1>
+      <h1 className="text-lg font-semibold mb-1">Preferences</h1>
       <p className="text-sm text-muted-foreground mb-8">Your personal preferences.</p>
 
       <div>

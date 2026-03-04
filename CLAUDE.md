@@ -105,7 +105,8 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `/projects/:key/segments` — segment management
 - `/projects/:key/settings` — project settings
 - `/account` — user account page (display name, password change, SSO identities)
-- `/settings` — general settings (theme + OIDC config for admins)
+- `/preferences` — user preferences (theme selector)
+- `/settings` — admin-only settings (OIDC config)
 - `/settings/team` — team management
 - `/invite/:token` — accept invite (public)
 - `/reset-password/:token` — password reset (public)
