@@ -1,0 +1,29 @@
+# Mock OIDC provider + exposed postgres for local testing.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.oidc.yml up postgres oidc-mock -d
+#   go run ./cmd/togglerino
+#
+# Then configure OIDC in admin Settings:
+#   Issuer URL:     http://localhost:4011/default
+#   Client ID:      togglerino
+#   Client Secret:  togglerino-secret
+#
+# The mock accepts any client_id/secret. Interactive login screen lets you
+# set any username/claims. Debugger at http://localhost:4011/default/debugger
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  oidc-mock:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    ports:
+      - "4011:4011"
+    environment:
+      SERVER_PORT: "4011"
+      JSON_CONFIG: |
+        {
+          "interactiveLogin": true
+        }

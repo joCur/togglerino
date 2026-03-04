@@ -12,14 +12,32 @@ type Config struct {
 	DatabaseURL string
 	LogFormat   string
 	CORSOrigins []string
+	// OIDC (optional, overrides DB config when set)
+	OIDCIssuerURL    string
+	OIDCClientID     string
+	OIDCClientSecret string
+	OIDCDefaultRole  string
+	SessionSecret    string
+	BaseURL          string
 }
 
 func Load() (*Config, error) {
+	oidcRole := envOr("OIDC_DEFAULT_ROLE", "member")
+	if oidcRole != "admin" && oidcRole != "member" {
+		return nil, fmt.Errorf("invalid OIDC_DEFAULT_ROLE %q: must be \"admin\" or \"member\"", oidcRole)
+	}
+
 	cfg := &Config{
 		Port:        envOr("PORT", "8080"),
 		DatabaseURL: envOr("DATABASE_URL", "postgres://togglerino:togglerino@localhost:5432/togglerino?sslmode=disable"),
 		LogFormat:   envOr("LOG_FORMAT", "json"),
 		CORSOrigins: parseOrigins(envOr("CORS_ORIGINS", "*")),
+		OIDCIssuerURL:    os.Getenv("OIDC_ISSUER_URL"),
+		OIDCClientID:     os.Getenv("OIDC_CLIENT_ID"),
+		OIDCClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
+		OIDCDefaultRole:  oidcRole,
+		SessionSecret:    os.Getenv("SESSION_SECRET"),
+		BaseURL:          os.Getenv("BASE_URL"),
 	}
 	return cfg, nil
 }
@@ -38,6 +56,10 @@ func parseOrigins(raw string) []string {
 
 func (c *Config) Addr() string {
 	return fmt.Sprintf(":%s", c.Port)
+}
+
+func (c *Config) OIDCConfigured() bool {
+	return c.OIDCIssuerURL != "" && c.OIDCClientID != "" && c.OIDCClientSecret != ""
 }
 
 func envOr(key, fallback string) string {

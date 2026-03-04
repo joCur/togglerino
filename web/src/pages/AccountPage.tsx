@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.ts'
 import { api } from '../api/client.ts'
-import type { User } from '../api/types.ts'
+import type { User, OIDCIdentity } from '../api/types.ts'
 import Topbar from '@/components/Topbar.tsx'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -55,6 +55,11 @@ export default function AccountPage() {
       setPasswordError(err.message)
       setPasswordSuccess('')
     },
+  })
+
+  const identitiesQuery = useQuery({
+    queryKey: ['oidc', 'identities'],
+    queryFn: () => api.get<OIDCIdentity[]>('/auth/oidc/identities'),
   })
 
   const handleProfileSubmit = (e: React.FormEvent) => {
@@ -179,6 +184,29 @@ export default function AccountPage() {
                 {changePassword.isPending ? 'Changing...' : 'Change password'}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* SSO Identity */}
+        <Card className="mb-5">
+          <CardContent className="p-6">
+            <div className="text-sm font-semibold text-foreground mb-4">
+              SSO Identity
+            </div>
+            {identitiesQuery.data && identitiesQuery.data.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {identitiesQuery.data.map((ident) => (
+                  <div key={ident.id} className="flex items-center gap-3">
+                    <Badge variant="secondary" className="font-mono text-[11px]">SSO</Badge>
+                    <span className="text-[13px] text-muted-foreground">{ident.email || ident.subject}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-[13px] text-muted-foreground/60">
+                No SSO identity linked to this account.
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -1,16 +1,33 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.ts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
+const oidcErrorMessages: Record<string, string> = {
+  oidc_failed: 'SSO authentication failed. Please try again.',
+  oidc_disabled: 'SSO has been disabled by an administrator.',
+  oidc_no_email: 'Your SSO provider did not return an email address. Please contact your administrator.',
+}
+
 export default function LoginPage() {
-  const { login, loginError } = useAuth()
+  const { login, loginError, oidcEnabled } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [oidcError, setOidcError] = useState('')
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    if (errorParam) {
+      setOidcError(oidcErrorMessages[errorParam] || 'An unexpected error occurred during SSO login.')
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -24,7 +41,7 @@ export default function LoginPage() {
     }
   }
 
-  const displayError = loginError instanceof Error ? loginError.message : ''
+  const displayError = oidcError || (loginError instanceof Error ? loginError.message : '')
 
   return (
     <div className="flex items-center justify-center min-h-screen px-6 md:px-0 bg-background bg-[radial-gradient(ellipse_60%_50%_at_50%_40%,rgba(212,149,106,0.04)_0%,transparent_70%)]">
@@ -63,6 +80,25 @@ export default function LoginPage() {
           <Button className="w-full mt-6" disabled={submitting}>
             {submitting ? 'Signing In...' : 'Sign In'}
           </Button>
+
+          {oidcEnabled && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <a
+                href="/api/v1/auth/oidc/authorize"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground w-full no-underline"
+              >
+                Sign in with SSO
+              </a>
+            </>
+          )}
         </form>
       </div>
     </div>

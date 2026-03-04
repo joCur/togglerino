@@ -1,6 +1,8 @@
 import { Navigate } from 'react-router-dom'
 import { useTheme } from '@/hooks/useTheme'
+import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
+import OIDCSettingsTab from './settings/OIDCSettingsTab'
 
 const themes = [
   {
@@ -47,8 +49,9 @@ const themes = [
 
 export default function SettingsPage() {
   const { theme, setTheme, isThemeToggleEnabled } = useTheme()
+  const { user } = useAuth()
 
-  if (!isThemeToggleEnabled) {
+  if (!isThemeToggleEnabled && user?.role !== 'admin') {
     return <Navigate to="/projects" replace />
   }
 
@@ -57,43 +60,51 @@ export default function SettingsPage() {
       <h1 className="text-lg font-semibold mb-1">Settings</h1>
       <p className="text-sm text-muted-foreground mb-8">Manage your preferences.</p>
 
-      <div>
-        <h2 className="text-sm font-medium mb-1">Appearance</h2>
-        <p className="text-xs text-muted-foreground mb-4">Choose how the dashboard looks to you.</p>
+      {isThemeToggleEnabled && (
+        <div>
+          <h2 className="text-sm font-medium mb-1">Appearance</h2>
+          <p className="text-xs text-muted-foreground mb-4">Choose how the dashboard looks to you.</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {themes.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => setTheme(t.value)}
-              className={cn(
-                'flex flex-col items-center gap-2.5 rounded-lg border p-5 text-center transition-all duration-200 cursor-pointer',
-                theme === t.value
-                  ? 'border-[#d4956a] bg-[#d4956a]/8 ring-1 ring-[#d4956a]/30'
-                  : 'border-border bg-card hover:bg-accent/50'
-              )}
-            >
-              <div className={cn(
-                'text-muted-foreground transition-colors',
-                theme === t.value && 'text-[#d4956a]'
-              )}>
-                {t.icon}
-              </div>
-              <div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {themes.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setTheme(t.value)}
+                className={cn(
+                  'flex flex-col items-center gap-2.5 rounded-lg border p-5 text-center transition-all duration-200 cursor-pointer',
+                  theme === t.value
+                    ? 'border-[#d4956a] bg-[#d4956a]/8 ring-1 ring-[#d4956a]/30'
+                    : 'border-border bg-card hover:bg-accent/50'
+                )}
+              >
                 <div className={cn(
-                  'text-sm font-medium',
+                  'text-muted-foreground transition-colors',
                   theme === t.value && 'text-[#d4956a]'
                 )}>
-                  {t.label}
+                  {t.icon}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {t.description}
+                <div>
+                  <div className={cn(
+                    'text-sm font-medium',
+                    theme === t.value && 'text-[#d4956a]'
+                  )}>
+                    {t.label}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {t.description}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {user?.role === 'admin' && (
+        <div className={isThemeToggleEnabled ? 'mt-10' : ''}>
+          <OIDCSettingsTab />
+        </div>
+      )}
     </div>
   )
 }

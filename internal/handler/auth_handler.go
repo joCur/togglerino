@@ -12,9 +12,15 @@ import (
 )
 
 type AuthHandler struct {
-	users    *store.UserStore
-	sessions *store.SessionStore
-	invites  *store.InviteStore
+	users          *store.UserStore
+	sessions       *store.SessionStore
+	invites        *store.InviteStore
+	oidcConfigured func() bool
+}
+
+// SetOIDCChecker sets the function used to check if OIDC is configured.
+func (h *AuthHandler) SetOIDCChecker(fn func() bool) {
+	h.oidcConfigured = fn
 }
 
 func NewAuthHandler(users *store.UserStore, sessions *store.SessionStore, invites *store.InviteStore) *AuthHandler {
@@ -151,8 +157,10 @@ func (h *AuthHandler) Status(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	oidcEnabled := h.oidcConfigured != nil && h.oidcConfigured()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"setup_required": count == 0,
+		"oidc_enabled":   oidcEnabled,
 	})
 }
 

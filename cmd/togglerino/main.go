@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"io/fs"
 	"log"
 	"log/slog"
@@ -64,6 +66,18 @@ func main() {
 	unknownFlagStore := store.NewUnknownFlagStore(pool)
 	segmentStore := store.NewSegmentStore(pool)
 	scheduleStore := store.NewScheduleStore(pool)
+	oidcStore := store.NewOIDCStore(pool)
+
+	// 4b. Ensure session secret exists (for OIDC cookie signing)
+	sessionSecret := cfg.SessionSecret
+	if sessionSecret == "" {
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			log.Fatal(err)
+		}
+		sessionSecret = hex.EncodeToString(b)
+		slog.Warn("SESSION_SECRET not set, generated random secret (OIDC state cookies will not survive restarts)")
+	}
 
 	// 5. Initialize cache, engine, hub
 	cache := evaluation.NewCache()
@@ -106,6 +120,15 @@ func main() {
 	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool)
 	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
 	streamHandler := handler.NewStreamHandler(hub)
+	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
+	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
+
+	// 7b. Initialize OIDC provider (non-blocking, logs errors)
+	callbackURL := ""
+	if cfg.BaseURL != "" {
+		callbackURL = cfg.BaseURL + "/api/v1/auth/oidc/callback"
+	}
+	oidcHandler.InitProvider(ctx, callbackURL, cfg.OIDCIssuerURL, cfg.OIDCClientID, cfg.OIDCClientSecret, "", cfg.OIDCDefaultRole)
 
 	// 8. Set up HTTP router
 	mux := http.NewServeMux()
@@ -114,6 +137,7 @@ func main() {
 	sessionAuth := auth.SessionAuth(sessionStore, userStore)
 	sdkAuth := auth.SDKAuth(sdkKeyStore)
 	authLimiter := ratelimit.New(10, 60) // 10 requests per minute
+	requireAdmin := auth.RequireRole(model.RoleAdmin)
 
 	// --- Public routes (no auth) ---
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -128,13 +152,21 @@ func main() {
 	mux.Handle("POST /api/v1/auth/accept-invite", authLimiter.Middleware(http.HandlerFunc(authHandler.AcceptInvite)))
 	mux.Handle("POST /api/v1/auth/reset-password", authLimiter.Middleware(http.HandlerFunc(authHandler.ResetPassword)))
 
+	// --- OIDC routes ---
+	mux.HandleFunc("GET /api/v1/auth/oidc/authorize", oidcHandler.Authorize)
+	mux.Handle("GET /api/v1/auth/oidc/callback", authLimiter.Middleware(http.HandlerFunc(oidcHandler.Callback)))
+	mux.Handle("POST /api/v1/auth/oidc/link", authLimiter.Middleware(http.HandlerFunc(oidcHandler.Link)))
+	mux.Handle("GET /api/v1/auth/oidc/config", wrap(oidcHandler.GetConfig, sessionAuth, requireAdmin))
+	mux.Handle("PUT /api/v1/auth/oidc/config", wrap(oidcHandler.UpdateConfig, sessionAuth, requireAdmin))
+	mux.Handle("DELETE /api/v1/auth/oidc/config", wrap(oidcHandler.DeleteConfig, sessionAuth, requireAdmin))
+	mux.Handle("GET /api/v1/auth/oidc/identities", wrap(oidcHandler.OIDCIdentities, sessionAuth))
+
 	// --- Session-authed routes (management API) ---
 	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionAuth))
 	mux.Handle("PUT /api/v1/auth/me", wrap(authHandler.UpdateMe, sessionAuth))
 	mux.Handle("POST /api/v1/auth/change-password", authLimiter.Middleware(wrap(authHandler.ChangePassword, sessionAuth)))
 
 	// User management (admin-only)
-	requireAdmin := auth.RequireRole(model.RoleAdmin)
 	mux.Handle("GET /api/v1/management/users", wrap(userHandler.List, sessionAuth, requireAdmin))
 	mux.Handle("POST /api/v1/management/users/invite", wrap(userHandler.Invite, sessionAuth, requireAdmin))
 	mux.Handle("GET /api/v1/management/users/invites", wrap(userHandler.ListInvites, sessionAuth, requireAdmin))

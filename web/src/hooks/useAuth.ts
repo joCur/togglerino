@@ -4,6 +4,7 @@ import type { User } from '../api/types.ts'
 
 interface AuthStatus {
   setup_required: boolean
+  oidc_enabled: boolean
 }
 
 export function useAuth() {
@@ -59,6 +60,7 @@ export function useAuth() {
     login: loginMutation.mutateAsync,
     setup: setupMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,
+    oidcEnabled: statusQuery.data?.oidc_enabled ?? false,
     loginError: loginMutation.error,
     setupError: setupMutation.error,
   }
