@@ -67,6 +67,7 @@ func main() {
 	segmentStore := store.NewSegmentStore(pool)
 	scheduleStore := store.NewScheduleStore(pool)
 	oidcStore := store.NewOIDCStore(pool)
+	templateStore := store.NewTemplateStore(pool)
 
 	// 4b. Ensure session secret exists (for OIDC cookie signing)
 	sessionSecret := cfg.SessionSecret
@@ -100,6 +101,9 @@ func main() {
 	if err := cache.LoadAll(ctx, pool); err != nil {
 		log.Fatalf("failed to load flags into cache: %v", err)
 	}
+	if err := templateStore.SeedSystemTemplates(ctx); err != nil {
+		log.Fatalf("failed to seed system templates: %v", err)
+	}
 	go stalenessChecker.Run(ctx)
 	go scheduleChecker.Run(ctx)
 
@@ -121,6 +125,7 @@ func main() {
 	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
 	streamHandler := handler.NewStreamHandler(hub)
 	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
+	templateHandler := handler.NewTemplateHandler(templateStore, projectStore)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
 
 	// 7b. Initialize OIDC provider (non-blocking, logs errors)
@@ -236,6 +241,18 @@ func main() {
 	mux.Handle("PUT /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Update, sessionAuth))
 	mux.Handle("DELETE /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Delete, sessionAuth))
 	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}/usage", wrap(segmentHandler.Usage, sessionAuth))
+
+	// Templates (global)
+	mux.Handle("GET /api/v1/templates", wrap(templateHandler.ListGlobal, sessionAuth))
+	mux.Handle("POST /api/v1/templates", wrap(templateHandler.CreateGlobal, sessionAuth, requireAdmin))
+	mux.Handle("PUT /api/v1/templates/{key}", wrap(templateHandler.UpdateGlobal, sessionAuth, requireAdmin))
+	mux.Handle("DELETE /api/v1/templates/{key}", wrap(templateHandler.DeleteGlobal, sessionAuth, requireAdmin))
+
+	// Templates (project-scoped)
+	mux.Handle("GET /api/v1/projects/{key}/templates", wrap(templateHandler.ListForProject, sessionAuth))
+	mux.Handle("POST /api/v1/projects/{key}/templates", wrap(templateHandler.CreateForProject, sessionAuth))
+	mux.Handle("PUT /api/v1/projects/{key}/templates/{templateKey}", wrap(templateHandler.UpdateForProject, sessionAuth))
+	mux.Handle("DELETE /api/v1/projects/{key}/templates/{templateKey}", wrap(templateHandler.DeleteForProject, sessionAuth))
 
 	// --- SDK-authed routes (client API) ---
 	mux.Handle("POST /api/v1/evaluate", wrap(evaluateHandler.EvaluateAll, sdkAuth))
