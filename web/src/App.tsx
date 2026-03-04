@@ -29,6 +29,7 @@ import FlagLifetimesTab from './pages/settings/FlagLifetimesTab.tsx'
 import EnvironmentDefaultsTab from './pages/settings/EnvironmentDefaultsTab.tsx'
 import MembersTab from './pages/settings/MembersTab.tsx'
 import TemplatesTab from './pages/settings/TemplatesTab.tsx'
+import TemplatesPage from './pages/TemplatesPage.tsx'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,6 +87,7 @@ function AuthRouter() {
       <Route element={<OrgLayout />}>
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/settings/team" element={<TeamPage />} />
+        <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/preferences" element={<PreferencesPage />} />
@@ -97,13 +99,13 @@ function AuthRouter() {
         <Route path="environments" element={<EnvironmentsPage />} />
         <Route path="environments/:env/sdk-keys" element={<SDKKeysPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
+        <Route path="templates" element={<TemplatesTab />} />
         <Route path="settings" element={<ProjectSettingsPage />}>
           <Route index element={<Navigate to="general" replace />} />
           <Route path="general" element={<GeneralSettingsTab />} />
           <Route path="lifetimes" element={<FlagLifetimesTab />} />
           <Route path="environments" element={<EnvironmentDefaultsTab />} />
           <Route path="members" element={<MembersTab />} />
-          <Route path="templates" element={<TemplatesTab />} />
         </Route>
         <Route path="segments" element={<SegmentsPage />} />
       </Route>

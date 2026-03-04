@@ -17,6 +17,9 @@ function SidebarNav({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin?
       <NavLink to="/projects" end className={navLinkClass} onClick={onNavigate}>Projects</NavLink>
       <NavLink to="/settings/team" className={navLinkClass} onClick={onNavigate}>Team</NavLink>
       {isAdmin && (
+        <NavLink to="/templates" className={navLinkClass} onClick={onNavigate}>Templates</NavLink>
+      )}
+      {isAdmin && (
         <NavLink to="/settings" end className={navLinkClass} onClick={onNavigate}>Settings</NavLink>
       )}
     </>

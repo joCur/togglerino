@@ -6,7 +6,6 @@ const settingsTabs = [
   { to: 'lifetimes', label: 'Flag Lifetimes' },
   { to: 'environments', label: 'Environments' },
   { to: 'members', label: 'Members' },
-  { to: 'templates', label: 'Templates' },
 ]
 
 export default function ProjectSettingsPage() {

@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/hooks/useAuth'
 import { api } from '@/api/client.ts'
 import type { FlagTemplate, FlagPurpose, ValueType } from '@/api/types.ts'
 import { Button } from '@/components/ui/button'
@@ -23,6 +25,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  EnvironmentDefaultsEditor,
+  VariantConfigEditor,
+} from '@/components/TemplateEditors'
+import type { EnvDefault, VariantConfigState } from '@/components/TemplateEditors'
+import {
+  envDefaultsToRecord,
+  recordToEnvDefaults,
+  variantConfigToState,
+  stateToVariantConfig,
+} from '@/lib/templateUtils'
 
 const FLAG_PURPOSES: { value: FlagPurpose; label: string }[] = [
   { value: 'release', label: 'Release' },
@@ -47,16 +60,6 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-function isValidJSON(value: string): boolean {
-  if (!value.trim()) return true
-  try {
-    JSON.parse(value)
-    return true
-  } catch {
-    return false
-  }
-}
-
 interface FormState {
   name: string
   key: string
@@ -64,11 +67,10 @@ interface FormState {
   description: string
   flagType: FlagPurpose
   valueType: ValueType
-  defaultValue: string
   tags: string
   sortOrder: string
-  environmentDefaults: string
-  variantConfig: string
+  environmentDefaults: EnvDefault[]
+  variantConfig: VariantConfigState
 }
 
 const defaultFormState = (): FormState => ({
@@ -78,14 +80,26 @@ const defaultFormState = (): FormState => ({
   description: '',
   flagType: 'release',
   valueType: 'boolean',
-  defaultValue: 'false',
   tags: '',
   sortOrder: '0',
-  environmentDefaults: '',
-  variantConfig: '',
+  environmentDefaults: [],
+  variantConfig: { variants: [], defaultVariant: '', targetingRules: [] },
 })
 
 function templateToFormState(t: FlagTemplate): FormState {
+  const vc = variantConfigToState(t.variant_config)
+  if (vc.variants.length === 0 && t.default_value !== null && t.default_value !== undefined) {
+    if (t.value_type === 'boolean') {
+      vc.variants = [
+        { key: 'on', value: true },
+        { key: 'off', value: false },
+      ]
+      vc.defaultVariant = t.default_value === true ? 'on' : 'off'
+    } else {
+      vc.variants = [{ key: 'default', value: t.default_value }]
+      vc.defaultVariant = 'default'
+    }
+  }
   return {
     name: t.name,
     key: t.key,
@@ -93,53 +107,22 @@ function templateToFormState(t: FlagTemplate): FormState {
     description: t.description ?? '',
     flagType: t.flag_type,
     valueType: t.value_type,
-    defaultValue:
-      t.default_value === null || t.default_value === undefined
-        ? ''
-        : typeof t.default_value === 'string'
-          ? t.default_value
-          : JSON.stringify(t.default_value),
     tags: (t.tags ?? []).join(', '),
     sortOrder: String(t.sort_order ?? 0),
-    environmentDefaults:
-      t.environment_defaults && Object.keys(t.environment_defaults).length > 0
-        ? JSON.stringify(t.environment_defaults, null, 2)
-        : '',
-    variantConfig:
-      t.variant_config && Object.keys(t.variant_config).length > 0
-        ? JSON.stringify(t.variant_config, null, 2)
-        : '',
+    environmentDefaults: recordToEnvDefaults(t.environment_defaults),
+    variantConfig: vc,
   }
 }
 
 function buildPayload(form: FormState): Partial<FlagTemplate> {
-  let parsedDefaultValue: unknown = form.defaultValue
-  if (form.valueType === 'boolean') {
-    parsedDefaultValue = form.defaultValue === 'true'
-  } else if (form.valueType === 'number') {
-    parsedDefaultValue = Number(form.defaultValue)
-  } else if (form.valueType === 'json') {
-    try {
-      parsedDefaultValue = JSON.parse(form.defaultValue)
-    } catch {
-      parsedDefaultValue = form.defaultValue
-    }
-  }
+  const { variants, defaultVariant } = form.variantConfig
+  const defaultVar = variants.find((v) => v.key === defaultVariant)
+  const defaultValue = defaultVar?.value ?? (form.valueType === 'boolean' ? false : form.valueType === 'number' ? 0 : '')
 
   const tags = form.tags
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean)
-
-  const environmentDefaults =
-    form.environmentDefaults.trim()
-      ? (JSON.parse(form.environmentDefaults) as Record<string, { enabled: boolean }>)
-      : {}
-
-  const variantConfig =
-    form.variantConfig.trim()
-      ? (JSON.parse(form.variantConfig) as FlagTemplate['variant_config'])
-      : {}
 
   return {
     name: form.name.trim(),
@@ -147,11 +130,11 @@ function buildPayload(form: FormState): Partial<FlagTemplate> {
     description: form.description.trim(),
     flag_type: form.flagType,
     value_type: form.valueType,
-    default_value: parsedDefaultValue,
+    default_value: defaultValue,
     tags,
     sort_order: Number(form.sortOrder) || 0,
-    environment_defaults: environmentDefaults,
-    variant_config: variantConfig,
+    environment_defaults: envDefaultsToRecord(form.environmentDefaults),
+    variant_config: stateToVariantConfig(form.variantConfig),
   }
 }
 
@@ -169,14 +152,12 @@ function TemplateDialog({ open, editing, onClose, onSaved }: TemplateDialogProps
   )
   const [error, setError] = useState('')
 
-  // Reset form when dialog opens/closes or editing target changes
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       onClose()
     }
   }
 
-  // Re-initialise form when the dialog opens with a different template
   const [lastEditing, setLastEditing] = useState<FlagTemplate | null>(null)
   if (open && editing !== lastEditing) {
     setLastEditing(editing)
@@ -232,14 +213,6 @@ function TemplateDialog({ open, editing, onClose, onSaved }: TemplateDialogProps
       setError('Key is required')
       return
     }
-    if (form.environmentDefaults.trim() && !isValidJSON(form.environmentDefaults)) {
-      setError('Environment Defaults must be valid JSON')
-      return
-    }
-    if (form.variantConfig.trim() && !isValidJSON(form.variantConfig)) {
-      setError('Variant Config must be valid JSON')
-      return
-    }
 
     const payload = buildPayload(form)
     if (editing) {
@@ -253,12 +226,11 @@ function TemplateDialog({ open, editing, onClose, onSaved }: TemplateDialogProps
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit Template' : 'Create Template'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
-          {/* Name + Key */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className={labelClass}>Name</Label>
@@ -280,7 +252,6 @@ function TemplateDialog({ open, editing, onClose, onSaved }: TemplateDialogProps
             </div>
           </div>
 
-          {/* Description */}
           <div className="flex flex-col gap-1.5">
             <Label className={labelClass}>Description</Label>
             <Textarea
@@ -291,7 +262,6 @@ function TemplateDialog({ open, editing, onClose, onSaved }: TemplateDialogProps
             />
           </div>
 
-          {/* Flag Type + Value Type */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className={labelClass}>Flag Type</Label>
@@ -325,30 +295,6 @@ function TemplateDialog({ open, editing, onClose, onSaved }: TemplateDialogProps
             </div>
           </div>
 
-          {/* Default Value */}
-          <div className="flex flex-col gap-1.5">
-            <Label className={labelClass}>Default Value</Label>
-            {form.valueType === 'boolean' ? (
-              <Select value={form.defaultValue} onValueChange={(v) => set('defaultValue', v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">false</SelectItem>
-                  <SelectItem value="true">true</SelectItem>
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                value={form.defaultValue}
-                onChange={(e) => set('defaultValue', e.target.value)}
-                placeholder={form.valueType === 'json' ? '{"key": "value"}' : ''}
-                className={form.valueType === 'json' ? 'font-mono text-xs' : ''}
-              />
-            )}
-          </div>
-
-          {/* Tags + Sort Order */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className={labelClass}>Tags</Label>
@@ -370,33 +316,16 @@ function TemplateDialog({ open, editing, onClose, onSaved }: TemplateDialogProps
             </div>
           </div>
 
-          {/* Environment Defaults */}
-          <div className="flex flex-col gap-1.5">
-            <Label className={labelClass}>Environment Defaults (JSON)</Label>
-            <Textarea
-              value={form.environmentDefaults}
-              onChange={(e) => set('environmentDefaults', e.target.value)}
-              placeholder={'{\n  "production": { "enabled": false }\n}'}
-              className="min-h-[80px] font-mono text-xs"
-            />
-            <p className="text-[10px] text-muted-foreground/60">
-              Map of environment key to default enabled state. Leave empty to inherit project defaults.
-            </p>
-          </div>
+          <EnvironmentDefaultsEditor
+            value={form.environmentDefaults}
+            onChange={(v) => set('environmentDefaults', v)}
+          />
 
-          {/* Variant Config */}
-          <div className="flex flex-col gap-1.5">
-            <Label className={labelClass}>Variant Config (JSON)</Label>
-            <Textarea
-              value={form.variantConfig}
-              onChange={(e) => set('variantConfig', e.target.value)}
-              placeholder={'{\n  "variants": [],\n  "default_variant": "on"\n}'}
-              className="min-h-[80px] font-mono text-xs"
-            />
-            <p className="text-[10px] text-muted-foreground/60">
-              Pre-configured variants and targeting rules for this template.
-            </p>
-          </div>
+          <VariantConfigEditor
+            value={form.variantConfig}
+            onChange={(v) => set('variantConfig', v)}
+            valueType={form.valueType}
+          />
 
           {error && <p className="text-destructive text-xs">{error}</p>}
 
@@ -468,7 +397,8 @@ function DeleteDialog({ open, template, onClose }: DeleteDialogProps) {
   )
 }
 
-export default function TemplatesSettingsTab() {
+export default function TemplatesPage() {
+  const { user } = useAuth()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<FlagTemplate | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FlagTemplate | null>(null)
@@ -477,6 +407,10 @@ export default function TemplatesSettingsTab() {
     queryKey: ['templates', 'global'],
     queryFn: () => api.templates.listGlobal(),
   })
+
+  if (user?.role !== 'admin') {
+    return <Navigate to="/projects" replace />
+  }
 
   const openCreate = () => {
     setEditing(null)
@@ -495,12 +429,15 @@ export default function TemplatesSettingsTab() {
 
   return (
     <div>
-      <h2 className="text-sm font-medium mb-1">Global Templates</h2>
-      <p className="text-xs text-muted-foreground mb-6">
-        Manage global flag templates available to all projects.
-      </p>
-
-      <div className="flex justify-end mb-4">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-[22px] font-semibold text-foreground mb-1.5 tracking-tight">
+            Global Templates
+          </h1>
+          <p className="text-[13px] text-muted-foreground/60">
+            Manage flag templates available to all projects.
+          </p>
+        </div>
         <Button size="sm" onClick={openCreate}>
           Create Template
         </Button>
