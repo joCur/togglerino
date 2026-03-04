@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // DefaultFlagLifetimes returns the default expected lifetimes (in days) per flag type.
 // nil means permanent (never stale).
@@ -18,7 +21,10 @@ func intPtr(n int) *int { return &n }
 
 // EnvironmentDefault holds the default flag configuration for an environment.
 type EnvironmentDefault struct {
-	Enabled bool `json:"enabled"`
+	Enabled        bool            `json:"enabled"`
+	Variants       json.RawMessage `json:"variants,omitempty"`
+	DefaultVariant string          `json:"default_variant,omitempty"`
+	TargetingRules json.RawMessage `json:"targeting_rules,omitempty"`
 }
 
 // DefaultEnvironmentDefaults returns the hardcoded fallback defaults.
