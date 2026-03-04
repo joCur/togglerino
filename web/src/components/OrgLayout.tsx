@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useFlag } from '@togglerino/react'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useIsMobile } from '../hooks/useIsMobile.ts'
 import Topbar from './Topbar.tsx'
@@ -9,8 +8,7 @@ import { Button } from '@/components/ui/button'
 import { navLinkClass } from './navLinkClass'
 import { User as UserIcon, LogOut } from 'lucide-react'
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  const isThemeToggleEnabled = useFlag('enable-theme-toggle', false)
+function SidebarNav({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin?: boolean }) {
   return (
     <>
       <div className="px-5 pb-2.5 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-[1.2px] font-mono">
@@ -18,7 +16,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <NavLink to="/projects" end className={navLinkClass} onClick={onNavigate}>Projects</NavLink>
       <NavLink to="/settings/team" className={navLinkClass} onClick={onNavigate}>Team</NavLink>
-      {isThemeToggleEnabled && (
+      {isAdmin && (
         <NavLink to="/settings" end className={navLinkClass} onClick={onNavigate}>Settings</NavLink>
       )}
     </>
@@ -40,7 +38,7 @@ export default function OrgLayout() {
         {/* Desktop sidebar */}
         {!isMobile && (
           <nav className="w-[200px] bg-card border-r py-5 shrink-0 flex flex-col">
-            <SidebarNav />
+            <SidebarNav isAdmin={user?.role === 'admin'} />
           </nav>
         )}
 
@@ -49,7 +47,7 @@ export default function OrgLayout() {
           <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
             <SheetContent side="left" className="w-[260px] p-0 flex flex-col" aria-label="Navigation menu">
               <nav className="py-5 flex-1 flex flex-col">
-                <SidebarNav onNavigate={closeDrawer} />
+                <SidebarNav onNavigate={closeDrawer} isAdmin={user?.role === 'admin'} />
               </nav>
               <div className="border-t p-4 flex flex-col gap-2">
                 <div className="text-xs text-muted-foreground truncate">{user?.display_name || user?.email}</div>
