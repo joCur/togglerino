@@ -7,17 +7,22 @@ import (
 	"github.com/togglerino/togglerino/internal/store"
 )
 
-func TestOrgSettingsStore_GetBaseProjectRole_Default(t *testing.T) {
+func TestOrgSettingsStore_GetBaseProjectRole_ReturnsValue(t *testing.T) {
 	pool := testPool(t)
 	s := store.NewOrgSettingsStore(pool)
 	ctx := context.Background()
+
+	// Ensure a known state since other test packages may modify this row.
+	if err := s.SetBaseProjectRole(ctx, "editor"); err != nil {
+		t.Fatalf("SetBaseProjectRole: %v", err)
+	}
 
 	role, err := s.GetBaseProjectRole(ctx)
 	if err != nil {
 		t.Fatalf("GetBaseProjectRole: %v", err)
 	}
 	if role != "editor" {
-		t.Errorf("default base project role: got %q, want %q", role, "editor")
+		t.Errorf("base project role: got %q, want %q", role, "editor")
 	}
 }
 
