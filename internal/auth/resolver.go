@@ -27,6 +27,9 @@ func BuildRoleResolver(members *store.ProjectMemberStore, projects *store.Projec
 		if err == nil {
 			return role, nil
 		}
+		if !store.IsNotFound(err) {
+			return "", fmt.Errorf("checking project membership: %w", err)
+		}
 
 		// 3. Fall back to org base project role.
 		baseRole, err := orgSettings.GetBaseProjectRole(ctx)

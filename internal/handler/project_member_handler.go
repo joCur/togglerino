@@ -158,6 +158,21 @@ func (h *ProjectMemberHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Read old role before updating (for audit logging).
 	oldRole, _ := h.members.GetRole(r.Context(), project.ID, userID)
 
+	// Prevent demoting the last project admin.
+	if oldRole == model.ProjectRoleAdmin && model.ProjectRole(req.Role) != model.ProjectRoleAdmin {
+		members, _ := h.members.ListByProject(r.Context(), project.ID)
+		adminCount := 0
+		for _, m := range members {
+			if model.ProjectRole(m.Role) == model.ProjectRoleAdmin {
+				adminCount++
+			}
+		}
+		if adminCount <= 1 {
+			writeError(w, http.StatusBadRequest, "cannot demote the only project admin")
+			return
+		}
+	}
+
 	member, err := h.members.Update(r.Context(), project.ID, userID, model.ProjectRole(req.Role))
 	if err != nil {
 		writeError(w, http.StatusNotFound, "member not found")
@@ -201,6 +216,21 @@ func (h *ProjectMemberHandler) Remove(w http.ResponseWriter, r *http.Request) {
 
 	// Read old role before removing (for audit logging).
 	oldRole, _ := h.members.GetRole(r.Context(), project.ID, userID)
+
+	// Prevent removing the last project admin.
+	if oldRole == model.ProjectRoleAdmin {
+		members, _ := h.members.ListByProject(r.Context(), project.ID)
+		adminCount := 0
+		for _, m := range members {
+			if model.ProjectRole(m.Role) == model.ProjectRoleAdmin {
+				adminCount++
+			}
+		}
+		if adminCount <= 1 {
+			writeError(w, http.StatusBadRequest, "cannot remove the only project admin")
+			return
+		}
+	}
 
 	if err := h.members.Remove(r.Context(), project.ID, userID); err != nil {
 		writeError(w, http.StatusNotFound, "member not found")
