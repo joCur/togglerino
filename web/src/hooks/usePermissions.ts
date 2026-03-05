@@ -49,6 +49,7 @@ export function useProjectRole(projectKey: string | undefined): ProjectRole | nu
     queryKey: ['my-project-role', projectKey],
     queryFn: () => api.get<{ role: string }>(`/auth/me/project-role/${projectKey}`),
     enabled: !!projectKey,
+    staleTime: 5 * 60 * 1000,
   })
 
   if (!data) return null

@@ -56,12 +56,15 @@ func TestBuildRoleResolver_FallbackToBaseRole(t *testing.T) {
 	orgSettings := store.NewOrgSettingsStore(pool)
 	users := store.NewUserStore(pool)
 
-	// Ensure base role is editor.
+	// Save and restore base role to avoid cross-test interference.
+	origRole, _ := orgSettings.GetBaseProjectRole(ctx)
 	if err := orgSettings.SetBaseProjectRole(ctx, "editor"); err != nil {
 		t.Fatalf("setting base role: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = orgSettings.SetBaseProjectRole(ctx, "editor")
+		if origRole != "" {
+			_ = orgSettings.SetBaseProjectRole(ctx, origRole)
+		}
 	})
 
 	email := uniqueEmail("fallback")
@@ -96,12 +99,15 @@ func TestBuildRoleResolver_BaseRoleNone_NoAccess(t *testing.T) {
 	orgSettings := store.NewOrgSettingsStore(pool)
 	users := store.NewUserStore(pool)
 
-	// Set base role to none.
+	// Save and restore base role to avoid cross-test interference.
+	origRole, _ := orgSettings.GetBaseProjectRole(ctx)
 	if err := orgSettings.SetBaseProjectRole(ctx, "none"); err != nil {
 		t.Fatalf("setting base role: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = orgSettings.SetBaseProjectRole(ctx, "editor")
+		if origRole != "" {
+			_ = orgSettings.SetBaseProjectRole(ctx, origRole)
+		}
 	})
 
 	email := uniqueEmail("noaccess")

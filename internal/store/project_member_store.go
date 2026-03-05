@@ -106,6 +106,106 @@ func (s *ProjectMemberStore) ListByProject(ctx context.Context, projectID string
 	return members, nil
 }
 
+// UpdateWithAdminCheck atomically updates a member's role, failing if the
+// update would leave the project with no admin.
+func (s *ProjectMemberStore) UpdateWithAdminCheck(ctx context.Context, projectID, userID string, role model.ProjectRole) (*model.ProjectMember, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock the member row and check if demotion would leave zero admins.
+	var currentRole model.ProjectRole
+	err = tx.QueryRow(ctx,
+		`SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2 FOR UPDATE`,
+		projectID, userID,
+	).Scan(&currentRole)
+	if err != nil {
+		return nil, fmt.Errorf("member not found: %w", err)
+	}
+
+	if currentRole == model.ProjectRoleAdmin && role != model.ProjectRoleAdmin {
+		var adminCount int
+		err = tx.QueryRow(ctx,
+			`SELECT COUNT(*) FROM project_members WHERE project_id = $1 AND role = 'admin'`,
+			projectID,
+		).Scan(&adminCount)
+		if err != nil {
+			return nil, fmt.Errorf("counting admins: %w", err)
+		}
+		if adminCount <= 1 {
+			return nil, ErrLastAdmin
+		}
+	}
+
+	var m model.ProjectMember
+	err = tx.QueryRow(ctx,
+		`UPDATE project_members SET role = $3, updated_at = NOW()
+		 WHERE project_id = $1 AND user_id = $2
+		 RETURNING project_id, user_id, role, created_at, updated_at`,
+		projectID, userID, role,
+	).Scan(&m.ProjectID, &m.UserID, &m.Role, &m.CreatedAt, &m.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("updating member: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+	return &m, nil
+}
+
+// RemoveWithAdminCheck atomically removes a member, failing if removal
+// would leave the project with no admin.
+func (s *ProjectMemberStore) RemoveWithAdminCheck(ctx context.Context, projectID, userID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock and check role.
+	var currentRole model.ProjectRole
+	err = tx.QueryRow(ctx,
+		`SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2 FOR UPDATE`,
+		projectID, userID,
+	).Scan(&currentRole)
+	if err != nil {
+		return fmt.Errorf("member not found: %w", err)
+	}
+
+	if currentRole == model.ProjectRoleAdmin {
+		var adminCount int
+		err = tx.QueryRow(ctx,
+			`SELECT COUNT(*) FROM project_members WHERE project_id = $1 AND role = 'admin'`,
+			projectID,
+		).Scan(&adminCount)
+		if err != nil {
+			return fmt.Errorf("counting admins: %w", err)
+		}
+		if adminCount <= 1 {
+			return ErrLastAdmin
+		}
+	}
+
+	tag, err := tx.Exec(ctx,
+		`DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`,
+		projectID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("removing member: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("project member not found")
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+	return nil
+}
+
 // ListByUser returns all projects a user is a member of with their role.
 func (s *ProjectMemberStore) ListByUser(ctx context.Context, userID string) ([]model.UserProjectAssignment, error) {
 	rows, err := s.pool.Query(ctx,

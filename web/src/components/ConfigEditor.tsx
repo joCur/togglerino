@@ -100,6 +100,12 @@ export default function ConfigEditor({
         Configuration: <span className="text-foreground">{envKey}</span>
       </div>
 
+      {readOnly && (
+        <div className="text-xs text-muted-foreground/60 mb-4 italic">
+          View only — you do not have permission to edit this configuration.
+        </div>
+      )}
+      <div className={readOnly ? 'pointer-events-none opacity-60' : ''}>
       {/* Default Variant */}
       <div className="mb-6">
         <div className="text-[13px] font-medium text-foreground mb-1">Default Variant</div>
@@ -175,6 +181,7 @@ export default function ConfigEditor({
           />
         </CollapsibleContent>
       </Collapsible>
+      </div>
 
       {/* Copy from environment */}
       {!readOnly && otherEnvironments.length > 0 && (

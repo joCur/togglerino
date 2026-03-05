@@ -33,6 +33,13 @@ func (s *OrgSettingsStore) GetBaseProjectRole(ctx context.Context) (string, erro
 // SetBaseProjectRole updates the default project role. Valid values are
 // "admin", "editor", "viewer", and "none".
 func (s *OrgSettingsStore) SetBaseProjectRole(ctx context.Context, role string) error {
+	switch role {
+	case "admin", "editor", "viewer", "none":
+		// valid
+	default:
+		return fmt.Errorf("invalid base project role: %q", role)
+	}
+
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO org_settings (key, value) VALUES ('base_project_role', $1)
 		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
