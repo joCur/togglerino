@@ -1,15 +1,23 @@
+import { useMemo } from 'react'
 import { NavLink, Outlet, useParams, Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { useIsProjectAdmin } from '@/hooks/usePermissions'
 
-const settingsTabs = [
-  { to: 'general', label: 'General' },
-  { to: 'lifetimes', label: 'Flag Lifetimes' },
-  { to: 'environments', label: 'Environments' },
-  { to: 'members', label: 'Members' },
+const allSettingsTabs = [
+  { to: 'general', label: 'General', adminOnly: true },
+  { to: 'lifetimes', label: 'Flag Lifetimes', adminOnly: true },
+  { to: 'environments', label: 'Environments', adminOnly: true },
+  { to: 'members', label: 'Members', adminOnly: false },
 ]
 
 export default function ProjectSettingsPage() {
   const { key } = useParams<{ key: string }>()
+  const isProjectAdmin = useIsProjectAdmin(key)
+
+  const settingsTabs = useMemo(() =>
+    allSettingsTabs.filter((tab) => !tab.adminOnly || isProjectAdmin),
+    [isProjectAdmin],
+  )
 
   return (
     <div className="animate-[fadeIn_300ms_ease] max-w-[640px]">

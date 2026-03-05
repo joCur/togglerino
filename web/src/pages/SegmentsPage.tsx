@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { slugify } from '@/lib/utils'
+import { cn, slugify } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useCanWrite } from '@/hooks/usePermissions'
 
 const OPERATOR_GROUPS = [
   {
@@ -468,6 +469,7 @@ function EditSegmentDialog({ open, onOpenChange, segment, projectKey, autocomple
 
 export default function SegmentsPage() {
   const { key } = useParams<{ key: string }>()
+  const canWrite = useCanWrite(key)
   const [createOpen, setCreateOpen] = useState(false)
   const [editSegment, setEditSegment] = useState<Segment | null>(null)
   const autocompleteEnabled = useFlag('context-attribute-autocomplete', false)
@@ -517,7 +519,7 @@ export default function SegmentsPage() {
             Reusable groups of conditions for targeting rules.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>Create Segment</Button>
+        {canWrite && <Button onClick={() => setCreateOpen(true)}>Create Segment</Button>}
       </div>
 
       {(!segments || segments.length === 0) ? (
@@ -542,8 +544,8 @@ export default function SegmentsPage() {
               {segments.map((segment) => (
                 <TableRow
                   key={segment.id}
-                  className="transition-colors hover:bg-[#d4956a]/8 cursor-pointer"
-                  onClick={() => setEditSegment(segment)}
+                  className={cn('transition-colors hover:bg-[#d4956a]/8', canWrite && 'cursor-pointer')}
+                  onClick={() => canWrite && setEditSegment(segment)}
                 >
                   <TableCell>
                     <span className="font-mono text-xs text-[#d4956a] tracking-wide">{segment.key}</span>

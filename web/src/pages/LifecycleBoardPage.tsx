@@ -5,6 +5,7 @@ import type { Flag, LifecycleStatus } from '../api/types.ts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { useCanWrite } from '@/hooks/usePermissions'
 
 const COLUMNS: { status: LifecycleStatus; label: string; color: string; bgColor: string }[] = [
   { status: 'active', label: 'Active', color: 'text-emerald-400', bgColor: 'border-emerald-500/30' },
@@ -25,7 +26,7 @@ function daysAgo(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24))
 }
 
-function FlagCard({ flag, projectKey }: { flag: Flag; projectKey: string }) {
+function FlagCard({ flag, projectKey, canWrite }: { flag: Flag; projectKey: string; canWrite: boolean }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -66,7 +67,7 @@ function FlagCard({ flag, projectKey }: { flag: Flag; projectKey: string }) {
             <span> · status changed {daysAgo(flag.lifecycle_status_changed_at)}d ago</span>
           )}
         </div>
-        {flag.lifecycle_status === 'potentially_stale' && (
+        {canWrite && flag.lifecycle_status === 'potentially_stale' && (
           <Button
             size="sm"
             variant="outline"
@@ -77,7 +78,7 @@ function FlagCard({ flag, projectKey }: { flag: Flag; projectKey: string }) {
             {stalenessMutation.isPending ? 'Marking...' : 'Mark as Stale'}
           </Button>
         )}
-        {flag.lifecycle_status === 'stale' && (
+        {canWrite && flag.lifecycle_status === 'stale' && (
           <Button
             size="sm"
             variant="outline"
@@ -95,6 +96,7 @@ function FlagCard({ flag, projectKey }: { flag: Flag; projectKey: string }) {
 
 export default function LifecycleBoardPage() {
   const { key } = useParams<{ key: string }>()
+  const canWrite = useCanWrite(key)
 
   const { data: flags, isLoading } = useQuery({
     queryKey: ['projects', key, 'flags'],
@@ -152,7 +154,7 @@ export default function LifecycleBoardPage() {
                 </div>
               ) : (
                 col.flags.map(flag => (
-                  <FlagCard key={flag.id} flag={flag} projectKey={key!} />
+                  <FlagCard key={flag.id} flag={flag} projectKey={key!} canWrite={canWrite} />
                 ))
               )}
             </div>

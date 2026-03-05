@@ -45,6 +45,7 @@ interface Props {
   flagKey: string
   allConfigs: FlagEnvironmentConfig[]
   environments: Environment[]
+  readOnly?: boolean
 }
 
 export default function ConfigEditor({
@@ -55,6 +56,7 @@ export default function ConfigEditor({
   flagKey,
   allConfigs,
   environments,
+  readOnly,
 }: Props) {
   const queryClient = useQueryClient()
   const [defaultVariant, setDefaultVariant] = useState(config?.default_variant ?? '')
@@ -175,7 +177,7 @@ export default function ConfigEditor({
       </Collapsible>
 
       {/* Copy from environment */}
-      {otherEnvironments.length > 0 && (
+      {!readOnly && otherEnvironments.length > 0 && (
         <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6 p-3 rounded-md bg-secondary/30 border border-dashed">
           <div className="text-[13px] text-muted-foreground whitespace-nowrap">Copy from</div>
           <Select key={copyKey} onValueChange={(value) => setCopySourceEnv(value)}>
@@ -192,24 +194,26 @@ export default function ConfigEditor({
       )}
 
       {/* Save + Schedule */}
-      <div className="flex items-center gap-3">
-        <Button onClick={handleSave} disabled={updateConfig.isPending}>
-          {updateConfig.isPending ? 'Saving...' : 'Save Configuration'}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => setScheduleDialogOpen(true)}
-          disabled={flag.lifecycle_status === 'archived'}
-        >
-          <Clock className="w-3.5 h-3.5 mr-1.5" />
-          Schedule
-        </Button>
-        {saved && (
-          <span className="text-[13px] text-emerald-400 animate-[fadeIn_200ms_ease]">
-            Saved ✓
-          </span>
-        )}
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-3">
+          <Button onClick={handleSave} disabled={updateConfig.isPending}>
+            {updateConfig.isPending ? 'Saving...' : 'Save Configuration'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setScheduleDialogOpen(true)}
+            disabled={flag.lifecycle_status === 'archived'}
+          >
+            <Clock className="w-3.5 h-3.5 mr-1.5" />
+            Schedule
+          </Button>
+          {saved && (
+            <span className="text-[13px] text-emerald-400 animate-[fadeIn_200ms_ease]">
+              Saved ✓
+            </span>
+          )}
+        </div>
+      )}
 
       {updateConfig.error && (
         <Alert variant="destructive" className="mt-3">

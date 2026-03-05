@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useCanWrite } from '@/hooks/usePermissions'
 
 function maskKey(key: string): string {
   if (key.length <= 12) return key
@@ -22,6 +23,7 @@ function formatDate(dateStr: string): string {
 
 export default function SDKKeysPage() {
   const { key, env } = useParams<{ key: string; env: string }>()
+  const canWrite = useCanWrite(key)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [keyName, setKeyName] = useState('')
@@ -124,7 +126,7 @@ export default function SDKKeysPage() {
 
       <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">SDK Keys</h1>
-        {!showForm && (
+        {canWrite && !showForm && (
           <Button onClick={() => setShowForm(true)}>Generate New Key</Button>
         )}
       </div>
@@ -209,15 +211,17 @@ export default function SDKKeysPage() {
                         >
                           {copiedId === sdkKey.id ? 'Copied!' : 'Copy'}
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-7 border-destructive/50 text-destructive hover:bg-destructive/10"
-                          onClick={() => handleRevoke(sdkKey)}
-                          disabled={revokeMutation.isPending}
-                        >
-                          Revoke
-                        </Button>
+                        {canWrite && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-7 border-destructive/50 text-destructive hover:bg-destructive/10"
+                            onClick={() => handleRevoke(sdkKey)}
+                            disabled={revokeMutation.isPending}
+                          >
+                            Revoke
+                          </Button>
+                        )}
                       </div>
                     )}
                   </TableCell>
