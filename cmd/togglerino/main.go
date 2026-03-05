@@ -111,7 +111,7 @@ func main() {
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
-	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore)
+	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore, pool, auditStore)
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore, orgSettingsStore, projectMemberStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
@@ -128,9 +128,13 @@ func main() {
 	streamHandler := handler.NewStreamHandler(hub)
 	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
 	templateHandler := handler.NewTemplateHandler(templateStore, projectStore, auditStore)
-	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore)
+	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, auditStore)
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
+
+	// Permission middleware
+	roleResolver := auth.BuildRoleResolver(projectMemberStore, projectStore, orgSettingsStore)
+	myRoleHandler := handler.NewMyRoleHandler(roleResolver)
 
 	// 7b. Initialize OIDC provider (non-blocking, logs errors)
 	callbackURL := ""
@@ -147,22 +151,19 @@ func main() {
 	sdkAuth := auth.SDKAuth(sdkKeyStore)
 	authLimiter := ratelimit.New(10, 60) // 10 requests per minute
 
-	// Permission middleware
-	roleResolver := auth.BuildRoleResolver(projectMemberStore, projectStore, orgSettingsStore)
-
 	requireOrgUsersManage := auth.RequireOrgPermission(model.PermOrgUsersManage)
 	requireOrgOIDCManage := auth.RequireOrgPermission(model.PermOrgOIDCManage)
 	requireOrgProjectsCreate := auth.RequireOrgPermission(model.PermOrgProjectsCreate)
 	requireOrgProjectsDelete := auth.RequireOrgPermission(model.PermOrgProjectsDelete)
 
-	requireFlagsRead := auth.RequireProjectPermission(model.PermFlagsRead, roleResolver)
-	requireFlagsWrite := auth.RequireProjectPermission(model.PermFlagsWrite, roleResolver)
-	requireEnvsRead := auth.RequireProjectPermission(model.PermEnvironmentsRead, roleResolver)
-	requireEnvsWrite := auth.RequireProjectPermission(model.PermEnvironmentsWrite, roleResolver)
-	requireSDKKeysManage := auth.RequireProjectPermission(model.PermSDKKeysManage, roleResolver)
-	requireSegmentsWrite := auth.RequireProjectPermission(model.PermSegmentsWrite, roleResolver)
-	requireTemplatesManage := auth.RequireProjectPermission(model.PermTemplatesManage, roleResolver)
-	requireProjectSettings := auth.RequireProjectPermission(model.PermProjectSettings, roleResolver)
+	requireFlagsRead := auth.RequireProjectPermission(model.PermFlagsRead, roleResolver, projectStore)
+	requireFlagsWrite := auth.RequireProjectPermission(model.PermFlagsWrite, roleResolver, projectStore)
+	requireEnvsRead := auth.RequireProjectPermission(model.PermEnvironmentsRead, roleResolver, projectStore)
+	requireEnvsWrite := auth.RequireProjectPermission(model.PermEnvironmentsWrite, roleResolver, projectStore)
+	requireSDKKeysManage := auth.RequireProjectPermission(model.PermSDKKeysManage, roleResolver, projectStore)
+	requireSegmentsWrite := auth.RequireProjectPermission(model.PermSegmentsWrite, roleResolver, projectStore)
+	requireTemplatesManage := auth.RequireProjectPermission(model.PermTemplatesManage, roleResolver, projectStore)
+	requireProjectSettings := auth.RequireProjectPermission(model.PermProjectSettings, roleResolver, projectStore)
 
 	// --- Public routes (no auth) ---
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -190,6 +191,7 @@ func main() {
 	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionAuth))
 	mux.Handle("PUT /api/v1/auth/me", wrap(authHandler.UpdateMe, sessionAuth))
 	mux.Handle("POST /api/v1/auth/change-password", authLimiter.Middleware(wrap(authHandler.ChangePassword, sessionAuth)))
+	mux.Handle("GET /api/v1/auth/me/project-role/{key}", wrap(myRoleHandler.GetProjectRole, sessionAuth))
 
 	// User management (admin-only)
 	mux.Handle("GET /api/v1/management/users", wrap(userHandler.List, sessionAuth, requireOrgUsersManage))

@@ -43,22 +43,17 @@ export function useBaseProjectRole() {
   })
 }
 
-// Resolve the user's effective project role
+// Resolve the user's effective project role via server-side endpoint
 export function useProjectRole(projectKey: string | undefined): ProjectRole | null {
-  const { user } = useAuth()
-  const { data: members } = useProjectMembers(projectKey)
-  const { data: baseRole } = useBaseProjectRole()
+  const { data } = useQuery({
+    queryKey: ['my-project-role', projectKey],
+    queryFn: () => api.get<{ role: string }>(`/auth/me/project-role/${projectKey}`),
+    enabled: !!projectKey,
+  })
 
-  if (!user || !projectKey) return null
-  if (user.role === 'admin') return 'admin'
-
-  const membership = members?.find((m) => m.user_id === user.id)
-  if (membership) return membership.role
-
-  const base = baseRole?.base_project_role
-  if (base && base !== 'none') return base as ProjectRole
-
-  return null
+  if (!data) return null
+  if (data.role === 'none') return null
+  return data.role as ProjectRole
 }
 
 // Check if the user has write access (admin or editor) for a project

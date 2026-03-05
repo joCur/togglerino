@@ -12,10 +12,14 @@ import (
 // membership first, then falls back to the organization's base project role.
 func BuildRoleResolver(members *store.ProjectMemberStore, projects *store.ProjectStore, orgSettings *store.OrgSettingsStore) RoleResolver {
 	return func(ctx context.Context, projectKey, userID string) (model.ProjectRole, error) {
-		// 1. Look up project by key.
-		project, err := projects.FindByKey(ctx, projectKey)
-		if err != nil {
-			return "", fmt.Errorf("project not found: %w", err)
+		// 1. Look up project by key (use context cache if available).
+		project := ProjectFromContext(ctx)
+		if project == nil || project.Key != projectKey {
+			var err error
+			project, err = projects.FindByKey(ctx, projectKey)
+			if err != nil {
+				return "", fmt.Errorf("project not found: %w", err)
+			}
 		}
 
 		// 2. Check for explicit project membership.

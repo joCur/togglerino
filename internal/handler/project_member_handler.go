@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 
+	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
@@ -13,20 +16,25 @@ type ProjectMemberHandler struct {
 	members  *store.ProjectMemberStore
 	projects *store.ProjectStore
 	users    *store.UserStore
+	audit    *store.AuditStore
 }
 
 // NewProjectMemberHandler creates a new ProjectMemberHandler.
-func NewProjectMemberHandler(members *store.ProjectMemberStore, projects *store.ProjectStore, users *store.UserStore) *ProjectMemberHandler {
-	return &ProjectMemberHandler{members: members, projects: projects, users: users}
+func NewProjectMemberHandler(members *store.ProjectMemberStore, projects *store.ProjectStore, users *store.UserStore, audit *store.AuditStore) *ProjectMemberHandler {
+	return &ProjectMemberHandler{members: members, projects: projects, users: users, audit: audit}
 }
 
 // List returns all members of a project.
 // GET /api/v1/projects/{key}/members
 func (h *ProjectMemberHandler) List(w http.ResponseWriter, r *http.Request) {
-	project, err := h.projects.FindByKey(r.Context(), r.PathValue("key"))
-	if err != nil {
-		writeError(w, http.StatusNotFound, "project not found")
-		return
+	project := auth.ProjectFromContext(r.Context())
+	if project == nil {
+		var err error
+		project, err = h.projects.FindByKey(r.Context(), r.PathValue("key"))
+		if err != nil {
+			writeError(w, http.StatusNotFound, "project not found")
+			return
+		}
 	}
 
 	members, err := h.members.ListByProject(r.Context(), project.ID)
@@ -45,14 +53,26 @@ func (h *ProjectMemberHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *ProjectMemberHandler) Add(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		UserID string `json:"user_id"`
+		Email  string `json:"email"`
 		Role   string `json:"role"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
+	// Resolve user_id from email if needed
+	if req.UserID == "" && req.Email != "" {
+		user, err := h.users.FindByEmail(r.Context(), req.Email)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		req.UserID = user.ID
+	}
+
 	if req.UserID == "" {
-		writeError(w, http.StatusBadRequest, "user_id is required")
+		writeError(w, http.StatusBadRequest, "user_id or email is required")
 		return
 	}
 	if req.Role == "" {
@@ -64,10 +84,14 @@ func (h *ProjectMemberHandler) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.projects.FindByKey(r.Context(), r.PathValue("key"))
-	if err != nil {
-		writeError(w, http.StatusNotFound, "project not found")
-		return
+	project := auth.ProjectFromContext(r.Context())
+	if project == nil {
+		var err error
+		project, err = h.projects.FindByKey(r.Context(), r.PathValue("key"))
+		if err != nil {
+			writeError(w, http.StatusNotFound, "project not found")
+			return
+		}
 	}
 
 	// Verify the user exists.
@@ -85,6 +109,22 @@ func (h *ProjectMemberHandler) Add(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to add member")
 		return
 	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		newVal, _ := json.Marshal(member)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			Action:     "create",
+			EntityType: "project_member",
+			EntityID:   req.UserID,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
+
 	writeJSON(w, http.StatusCreated, member)
 }
 
@@ -103,34 +143,84 @@ func (h *ProjectMemberHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.projects.FindByKey(r.Context(), r.PathValue("key"))
-	if err != nil {
-		writeError(w, http.StatusNotFound, "project not found")
-		return
+	project := auth.ProjectFromContext(r.Context())
+	if project == nil {
+		var err error
+		project, err = h.projects.FindByKey(r.Context(), r.PathValue("key"))
+		if err != nil {
+			writeError(w, http.StatusNotFound, "project not found")
+			return
+		}
 	}
 
 	userID := r.PathValue("userId")
+
+	// Read old role before updating (for audit logging).
+	oldRole, _ := h.members.GetRole(r.Context(), project.ID, userID)
+
 	member, err := h.members.Update(r.Context(), project.ID, userID, model.ProjectRole(req.Role))
 	if err != nil {
 		writeError(w, http.StatusNotFound, "member not found")
 		return
 	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		oldVal, _ := json.Marshal(map[string]string{"user_id": userID, "role": string(oldRole)})
+		newVal, _ := json.Marshal(member)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			Action:     "update",
+			EntityType: "project_member",
+			EntityID:   userID,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, member)
 }
 
 // Remove deletes a project membership.
 // DELETE /api/v1/projects/{key}/members/{userId}
 func (h *ProjectMemberHandler) Remove(w http.ResponseWriter, r *http.Request) {
-	project, err := h.projects.FindByKey(r.Context(), r.PathValue("key"))
-	if err != nil {
-		writeError(w, http.StatusNotFound, "project not found")
-		return
+	project := auth.ProjectFromContext(r.Context())
+	if project == nil {
+		var err error
+		project, err = h.projects.FindByKey(r.Context(), r.PathValue("key"))
+		if err != nil {
+			writeError(w, http.StatusNotFound, "project not found")
+			return
+		}
 	}
 
 	userID := r.PathValue("userId")
+
+	// Read old role before removing (for audit logging).
+	oldRole, _ := h.members.GetRole(r.Context(), project.ID, userID)
+
 	if err := h.members.Remove(r.Context(), project.ID, userID); err != nil {
 		writeError(w, http.StatusNotFound, "member not found")
 		return
 	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		oldVal, _ := json.Marshal(map[string]string{"user_id": userID, "role": string(oldRole)})
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			Action:     "delete",
+			EntityType: "project_member",
+			EntityID:   userID,
+			OldValue:   oldVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }

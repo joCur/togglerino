@@ -75,7 +75,9 @@ function UserProjectAssignments({ userId }: { userId: string }) {
 
   const saveMutation = useMutation({
     mutationFn: (data: UserProjectAssignment[]) =>
-      api.put(`/management/users/${userId}/projects`, data),
+      api.put(`/management/users/${userId}/projects`, {
+        assignments: data.map((a) => ({ project_id: a.project_id, role: a.role })),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-projects', userId] })
     },

@@ -3,9 +3,12 @@ package handler
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
@@ -15,10 +18,12 @@ type UserHandler struct {
 	users   *store.UserStore
 	invites *store.InviteStore
 	members *store.ProjectMemberStore
+	pool    *pgxpool.Pool
+	audit   *store.AuditStore
 }
 
-func NewUserHandler(users *store.UserStore, invites *store.InviteStore, members *store.ProjectMemberStore) *UserHandler {
-	return &UserHandler{users: users, invites: invites, members: members}
+func NewUserHandler(users *store.UserStore, invites *store.InviteStore, members *store.ProjectMemberStore, pool *pgxpool.Pool, audit *store.AuditStore) *UserHandler {
+	return &UserHandler{users: users, invites: invites, members: members, pool: pool, audit: audit}
 }
 
 // GET /api/v1/management/users — returns all users (password_hash stripped via json:"-")
@@ -243,10 +248,21 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 		desiredMap[a.ProjectID] = model.ProjectRole(a.Role)
 	}
 
+	// Use a transaction so all changes are atomic
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to begin transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
 	// Remove assignments not in the new list
 	for _, c := range current {
 		if _, exists := desiredMap[c.ProjectID]; !exists {
-			if err := h.members.Remove(r.Context(), c.ProjectID, userID); err != nil {
+			_, err := tx.Exec(r.Context(),
+				`DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`,
+				c.ProjectID, userID)
+			if err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to remove assignment")
 				return
 			}
@@ -257,16 +273,43 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 	for projectID, role := range desiredMap {
 		if currentRole, exists := currentMap[projectID]; exists {
 			if currentRole != role {
-				if _, err := h.members.Update(r.Context(), projectID, userID, role); err != nil {
+				_, err := tx.Exec(r.Context(),
+					`UPDATE project_members SET role = $3, updated_at = NOW() WHERE project_id = $1 AND user_id = $2`,
+					projectID, userID, role)
+				if err != nil {
 					writeError(w, http.StatusInternalServerError, "failed to update assignment")
 					return
 				}
 			}
 		} else {
-			if _, err := h.members.Add(r.Context(), projectID, userID, role); err != nil {
+			_, err := tx.Exec(r.Context(),
+				`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`,
+				projectID, userID, role)
+			if err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to add assignment")
 				return
 			}
+		}
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit transaction")
+		return
+	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		oldVal, _ := json.Marshal(current)
+		newVal, _ := json.Marshal(req.Assignments)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			UserID:     &user.ID,
+			Action:     "update",
+			EntityType: "user_project_assignments",
+			EntityID:   userID,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
 		}
 	}
 
