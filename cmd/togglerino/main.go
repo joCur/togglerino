@@ -111,8 +111,8 @@ func main() {
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
-	userHandler := handler.NewUserHandler(userStore, inviteStore)
-	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore)
+	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore)
+	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore, orgSettingsStore, projectMemberStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
 	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore, projectSettingsStore)
@@ -197,6 +197,8 @@ func main() {
 	mux.Handle("GET /api/v1/management/users/invites", wrap(userHandler.ListInvites, sessionAuth, requireOrgUsersManage))
 	mux.Handle("DELETE /api/v1/management/users/{id}", wrap(userHandler.Delete, sessionAuth, requireOrgUsersManage))
 	mux.Handle("POST /api/v1/management/users/{id}/reset-password", wrap(http.HandlerFunc(userHandler.ResetPassword), sessionAuth, requireOrgUsersManage))
+	mux.Handle("GET /api/v1/management/users/{id}/projects", wrap(userHandler.ListProjectAssignments, sessionAuth, requireOrgUsersManage))
+	mux.Handle("PUT /api/v1/management/users/{id}/projects", wrap(userHandler.UpdateProjectAssignments, sessionAuth, requireOrgUsersManage))
 
 	// Projects
 	mux.Handle("POST /api/v1/projects", wrap(projectHandler.Create, sessionAuth, requireOrgProjectsCreate))

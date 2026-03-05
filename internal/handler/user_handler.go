@@ -14,10 +14,11 @@ import (
 type UserHandler struct {
 	users   *store.UserStore
 	invites *store.InviteStore
+	members *store.ProjectMemberStore
 }
 
-func NewUserHandler(users *store.UserStore, invites *store.InviteStore) *UserHandler {
-	return &UserHandler{users: users, invites: invites}
+func NewUserHandler(users *store.UserStore, invites *store.InviteStore, members *store.ProjectMemberStore) *UserHandler {
+	return &UserHandler{users: users, invites: invites, members: members}
 }
 
 // GET /api/v1/management/users — returns all users (password_hash stripped via json:"-")
@@ -166,4 +167,117 @@ func (h *UserHandler) ListInvites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, invites)
+}
+
+// GET /api/v1/management/users/{id}/projects — list project assignments for a user
+func (h *UserHandler) ListProjectAssignments(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "user id is required")
+		return
+	}
+
+	assignments, err := h.members.ListByUser(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list project assignments")
+		return
+	}
+	if assignments == nil {
+		assignments = []model.UserProjectAssignment{}
+	}
+	writeJSON(w, http.StatusOK, assignments)
+}
+
+// PUT /api/v1/management/users/{id}/projects — update project assignments for a user
+func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "user id is required")
+		return
+	}
+
+	var req struct {
+		Assignments []struct {
+			ProjectID string `json:"project_id"`
+			Role      string `json:"role"`
+		} `json:"assignments"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Validate all roles
+	for _, a := range req.Assignments {
+		if a.ProjectID == "" {
+			writeError(w, http.StatusBadRequest, "project_id is required for each assignment")
+			return
+		}
+		if !model.ValidProjectRole(a.Role) {
+			writeError(w, http.StatusBadRequest, "invalid role: "+a.Role)
+			return
+		}
+	}
+
+	// Verify user exists
+	if _, err := h.users.FindByID(r.Context(), userID); err != nil {
+		writeError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	// Get current assignments
+	current, err := h.members.ListByUser(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list current assignments")
+		return
+	}
+
+	// Build maps for diffing
+	currentMap := make(map[string]model.ProjectRole, len(current))
+	for _, c := range current {
+		currentMap[c.ProjectID] = c.Role
+	}
+
+	desiredMap := make(map[string]model.ProjectRole, len(req.Assignments))
+	for _, a := range req.Assignments {
+		desiredMap[a.ProjectID] = model.ProjectRole(a.Role)
+	}
+
+	// Remove assignments not in the new list
+	for _, c := range current {
+		if _, exists := desiredMap[c.ProjectID]; !exists {
+			if err := h.members.Remove(r.Context(), c.ProjectID, userID); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to remove assignment")
+				return
+			}
+		}
+	}
+
+	// Add or update assignments
+	for projectID, role := range desiredMap {
+		if currentRole, exists := currentMap[projectID]; exists {
+			if currentRole != role {
+				if _, err := h.members.Update(r.Context(), projectID, userID, role); err != nil {
+					writeError(w, http.StatusInternalServerError, "failed to update assignment")
+					return
+				}
+			}
+		} else {
+			if _, err := h.members.Add(r.Context(), projectID, userID, role); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to add assignment")
+				return
+			}
+		}
+	}
+
+	// Return updated list
+	assignments, err := h.members.ListByUser(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list updated assignments")
+		return
+	}
+	if assignments == nil {
+		assignments = []model.UserProjectAssignment{}
+	}
+	writeJSON(w, http.StatusOK, assignments)
 }
