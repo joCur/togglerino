@@ -122,7 +122,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	envEnabled := projectSettings.ResolveEnvironmentDefaults(envKeys, req.EnvironmentOverrides)
 
-	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags, envEnabled, req.OwnerID)
+	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags, envEnabled, req.OwnerID, req.EnvironmentOverrides)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
 			writeError(w, http.StatusConflict, "flag key already exists for this project")

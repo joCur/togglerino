@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, User } from '../api/types.ts'
+import type { Flag, FlagTemplate, User } from '../api/types.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { slugify } from '@/lib/utils'
 
 interface Props {
   open: boolean
@@ -36,10 +37,6 @@ const VALUE_TYPES = [
   { value: 'json', label: 'JSON' },
 ]
 
-function slugify(text: string): string {
-  return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-}
-
 export default function CreateFlagModal({ open, projectKey, onClose, onCreated, initialKey }: Props) {
   const queryClient = useQueryClient()
   const { user: currentUser } = useAuth()
@@ -52,6 +49,8 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
   const [defaultValue, setDefaultValue] = useState<string>('false')
   const [boolValue, setBoolValue] = useState(false)
   const [tags, setTags] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState<FlagTemplate | null>(null)
+  const [showTemplates, setShowTemplates] = useState(true)
 
   const { data: envDefaultsData } = useQuery({
     queryKey: ['projects', projectKey, 'settings', 'environments'],
@@ -66,6 +65,13 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     queryFn: () => api.get<User[]>('/management/users'),
     enabled: open,
   })
+
+  const { data: templatesData } = useQuery({
+    queryKey: ['projects', projectKey, 'templates'],
+    queryFn: () => api.templates.listForProject(projectKey),
+    enabled: open,
+  })
+
   const [ownerId, setOwnerId] = useState<string>(currentUser?.id ?? '')
 
   const [envOverrides, setEnvOverrides] = useState<Record<string, boolean>>({})
@@ -74,7 +80,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     mutationFn: (data: {
       key: string; name: string; description: string
       value_type: string; flag_type: string; default_value: unknown; tags: string[]
-      environment_overrides?: Record<string, { enabled: boolean }>
+      environment_overrides?: Record<string, Record<string, unknown>>
       owner_id?: string
     }) => api.post<Flag>(`/projects/${projectKey}/flags`, data),
     onSuccess: () => {
@@ -89,6 +95,8 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     setFlagType('boolean'); setFlagPurpose('release'); setDefaultValue('false'); setBoolValue(false); setTags('')
     setOwnerId(currentUser?.id ?? '')
     setEnvOverrides({})
+    setSelectedTemplate(null)
+    setShowTemplates(true)
     mutation.reset(); onClose()
   }
 
@@ -114,16 +122,65 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     return defaultValue
   }
 
+  const selectTemplate = (tmpl: FlagTemplate | null) => {
+    if (tmpl) {
+      setFlagPurpose(tmpl.flag_type)
+      handleTypeChange(tmpl.value_type)
+      setDescription(tmpl.description || '')
+      // Set default value based on type
+      if (tmpl.value_type === 'boolean') {
+        setBoolValue(tmpl.default_value === true)
+      } else if (tmpl.value_type === 'number') {
+        setDefaultValue(String(tmpl.default_value ?? 0))
+      } else if (tmpl.value_type === 'json') {
+        setDefaultValue(typeof tmpl.default_value === 'string' ? tmpl.default_value : JSON.stringify(tmpl.default_value))
+      } else {
+        setDefaultValue(String(tmpl.default_value ?? ''))
+      }
+      setTags(tmpl.tags.join(', '))
+      // Apply environment defaults from template
+      if (tmpl.environment_defaults) {
+        const overrides: Record<string, boolean> = {}
+        for (const [envKey, config] of Object.entries(tmpl.environment_defaults)) {
+          overrides[envKey] = config.enabled
+        }
+        setEnvOverrides(overrides)
+      }
+    }
+    setSelectedTemplate(tmpl)
+    setShowTemplates(false)
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const parsedTags = tags.split(',').map((tag) => tag.trim()).filter(Boolean)
 
-    // Build environment_overrides from any user changes
-    const environmentOverrides: Record<string, { enabled: boolean }> | undefined =
-      Object.keys(envOverrides).length > 0
-        ? Object.fromEntries(
-            Object.entries(envOverrides).map(([key, enabled]) => [key, { enabled }])
-          )
+    // Build environment_overrides
+    const environmentOverrides: Record<string, Record<string, unknown>> | undefined =
+      Object.keys(envOverrides).length > 0 || selectedTemplate?.variant_config?.variants
+        ? (() => {
+            const result: Record<string, Record<string, unknown>> = {}
+            // Start with enabled states
+            for (const [k, enabled] of Object.entries(envOverrides)) {
+              result[k] = { enabled }
+            }
+            // Apply variant config from template to all environments that have overrides
+            if (selectedTemplate?.variant_config?.variants) {
+              const envKeys = Object.keys(result).length > 0
+                ? Object.keys(result)
+                : envDefaultsData?.environment_defaults.map(e => e.key) ?? []
+              for (const envKey of envKeys) {
+                result[envKey] = {
+                  ...(result[envKey] || {}),
+                  enabled: result[envKey]?.enabled ?? envOverrides[envKey] ?? false,
+                  variants: selectedTemplate.variant_config.variants,
+                  default_variant: selectedTemplate.variant_config.default_variant,
+                  targeting_rules: selectedTemplate.variant_config.targeting_rules,
+                }
+              }
+            }
+            return Object.keys(result).length > 0 ? result : undefined
+          })()
         : undefined
 
     mutation.mutate({
@@ -143,153 +200,205 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) resetAndClose() }}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Flag</DialogTitle>
+          <DialogTitle>{showTemplates ? 'Choose a Template' : 'Create Flag'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          {errorMsg && (
-            <Alert variant="destructive" className="mb-5">
-              <AlertDescription>{errorMsg}</AlertDescription>
-            </Alert>
-          )}
-
+        {showTemplates ? (
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Name</Label>
-              <Input value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Dark Mode" required autoFocus />
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => selectTemplate(null)}
+                className="p-4 rounded-lg border border-border hover:border-amber-500/50 text-left transition-colors"
+              >
+                <div className="font-medium text-sm">Blank</div>
+                <div className="text-xs text-muted-foreground mt-1">Start from scratch</div>
+              </button>
+              {templatesData?.global.map(tmpl => (
+                <button
+                  key={tmpl.id}
+                  type="button"
+                  onClick={() => selectTemplate(tmpl)}
+                  className="p-4 rounded-lg border border-border hover:border-amber-500/50 text-left transition-colors"
+                >
+                  <div className="font-medium text-sm">{tmpl.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{tmpl.description}</div>
+                  <span className="inline-block mt-2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{tmpl.flag_type}</span>
+                </button>
+              ))}
             </div>
-
-            <div className="space-y-1.5">
-              <Label>Key</Label>
-              <Input className="font-mono text-xs" value={key} onChange={(e) => handleKeyChange(e.target.value)} placeholder="dark-mode" required />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Description</Label>
-              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" className="min-h-[72px] resize-y" />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Owner</Label>
-              <Select value={ownerId || 'none'} onValueChange={(v) => setOwnerId(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="No owner" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No owner</SelectItem>
-                  {users?.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.display_name ?? u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Flag Purpose</Label>
-              <Select value={flagPurpose} onValueChange={setFlagPurpose}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FLAG_PURPOSES.map((fp) => (
-                    <SelectItem key={fp.value} value={fp.value}>
-                      <span>{fp.label}</span>
-                      <span className="ml-2 text-muted-foreground text-xs">{fp.lifetime}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="text-xs text-muted-foreground">
-                {FLAG_PURPOSES.find(fp => fp.value === flagPurpose)?.description}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Value Type</Label>
-              <Select value={flagType} onValueChange={handleTypeChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {VALUE_TYPES.map((ft) => (
-                    <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Default Value</Label>
-              {flagType === 'boolean' ? (
-                <div className="flex items-center gap-2.5">
-                  <Switch checked={boolValue} onCheckedChange={setBoolValue} />
-                  <span className="text-[13px] font-mono text-foreground">{boolValue ? 'true' : 'false'}</span>
+            {templatesData?.project && templatesData.project.length > 0 && (
+              <>
+                <div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-[1.2px] font-mono pt-2">
+                  Project Templates
                 </div>
-              ) : flagType === 'number' ? (
-                <Input type="number" value={defaultValue} onChange={(e) => setDefaultValue(e.target.value)} />
-              ) : flagType === 'json' ? (
-                <Textarea className="font-mono text-xs min-h-[72px]" value={defaultValue} onChange={(e) => setDefaultValue(e.target.value)} placeholder='{"key": "value"}' />
-              ) : (
-                <Input value={defaultValue} onChange={(e) => setDefaultValue(e.target.value)} placeholder="Default string value" />
+                <div className="grid grid-cols-2 gap-3">
+                  {templatesData.project.map(tmpl => (
+                    <button
+                      key={tmpl.id}
+                      type="button"
+                      onClick={() => selectTemplate(tmpl)}
+                      className="p-4 rounded-lg border border-border hover:border-amber-500/50 text-left transition-colors"
+                    >
+                      <div className="font-medium text-sm">{tmpl.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{tmpl.description}</div>
+                      <span className="inline-block mt-2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{tmpl.flag_type}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <button type="button" onClick={() => setShowTemplates(true)} className="text-xs text-muted-foreground hover:text-foreground transition-colors mb-2">
+              ← Choose a different template
+            </button>
+
+            {errorMsg && (
+              <Alert variant="destructive" className="mb-5">
+                <AlertDescription>{errorMsg}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Name</Label>
+                <Input value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Dark Mode" required autoFocus />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Key</Label>
+                <Input className="font-mono text-xs" value={key} onChange={(e) => handleKeyChange(e.target.value)} placeholder="dark-mode" required />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Description</Label>
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" className="min-h-[72px] resize-y" />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Owner</Label>
+                <Select value={ownerId || 'none'} onValueChange={(v) => setOwnerId(v === 'none' ? '' : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No owner</SelectItem>
+                    {users?.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.display_name ?? u.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Flag Purpose</Label>
+                <Select value={flagPurpose} onValueChange={setFlagPurpose}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FLAG_PURPOSES.map((fp) => (
+                      <SelectItem key={fp.value} value={fp.value}>
+                        <span>{fp.label}</span>
+                        <span className="ml-2 text-muted-foreground text-xs">{fp.lifetime}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="text-xs text-muted-foreground">
+                  {FLAG_PURPOSES.find(fp => fp.value === flagPurpose)?.description}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Value Type</Label>
+                <Select value={flagType} onValueChange={handleTypeChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VALUE_TYPES.map((ft) => (
+                      <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Default Value</Label>
+                {flagType === 'boolean' ? (
+                  <div className="flex items-center gap-2.5">
+                    <Switch checked={boolValue} onCheckedChange={setBoolValue} />
+                    <span className="text-[13px] font-mono text-foreground">{boolValue ? 'true' : 'false'}</span>
+                  </div>
+                ) : flagType === 'number' ? (
+                  <Input type="number" value={defaultValue} onChange={(e) => setDefaultValue(e.target.value)} />
+                ) : flagType === 'json' ? (
+                  <Textarea className="font-mono text-xs min-h-[72px]" value={defaultValue} onChange={(e) => setDefaultValue(e.target.value)} placeholder='{"key": "value"}' />
+                ) : (
+                  <Input value={defaultValue} onChange={(e) => setDefaultValue(e.target.value)} placeholder="Default string value" />
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Tags (comma-separated)</Label>
+                <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="ui, experiment, beta" />
+              </div>
+
+              {envDefaultsData && (
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <button type="button" className="flex items-center justify-between w-full text-left py-2 text-[13px] font-medium text-foreground hover:text-foreground/80 transition-colors">
+                      <span>Environment Configuration</span>
+                      <span className="text-[11px] text-muted-foreground font-normal">
+                        {envDefaultsData.environment_defaults.map(e => {
+                          const enabled = envOverrides[e.key] ?? e.enabled
+                          return `${e.key}: ${enabled ? 'on' : 'off'}`
+                        }).join(', ')}
+                      </span>
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="flex flex-col gap-2.5 pt-1 pb-2">
+                      {envDefaultsData.environment_defaults.map((env) => {
+                        const enabled = envOverrides[env.key] ?? env.enabled
+                        return (
+                          <div key={env.key} className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[13px] text-foreground">{env.name}</span>
+                              <span className="text-[11px] text-muted-foreground ml-2 font-mono">{env.key}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={enabled}
+                                onCheckedChange={(checked: boolean) =>
+                                  setEnvOverrides(prev => ({ ...prev, [env.key]: checked }))
+                                }
+                              />
+                              <span className="text-xs text-muted-foreground w-[52px]">
+                                {enabled ? 'Enabled' : 'Disabled'}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Tags (comma-separated)</Label>
-              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="ui, experiment, beta" />
+            <div className="flex justify-end gap-2.5 mt-6">
+              <Button type="button" variant="outline" onClick={resetAndClose}>Cancel</Button>
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? 'Creating...' : 'Create Flag'}
+              </Button>
             </div>
-
-            {envDefaultsData && (
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <button type="button" className="flex items-center justify-between w-full text-left py-2 text-[13px] font-medium text-foreground hover:text-foreground/80 transition-colors">
-                    <span>Environment Configuration</span>
-                    <span className="text-[11px] text-muted-foreground font-normal">
-                      {envDefaultsData.environment_defaults.map(e => {
-                        const enabled = envOverrides[e.key] ?? e.enabled
-                        return `${e.key}: ${enabled ? 'on' : 'off'}`
-                      }).join(', ')}
-                    </span>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="flex flex-col gap-2.5 pt-1 pb-2">
-                    {envDefaultsData.environment_defaults.map((env) => {
-                      const enabled = envOverrides[env.key] ?? env.enabled
-                      return (
-                        <div key={env.key} className="flex items-center justify-between">
-                          <div>
-                            <span className="text-[13px] text-foreground">{env.name}</span>
-                            <span className="text-[11px] text-muted-foreground ml-2 font-mono">{env.key}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={enabled}
-                              onCheckedChange={(checked: boolean) =>
-                                setEnvOverrides(prev => ({ ...prev, [env.key]: checked }))
-                              }
-                            />
-                            <span className="text-xs text-muted-foreground w-[52px]">
-                              {enabled ? 'Enabled' : 'Disabled'}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2.5 mt-6">
-            <Button type="button" variant="outline" onClick={resetAndClose}>Cancel</Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Creating...' : 'Create Flag'}
-            </Button>
-          </div>
-        </form>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   )

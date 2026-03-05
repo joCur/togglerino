@@ -22,7 +22,8 @@ func NewFlagStore(pool *pgxpool.Pool) *FlagStore {
 // Create inserts a new flag and creates a FlagEnvironmentConfig row for each
 // environment in the project. The envEnabled map controls the initial enabled
 // state per environment key; environments not in the map default to disabled.
-func (s *FlagStore) Create(ctx context.Context, projectID, key, name, description string, valueType model.ValueType, flagType model.FlagType, defaultValue json.RawMessage, tags []string, envEnabled map[string]bool, ownerID *string) (*model.Flag, error) {
+// envOverrides optionally sets variants, default_variant, and targeting_rules per environment.
+func (s *FlagStore) Create(ctx context.Context, projectID, key, name, description string, valueType model.ValueType, flagType model.FlagType, defaultValue json.RawMessage, tags []string, envEnabled map[string]bool, ownerID *string, envOverrides map[string]model.EnvironmentDefault) (*model.Flag, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("beginning transaction: %w", err)
@@ -71,9 +72,28 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 				enabled = v
 			}
 		}
+
+		defaultVariant := ""
+		variants := json.RawMessage(`[]`)
+		targetingRules := json.RawMessage(`[]`)
+
+		if envOverrides != nil {
+			if override, ok := envOverrides[env.Key]; ok {
+				if override.DefaultVariant != "" {
+					defaultVariant = override.DefaultVariant
+				}
+				if override.Variants != nil {
+					variants = override.Variants
+				}
+				if override.TargetingRules != nil {
+					targetingRules = override.TargetingRules
+				}
+			}
+		}
+
 		_, err := tx.Exec(ctx,
-			`INSERT INTO flag_environment_configs (flag_id, environment_id, enabled) VALUES ($1, $2, $3)`,
-			f.ID, env.ID, enabled,
+			`INSERT INTO flag_environment_configs (flag_id, environment_id, enabled, default_variant, variants, targeting_rules) VALUES ($1, $2, $3, $4, $5, $6)`,
+			f.ID, env.ID, enabled, defaultVariant, variants, targetingRules,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating flag environment config for env %s: %w", env.ID, err)
