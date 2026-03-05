@@ -1,4 +1,4 @@
-import type { Condition, Segment, BulkActionRequest, BulkActionResponse } from './types'
+import type { Condition, Segment, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -72,5 +72,23 @@ export const api = {
       request<{ referencing_flags: string[] }>(
         `/projects/${projectKey}/segments/${segmentKey}/usage`,
       ),
+  },
+
+  templates: {
+    listGlobal: () => request<FlagTemplate[]>('/templates'),
+    createGlobal: (body: Partial<FlagTemplate>) =>
+      request<FlagTemplate>('/templates', { method: 'POST', body: JSON.stringify(body) }),
+    updateGlobal: (key: string, body: Partial<FlagTemplate>) =>
+      request<FlagTemplate>(`/templates/${key}`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteGlobal: (key: string) =>
+      request<void>(`/templates/${key}`, { method: 'DELETE' }),
+    listForProject: (projectKey: string) =>
+      request<TemplatesForProject>(`/projects/${projectKey}/templates`),
+    createForProject: (projectKey: string, body: Partial<FlagTemplate>) =>
+      request<FlagTemplate>(`/projects/${projectKey}/templates`, { method: 'POST', body: JSON.stringify(body) }),
+    updateForProject: (projectKey: string, templateKey: string, body: Partial<FlagTemplate>) =>
+      request<FlagTemplate>(`/projects/${projectKey}/templates/${templateKey}`, { method: 'PUT', body: JSON.stringify(body) }),
+    deleteForProject: (projectKey: string, templateKey: string) =>
+      request<void>(`/projects/${projectKey}/templates/${templateKey}`, { method: 'DELETE' }),
   },
 }
