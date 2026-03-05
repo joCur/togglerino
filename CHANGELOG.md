@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.12.0](https://github.com/joCur/togglerino/compare/v0.11.0...v0.12.0) (2026-03-04)
+
+
+### Features
+
+* bulk flag operations ([#49](https://github.com/joCur/togglerino/issues/49)) ([#68](https://github.com/joCur/togglerino/issues/68)) ([6df9550](https://github.com/joCur/togglerino/commit/6df9550a195cae6616f84278c996cead9c9c0cd4))
+* environment defaults for new flags ([#51](https://github.com/joCur/togglerino/issues/51)) ([#61](https://github.com/joCur/togglerino/issues/61)) ([511dc9b](https://github.com/joCur/togglerino/commit/511dc9bd95326d7e2f3067156e450e39b36c0368))
+* flag change history with diff and rollback ([#43](https://github.com/joCur/togglerino/issues/43)) ([#67](https://github.com/joCur/togglerino/issues/67)) ([3d34c1b](https://github.com/joCur/togglerino/commit/3d34c1be3ca09d1680ece7e24335fe5a92fa0915))
+* flag ownership ([#40](https://github.com/joCur/togglerino/issues/40)) ([#64](https://github.com/joCur/togglerino/issues/64)) ([206cd0c](https://github.com/joCur/togglerino/commit/206cd0cd460c3e2f777766daf06add426ab07683))
+* move theme mode from global settings to user account page ([#76](https://github.com/joCur/togglerino/issues/76)) ([5cbe542](https://github.com/joCur/togglerino/commit/5cbe54211570eba3e8239176646d29c7b8bf0c32))
+* SSO via OpenID Connect (OIDC) ([#69](https://github.com/joCur/togglerino/issues/69)) ([b2b25a5](https://github.com/joCur/togglerino/commit/b2b25a51289a0a9820518bb8d41898bd1f0924a2))
+* **web:** rework project settings page with tabbed navigation ([#62](https://github.com/joCur/togglerino/issues/62)) ([#63](https://github.com/joCur/togglerino/issues/63)) ([bd327e2](https://github.com/joCur/togglerino/commit/bd327e2833170d9745f05ccd47edbd4f0f3d53ed))
+* **web:** show error pages for deleted resources ([#66](https://github.com/joCur/togglerino/issues/66)) ([2aba64d](https://github.com/joCur/togglerino/commit/2aba64d2c6fc446c2f8e007d6b862edb17585ba5))
+
+
+### Bug Fixes
+
+* **web:** replace back-to-list link with breadcrumbs on flag detail page ([#59](https://github.com/joCur/togglerino/issues/59)) ([cbe4377](https://github.com/joCur/togglerino/commit/cbe4377c4b03aed888fa14d982f33df19de5f598))
+
 ## [0.11.0](https://github.com/joCur/togglerino/compare/v0.10.0...v0.11.0) (2026-03-01)
 
 
