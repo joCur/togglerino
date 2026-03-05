@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: togglerino
+      POSTGRES_PASSWORD: togglerino
+      POSTGRES_DB: togglerino
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  togglerino:
+    build: .
+    ports:
+      - "${BACKEND_PORT:-8090}:8080"
+    environment:
+      DATABASE_URL: postgres://togglerino:togglerino@postgres:5432/togglerino?sslmode=disable
+      PORT: "8080"
+      CORS_ORIGINS: "*"
+      LOG_FORMAT: json
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
