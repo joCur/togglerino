@@ -9,6 +9,11 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U togglerino"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
 
   togglerino:
     build: .
@@ -20,7 +25,8 @@ services:
       CORS_ORIGINS: "*"
       LOG_FORMAT: json
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:
