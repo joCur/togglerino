@@ -1,4 +1,4 @@
-import type { Condition, Segment, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject } from './types'
+import type { Condition, Segment, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -72,6 +72,14 @@ export const api = {
       request<{ referencing_flags: string[] }>(
         `/projects/${projectKey}/segments/${segmentKey}/usage`,
       ),
+  },
+
+  playground: {
+    evaluate: (projectKey: string, body: PlaygroundRequest) =>
+      request<PlaygroundResponse>(`/projects/${projectKey}/playground`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
   },
 
   templates: {
