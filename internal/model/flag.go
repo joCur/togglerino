@@ -137,6 +137,43 @@ type EvaluationResult struct {
 	Reason  string `json:"reason"`
 }
 
+// ConditionTrace records the evaluation of a single condition.
+type ConditionTrace struct {
+	Attribute      string           `json:"attribute"`
+	Operator       string           `json:"operator"`
+	ConditionValue any              `json:"condition_value"`
+	ActualValue    any              `json:"actual_value,omitempty"`
+	Passed         bool             `json:"passed"`
+	SegmentTrace   []ConditionTrace `json:"segment_trace,omitempty"`
+}
+
+// TraceStep records one step in the evaluation process.
+type TraceStep struct {
+	Type              string           `json:"type"`
+	Passed            bool             `json:"passed"`
+	Status            string           `json:"status,omitempty"`
+	Enabled           *bool            `json:"enabled,omitempty"`
+	RuleIndex         *int             `json:"rule_index,omitempty"`
+	Variant           string           `json:"variant,omitempty"`
+	PercentageRollout *int             `json:"percentage_rollout,omitempty"`
+	HashBucket        *int             `json:"hash_bucket,omitempty"`
+	InRollout         *bool            `json:"in_rollout,omitempty"`
+	Matched           *bool            `json:"matched,omitempty"`
+	Skipped           bool             `json:"skipped,omitempty"`
+	Conditions        []ConditionTrace `json:"conditions,omitempty"`
+}
+
+// EvaluationTrace contains a detailed trace of the evaluation process.
+type EvaluationTrace struct {
+	FlagKey        string      `json:"flag_key"`
+	Value          any         `json:"value"`
+	Variant        string      `json:"variant"`
+	Reason         string      `json:"reason"`
+	Steps          []TraceStep `json:"steps"`
+	DefaultVariant string      `json:"default_variant"`
+	SelectedStep   int         `json:"selected_step"`
+}
+
 type ContextAttribute struct {
 	ID         string    `json:"id"`
 	ProjectID  string    `json:"project_id"`
