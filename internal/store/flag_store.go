@@ -397,3 +397,59 @@ func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	}
 	return &cfg, nil
 }
+
+// LifecycleSummary holds per-status flag counts and a derived health score.
+type LifecycleSummary struct {
+	Active           int     `json:"active"`
+	PotentiallyStale int     `json:"potentially_stale"`
+	Stale            int     `json:"stale"`
+	Archived         int     `json:"archived"`
+	HealthScore      float64 `json:"health_score"`
+}
+
+// LifecycleSummary returns flag counts grouped by lifecycle status for a
+// project, plus a health score (percentage of non-archived flags that are
+// active).
+func (s *FlagStore) LifecycleSummary(ctx context.Context, projectID string) (*LifecycleSummary, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT lifecycle_status, COUNT(*)
+		 FROM flags WHERE project_id = $1
+		 GROUP BY lifecycle_status`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying lifecycle summary: %w", err)
+	}
+	defer rows.Close()
+
+	summary := &LifecycleSummary{}
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("scanning lifecycle count: %w", err)
+		}
+		switch status {
+		case "active":
+			summary.Active = count
+		case "potentially_stale":
+			summary.PotentiallyStale = count
+		case "stale":
+			summary.Stale = count
+		case "archived":
+			summary.Archived = count
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating lifecycle counts: %w", err)
+	}
+
+	nonArchived := summary.Active + summary.PotentiallyStale + summary.Stale
+	if nonArchived > 0 {
+		summary.HealthScore = float64(summary.Active) / float64(nonArchived) * 100
+	} else {
+		summary.HealthScore = 100
+	}
+
+	return summary, nil
+}
