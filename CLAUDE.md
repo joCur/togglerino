@@ -62,48 +62,23 @@ Multi-stage Dockerfile: `node:20-alpine` (frontend build) → `golang:1.25-alpin
 - `OIDC_CLIENT_SECRET` — OIDC client secret (env var override for DB config)
 - `OIDC_DEFAULT_ROLE` — Default role for OIDC-provisioned users: `admin` or `member` (default: `member`)
 
-## Development Workflows
+## Development Workflow
 
-### Frontend-only (no Go required)
-
-Frontend developers do not need Go installed. Use Docker Compose for the full backend and develop with Vite HMR:
+Always use `dev.sh` to start development. It runs PostgreSQL + Go backend in Docker and isolates ports per worktree:
 
 ```bash
-docker compose up -d                       # Start PostgreSQL + Go backend (port 8090)
-cd web && npm install && npm run dev       # Vite dev server (port 5173) with HMR
-```
-
-Vite proxies all `/api` requests to `http://localhost:8090` (configured in `web/vite.config.ts`). The frontend at `http://localhost:5173` has full hot reload — edit React components, styles, or API calls and see changes instantly without rebuilding anything.
-
-To pick up backend API/schema changes: `docker compose up --build -d` (rebuilds the Go binary + runs migrations).
-
-### Fullstack (Go + frontend)
-
-For working on both backend and frontend simultaneously, start only PostgreSQL from Compose and run Go directly:
-
-```bash
-docker compose up -d postgres              # Start only PostgreSQL (not the Go backend)
-LOG_FORMAT=text go run ./cmd/togglerino    # Run Go backend directly (port 8080, text logs)
-cd web && npm run dev                      # In another terminal: Vite dev server
-```
-
-Note: when running Go directly, the backend is on port **8080** (not 8090). Start with `PORT=8090 go run ./cmd/togglerino` to match the Vite proxy target, or temporarily change `web/vite.config.ts`.
-
-### Multi-worktree development
-
-For parallel development across multiple git worktrees, use `dev.sh` which isolates databases and ports per worktree:
-
-```bash
-./dev.sh                                   # Start PostgreSQL + Go backend in Docker (frontend devs)
-./dev.sh --go                              # Start PostgreSQL only (fullstack devs run Go manually)
+./dev.sh                                   # Start PostgreSQL + Go backend in Docker
+cd web && npm install && npm run dev       # Vite dev server with HMR (in another terminal)
 ./dev.sh --down                            # Stop and remove containers
 ```
 
+`dev.sh` prints the assigned ports on startup. Vite proxies `/api` requests to the backend automatically. The frontend has full hot reload — edit React components, styles, or API calls and see changes instantly.
+
+To pick up backend API/schema changes: `./dev.sh` again (rebuilds the Go binary + runs migrations).
+
 `dev.sh` derives a deterministic port offset (0-99) from the directory name via `cksum`, so each worktree gets unique ports. It sets `COMPOSE_PROJECT_NAME` to isolate Docker volumes/containers and configures `DATABASE_URL`, `BACKEND_PORT`, and `VITE_API_URL` automatically. Uses `docker-compose.dev.yml` (the main `docker-compose.yml` is unchanged for self-hosting).
 
-Example with two worktrees:
-- `togglerino/` → PostgreSQL :5454, Go :8112, Vite :5195
-- `.claude/worktrees/fix-bug/` → PostgreSQL :5455, Go :8113, Vite :5196
+For fullstack development (running Go outside Docker), use `./dev.sh --go` to start only PostgreSQL, then run Go manually with `LOG_FORMAT=text go run ./cmd/togglerino`.
 
 ### Debugging
 
@@ -111,8 +86,8 @@ Example with two worktrees:
 
 **Common frontend debugging scenarios**:
 - **401 on API calls**: Session cookie expired or missing. Check browser DevTools → Application → Cookies for `session_id`. Re-login via the UI
-- **CORS errors**: Ensure `CORS_ORIGINS=*` is set (default in Docker Compose). If running Go directly, start with `CORS_ORIGINS=http://localhost:5173`
-- **Proxy not working**: Vite proxy targets port 8090 (Docker Compose mapping). If running Go directly on 8080, either change `web/vite.config.ts` proxy target or set `PORT=8090`
+- **CORS errors**: Ensure `CORS_ORIGINS=*` is set (default in Docker Compose)
+- **Proxy not working**: `dev.sh` configures `VITE_API_URL` automatically. If running without `dev.sh`, ensure the Vite proxy target matches the backend port
 - **Stale UI after backend changes**: TanStack Query caches aggressively. Hard-refresh or clear the query cache in React DevTools
 
 **Backend debugging tips**:
