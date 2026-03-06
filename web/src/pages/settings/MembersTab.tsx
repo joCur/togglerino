@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
@@ -85,15 +85,15 @@ export default function MembersTab() {
 
   const { data: searchResults } = useUserSearch(userSearchQuery)
 
-  // Reset form state when dialog closes
-  useEffect(() => {
-    if (!addOpen) {
+  const handleOpenChange = (open: boolean) => {
+    setAddOpen(open)
+    if (!open) {
       setSelectedUser(null)
       setUserSearchQuery('')
       setAddRole('editor')
       setError('')
     }
-  }, [addOpen])
+  }
 
   const addMutation = useMutation({
     mutationFn: (data: { user_id: string; role: ProjectRole }) =>
@@ -149,7 +149,7 @@ export default function MembersTab() {
                 Manage who has access to this project and their roles.
               </div>
             </div>
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <Dialog open={addOpen} onOpenChange={handleOpenChange}>
               <DialogTrigger asChild>
                 <Button size="sm">Add Member</Button>
               </DialogTrigger>
