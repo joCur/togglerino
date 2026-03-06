@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/togglerino/togglerino/internal/model"
 )
@@ -40,7 +41,7 @@ func TestRecorder_Tick(t *testing.T) {
 		},
 	}
 	ss := &mockSnapshotStore{}
-	r := NewRecorder(flags, ss, 24*60*60)
+	r := NewRecorder(flags, ss, 24*time.Hour)
 
 	r.tick(context.Background())
 

@@ -81,22 +81,28 @@ export default function LifecycleBoardPage() {
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   )
 
+  const [error, setError] = useState<string | null>(null)
+
   const archiveMutation = useMutation({
     mutationFn: (flagKey: string) => api.put(`/projects/${key}/flags/${flagKey}/archive`, { archived: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects', key] }),
+    onSuccess: () => { setError(null); queryClient.invalidateQueries({ queryKey: ['projects', key] }) },
+    onError: (e) => setError(e instanceof Error ? e.message : 'Failed to archive flag'),
   })
 
   const stalenessMutation = useMutation({
     mutationFn: (flagKey: string) => api.put(`/projects/${key}/flags/${flagKey}/staleness`, { status: 'stale' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects', key] }),
+    onSuccess: () => { setError(null); queryClient.invalidateQueries({ queryKey: ['projects', key] }) },
+    onError: (e) => setError(e instanceof Error ? e.message : 'Failed to mark flag as stale'),
   })
 
   const bulkArchiveMutation = useMutation({
     mutationFn: () => api.flags.bulk(key!, { action: 'archive', flag_keys: [...selected] }),
     onSuccess: () => {
+      setError(null)
       setSelected(new Set())
       queryClient.invalidateQueries({ queryKey: ['projects', key] })
     },
+    onError: (e) => setError(e instanceof Error ? e.message : 'Failed to archive selected flags'),
   })
 
   function toggleSelect(flagKey: string) {
@@ -181,6 +187,14 @@ export default function LifecycleBoardPage() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+      )}
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-[13px] flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="ghost" size="sm" className="h-6 text-[11px] text-destructive" onClick={() => setError(null)}>Dismiss</Button>
+        </div>
       )}
 
       {/* Action Queue */}
@@ -279,7 +293,7 @@ export default function LifecycleBoardPage() {
                       </td>
                       <td className="p-2 hidden md:table-cell">
                         <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[flag.lifecycle_status] || ''}`}>
-                          {flag.lifecycle_status.replace('_', ' ')}
+                          {flag.lifecycle_status.replaceAll('_', ' ')}
                         </Badge>
                       </td>
                       <td className="p-2 hidden md:table-cell text-muted-foreground text-[12px]">
