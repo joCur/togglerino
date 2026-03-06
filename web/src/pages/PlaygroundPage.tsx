@@ -116,7 +116,7 @@ export default function PlaygroundPage() {
     setSearchParams(params, { replace: true })
 
     evaluateMutation.mutate(body)
-  }, [envKey, flagKey, userId, attributes, key, setSearchParams, evaluateMutation])
+  }, [envKey, flagKey, userId, attributes, setSearchParams, evaluateMutation])
 
   // Auto-evaluate on page load if params exist
   useEffect(() => {
