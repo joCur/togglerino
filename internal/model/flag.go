@@ -94,6 +94,8 @@ type FlagEnvironmentConfig struct {
 	Variants       []Variant       `json:"variants"`
 	TargetingRules []TargetingRule `json:"targeting_rules"`
 	UpdatedAt      time.Time       `json:"updated_at"`
+	UpdatedBy      *string         `json:"updated_by,omitempty"`
+	UpdatedByUser  *FlagOwner      `json:"updated_by_user,omitempty"`
 }
 
 type Variant struct {

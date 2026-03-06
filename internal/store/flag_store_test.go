@@ -500,7 +500,7 @@ func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 	variants := json.RawMessage(`[{"key":"on","value":true},{"key":"off","value":false}]`)
 	rules := json.RawMessage(`[{"conditions":[{"attribute":"country","operator":"equals","value":"US"}],"variant":"on"}]`)
 
-	cfg, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", variants, rules)
+	cfg, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", variants, rules, nil)
 	if err != nil {
 		t.Fatalf("UpdateEnvironmentConfig: %v", err)
 	}
@@ -551,6 +551,114 @@ func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 	}
 	if len(readCfg.Variants) != 2 {
 		t.Errorf("Variants length after re-read: got %d, want 2", len(readCfg.Variants))
+	}
+}
+
+func TestFlagStore_UpdateEnvironmentConfig_UpdatedBy(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("updatedby")
+	project, err := ps.Create(ctx, projKey, "UpdatedBy Project", "test")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+
+	env, err := es.Create(ctx, project.ID, "production", "Production")
+	if err != nil {
+		t.Fatalf("creating env: %v", err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, "ks-flag", "Kill Switch", "test",
+		model.ValueTypeBoolean, model.FlagTypeKillSwitch, json.RawMessage(`false`),
+		[]string{}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Initial config should have nil UpdatedBy
+	cfg, err := fs.GetEnvironmentConfig(ctx, flag.ID, env.ID)
+	if err != nil {
+		t.Fatalf("GetEnvironmentConfig: %v", err)
+	}
+	if cfg.UpdatedBy != nil {
+		t.Errorf("expected nil UpdatedBy on initial config, got %v", cfg.UpdatedBy)
+	}
+	if cfg.UpdatedByUser != nil {
+		t.Errorf("expected nil UpdatedByUser on initial config, got %v", cfg.UpdatedByUser)
+	}
+
+	// Create a user and update the config with updated_by
+	email := uniqueEmail("updatedby")
+	user, err := us.Create(ctx, email, "hash", model.RoleAdmin)
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+
+	variants := json.RawMessage(`[{"key":"on","value":true},{"key":"off","value":false}]`)
+	rules := json.RawMessage(`[]`)
+
+	updated, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", variants, rules, &user.ID)
+	if err != nil {
+		t.Fatalf("UpdateEnvironmentConfig: %v", err)
+	}
+	if updated.UpdatedBy == nil || *updated.UpdatedBy != user.ID {
+		t.Errorf("UpdatedBy on write: got %v, want %q", updated.UpdatedBy, user.ID)
+	}
+
+	// Read back and verify UpdatedByUser is populated via JOIN
+	readCfg, err := fs.GetEnvironmentConfig(ctx, flag.ID, env.ID)
+	if err != nil {
+		t.Fatalf("GetEnvironmentConfig after update: %v", err)
+	}
+	if readCfg.UpdatedBy == nil || *readCfg.UpdatedBy != user.ID {
+		t.Errorf("UpdatedBy on read: got %v, want %q", readCfg.UpdatedBy, user.ID)
+	}
+	if readCfg.UpdatedByUser == nil {
+		t.Fatal("expected UpdatedByUser to be populated on read")
+	}
+	if readCfg.UpdatedByUser.ID != user.ID {
+		t.Errorf("UpdatedByUser.ID: got %q, want %q", readCfg.UpdatedByUser.ID, user.ID)
+	}
+	if readCfg.UpdatedByUser.Email != email {
+		t.Errorf("UpdatedByUser.Email: got %q, want %q", readCfg.UpdatedByUser.Email, email)
+	}
+
+	// Verify GetAllEnvironmentConfigs also populates UpdatedByUser
+	allCfgs, err := fs.GetAllEnvironmentConfigs(ctx, flag.ID)
+	if err != nil {
+		t.Fatalf("GetAllEnvironmentConfigs: %v", err)
+	}
+	found := false
+	for _, c := range allCfgs {
+		if c.EnvironmentID == env.ID {
+			found = true
+			if c.UpdatedBy == nil || *c.UpdatedBy != user.ID {
+				t.Errorf("GetAllEnvironmentConfigs UpdatedBy: got %v, want %q", c.UpdatedBy, user.ID)
+			}
+			if c.UpdatedByUser == nil {
+				t.Fatal("expected UpdatedByUser in GetAllEnvironmentConfigs")
+			}
+			if c.UpdatedByUser.Email != email {
+				t.Errorf("GetAllEnvironmentConfigs UpdatedByUser.Email: got %q, want %q", c.UpdatedByUser.Email, email)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("environment config not found in GetAllEnvironmentConfigs")
+	}
+
+	// Update with nil updatedBy should clear it
+	updated2, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, false, "off", variants, rules, nil)
+	if err != nil {
+		t.Fatalf("UpdateEnvironmentConfig with nil: %v", err)
+	}
+	if updated2.UpdatedBy != nil {
+		t.Errorf("expected nil UpdatedBy after clearing, got %v", updated2.UpdatedBy)
 	}
 }
 
