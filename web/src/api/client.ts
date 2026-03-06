@@ -1,4 +1,4 @@
-import type { Condition, Segment, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse } from './types'
+import type { Condition, Segment, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -80,6 +80,13 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+  },
+
+  lifecycle: {
+    summary: (projectKey: string) =>
+      request<LifecycleSummary>(`/projects/${projectKey}/lifecycle/summary`),
+    trends: (projectKey: string, days = 30) =>
+      request<LifecycleSnapshot[]>(`/projects/${projectKey}/lifecycle/trends?days=${days}`),
   },
 
   templates: {

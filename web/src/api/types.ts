@@ -276,3 +276,19 @@ export interface PlaygroundRequest {
 export interface PlaygroundResponse {
   results: EvaluationTrace[]
 }
+
+export interface LifecycleSummary {
+  active: number
+  potentially_stale: number
+  stale: number
+  archived: number
+  health_score: number
+}
+
+export interface LifecycleSnapshot {
+  date: string
+  active: number
+  potentially_stale: number
+  stale: number
+  archived: number
+}
