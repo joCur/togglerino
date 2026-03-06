@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.0](https://github.com/joCur/togglerino/compare/v0.12.0...v0.13.0) (2026-03-06)
+
+
+### Features
+
+* custom roles and project-scoped permissions ([#36](https://github.com/joCur/togglerino/issues/36)) ([#84](https://github.com/joCur/togglerino/issues/84)) ([7a960d4](https://github.com/joCur/togglerino/commit/7a960d4c72744a9d8845dc2357308dcf54d4faf7))
+* flag evaluation playground / debugger ([#34](https://github.com/joCur/togglerino/issues/34)) ([#86](https://github.com/joCur/togglerino/issues/86)) ([ca0bf1a](https://github.com/joCur/togglerino/commit/ca0bf1aee6adef641fdd33670abab5bff12ab123))
+* flag lifecycle dashboard ([#37](https://github.com/joCur/togglerino/issues/37)) ([#87](https://github.com/joCur/togglerino/issues/87)) ([7a1587b](https://github.com/joCur/togglerino/commit/7a1587bbd4a59bcf9afb3d76b8b7740f04c39a8d))
+* flag templates for common patterns ([#50](https://github.com/joCur/togglerino/issues/50)) ([#78](https://github.com/joCur/togglerino/issues/78)) ([ab0133c](https://github.com/joCur/togglerino/commit/ab0133c2ebdbc648b1d4ec96e2269ff5bedb5a83))
+* searchable user dropdown for project members ([#85](https://github.com/joCur/togglerino/issues/85)) ([688bd57](https://github.com/joCur/togglerino/commit/688bd57420e4eab2a2f10a2c06792ad108b6ec4f))
+* worktree-aware dev environment with isolated databases ([#81](https://github.com/joCur/togglerino/issues/81)) ([6d8c124](https://github.com/joCur/togglerino/commit/6d8c12403bc618604a7f5131f3225ce65aef46e8))
+
 ## [0.12.0](https://github.com/joCur/togglerino/compare/v0.11.0...v0.12.0) (2026-03-04)
 
 
