@@ -272,6 +272,33 @@ func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	return flags, nil
 }
 
+// ListAll returns all flags across all projects (for snapshot recording).
+func (s *FlagStore) ListAll(ctx context.Context) ([]model.Flag, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id
+		 FROM flags`)
+	if err != nil {
+		return nil, fmt.Errorf("listing all flags: %w", err)
+	}
+	defer rows.Close()
+
+	var flags []model.Flag
+	for rows.Next() {
+		var f model.Flag
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID); err != nil {
+			return nil, fmt.Errorf("scanning flag: %w", err)
+		}
+		if f.Tags == nil {
+			f.Tags = []string{}
+		}
+		flags = append(flags, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating flags: %w", err)
+	}
+	return flags, nil
+}
+
 // Delete deletes a flag by ID (cascades to environment configs).
 func (s *FlagStore) Delete(ctx context.Context, flagID string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM flags WHERE id = $1`, flagID)
