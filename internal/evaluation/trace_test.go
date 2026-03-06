@@ -6,10 +6,6 @@ import (
 	"github.com/togglerino/togglerino/internal/model"
 )
 
-func boolPtr(b bool) *bool {
-	return &b
-}
-
 func TestEvaluateWithTrace_ArchivedFlag(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("archived-flag", "default-val", model.LifecycleArchived)

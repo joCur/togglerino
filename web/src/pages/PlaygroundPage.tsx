@@ -116,15 +116,25 @@ export default function PlaygroundPage() {
     setSearchParams(params, { replace: true })
 
     evaluateMutation.mutate(body)
-  }, [envKey, flagKey, userId, attributes, setSearchParams, evaluateMutation])
+  }, [envKey, flagKey, userId, attributes, setSearchParams, evaluateMutation.mutate])
 
   // Auto-evaluate on page load if params exist
   useEffect(() => {
-    const hasEnv = searchParams.get('env')
-    if (hasEnv && environments && environments.length > 0) {
-      handleEvaluate()
-    }
-    // Only on initial mount
+    if (!environments || environments.length === 0) return
+    if (!searchParams.get('env')) return
+    evaluateMutation.mutate({
+      environment_key: envKey,
+      flag_key: flagKey || undefined,
+      context: (userId || attributes.some(a => a.key.trim()))
+        ? {
+            user_id: userId,
+            attributes: Object.fromEntries(
+              attributes.filter(a => a.key.trim()).map(a => [a.key.trim(), a.value])
+            ),
+          }
+        : undefined,
+    })
+    // Only on initial load when environments arrive
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [environments])
 
