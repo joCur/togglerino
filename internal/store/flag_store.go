@@ -272,6 +272,36 @@ func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	return flags, nil
 }
 
+// LifecycleCountsByProject returns flag counts grouped by project and lifecycle
+// status using a single aggregate query. Projects with zero flags are included
+// via a LEFT JOIN to the projects table — they produce a single row with
+// COUNT(f.id) = 0. The COALESCE maps the NULL lifecycle_status to 'active' for
+// these zero-flag rows; the status value is irrelevant since the count is 0.
+func (s *FlagStore) LifecycleCountsByProject(ctx context.Context) ([]model.LifecycleCountRow, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT p.id, COALESCE(f.lifecycle_status, 'active'), COUNT(f.id)
+		 FROM projects p
+		 LEFT JOIN flags f ON f.project_id = p.id
+		 GROUP BY p.id, f.lifecycle_status`)
+	if err != nil {
+		return nil, fmt.Errorf("querying lifecycle counts: %w", err)
+	}
+	defer rows.Close()
+
+	var result []model.LifecycleCountRow
+	for rows.Next() {
+		var r model.LifecycleCountRow
+		if err := rows.Scan(&r.ProjectID, &r.Status, &r.Count); err != nil {
+			return nil, fmt.Errorf("scanning lifecycle count row: %w", err)
+		}
+		result = append(result, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating lifecycle counts: %w", err)
+	}
+	return result, nil
+}
+
 // Delete deletes a flag by ID (cascades to environment configs).
 func (s *FlagStore) Delete(ctx context.Context, flagID string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM flags WHERE id = $1`, flagID)
@@ -396,4 +426,51 @@ func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 		cfg.TargetingRules = []model.TargetingRule{}
 	}
 	return &cfg, nil
+}
+
+// LifecycleSummary returns flag counts grouped by lifecycle status for a
+// project, plus a health score (percentage of non-archived flags that are
+// active).
+func (s *FlagStore) LifecycleSummary(ctx context.Context, projectID string) (*model.LifecycleSummary, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT lifecycle_status, COUNT(*)
+		 FROM flags WHERE project_id = $1
+		 GROUP BY lifecycle_status`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying lifecycle summary: %w", err)
+	}
+	defer rows.Close()
+
+	summary := &model.LifecycleSummary{}
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("scanning lifecycle count: %w", err)
+		}
+		switch status {
+		case "active":
+			summary.Active = count
+		case "potentially_stale":
+			summary.PotentiallyStale = count
+		case "stale":
+			summary.Stale = count
+		case "archived":
+			summary.Archived = count
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating lifecycle counts: %w", err)
+	}
+
+	nonArchived := summary.Active + summary.PotentiallyStale + summary.Stale
+	if nonArchived > 0 {
+		summary.HealthScore = float64(summary.Active) / float64(nonArchived) * 100
+	} else {
+		summary.HealthScore = 100
+	}
+
+	return summary, nil
 }

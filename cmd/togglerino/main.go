@@ -18,6 +18,7 @@ import (
 	"github.com/togglerino/togglerino/internal/config"
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/handler"
+	"github.com/togglerino/togglerino/internal/lifecycle"
 	"github.com/togglerino/togglerino/internal/logging"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/ratelimit"
@@ -70,6 +71,7 @@ func main() {
 	templateStore := store.NewTemplateStore(pool)
 	orgSettingsStore := store.NewOrgSettingsStore(pool)
 	projectMemberStore := store.NewProjectMemberStore(pool)
+	lifecycleSnapshotStore := store.NewLifecycleSnapshotStore(pool)
 
 	// 4b. Ensure session secret exists (for OIDC cookie signing)
 	sessionSecret := cfg.SessionSecret
@@ -90,6 +92,7 @@ func main() {
 		return cache.LoadAll(ctx, pool)
 	})
 	stalenessChecker := staleness.NewChecker(flagStore, projectSettingsStore, auditStore, cacheRefresher, 1*time.Hour)
+	snapshotRecorder := lifecycle.NewRecorder(flagStore, lifecycleSnapshotStore, 24*time.Hour)
 
 	// 5b. Initialize schedule checker
 	schedCacheRefresher := scheduleCacheRefreshFunc(func(ctx context.Context, projectKey, envKey string) error {
@@ -107,6 +110,7 @@ func main() {
 		log.Fatalf("failed to seed system templates: %v", err)
 	}
 	go stalenessChecker.Run(ctx)
+	go snapshotRecorder.Run(ctx)
 	go scheduleChecker.Run(ctx)
 
 	// 7. Initialize all handlers
@@ -132,6 +136,7 @@ func main() {
 	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, auditStore)
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
 	userSearchHandler := handler.NewUserSearchHandler(userStore)
+	lifecycleHandler := handler.NewLifecycleHandler(flagStore, lifecycleSnapshotStore, projectStore)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
 
 	// Permission middleware
@@ -256,6 +261,10 @@ func main() {
 	// Environment defaults
 	mux.Handle("GET /api/v1/projects/{key}/settings/environments", wrap(projectSettingsHandler.GetEnvironmentDefaults, sessionAuth, requireFlagsRead))
 	mux.Handle("PUT /api/v1/projects/{key}/settings/environments", wrap(projectSettingsHandler.UpdateEnvironmentDefaults, sessionAuth, requireProjectSettings))
+
+	// Lifecycle dashboard
+	mux.Handle("GET /api/v1/projects/{key}/lifecycle/summary", wrap(lifecycleHandler.Summary, sessionAuth, requireFlagsRead))
+	mux.Handle("GET /api/v1/projects/{key}/lifecycle/trends", wrap(lifecycleHandler.Trends, sessionAuth, requireFlagsRead))
 
 	// Context attributes
 	mux.Handle("GET /api/v1/projects/{key}/context-attributes", wrap(contextAttributeHandler.List, sessionAuth, requireFlagsRead))

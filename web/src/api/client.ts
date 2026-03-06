@@ -1,4 +1,4 @@
-import type { Condition, Segment, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse } from './types'
+import type { Condition, Segment, Flag, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -42,6 +42,13 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 
   flags: {
+    list: (projectKey: string, params?: { lifecycle_status?: string; flag_type?: string }) => {
+      const search = new URLSearchParams()
+      if (params?.lifecycle_status) search.set('lifecycle_status', params.lifecycle_status)
+      if (params?.flag_type) search.set('flag_type', params.flag_type)
+      const qs = search.toString()
+      return request<Flag[]>(`/projects/${projectKey}/flags${qs ? `?${qs}` : ''}`)
+    },
     bulk: (projectKey: string, body: BulkActionRequest) =>
       request<BulkActionResponse>(`/projects/${projectKey}/flags/bulk`, {
         method: 'POST',
@@ -80,6 +87,13 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+  },
+
+  lifecycle: {
+    summary: (projectKey: string) =>
+      request<LifecycleSummary>(`/projects/${projectKey}/lifecycle/summary`),
+    trends: (projectKey: string, days = 30) =>
+      request<LifecycleSnapshot[]>(`/projects/${projectKey}/lifecycle/trends?days=${days}`),
   },
 
   templates: {
