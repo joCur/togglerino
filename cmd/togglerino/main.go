@@ -122,6 +122,7 @@ func main() {
 	contextAttributeStore := store.NewContextAttributeStore(pool)
 	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
 	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore)
+	playgroundHandler := handler.NewPlaygroundHandler(cache, engine)
 	unknownFlagHandler := handler.NewUnknownFlagHandler(unknownFlagStore, projectStore)
 	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool)
 	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
@@ -258,6 +259,9 @@ func main() {
 
 	// Context attributes
 	mux.Handle("GET /api/v1/projects/{key}/context-attributes", wrap(contextAttributeHandler.List, sessionAuth, requireFlagsRead))
+
+	// Playground
+	mux.Handle("POST /api/v1/projects/{key}/playground", wrap(playgroundHandler.Evaluate, sessionAuth, requireFlagsRead))
 
 	// Segments
 	mux.Handle("GET /api/v1/projects/{key}/segments", wrap(segmentHandler.List, sessionAuth, requireFlagsRead))
