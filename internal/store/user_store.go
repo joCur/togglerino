@@ -85,6 +85,37 @@ func (s *UserStore) List(ctx context.Context) ([]model.User, error) {
 	return users, nil
 }
 
+// Search returns users whose email or display name match the query string (case-insensitive prefix/substring).
+// Results are limited to 20 rows.
+func (s *UserStore) Search(ctx context.Context, query string) ([]model.User, error) {
+	like := "%" + query + "%"
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, email, display_name, password_hash, role, created_at, updated_at
+		 FROM users
+		 WHERE email ILIKE $1 OR display_name ILIKE $1
+		 ORDER BY email
+		 LIMIT 20`,
+		like,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("searching users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []model.User
+	for rows.Next() {
+		var u model.User
+		if err := rows.Scan(&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning user: %w", err)
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating users: %w", err)
+	}
+	return users, nil
+}
+
 func (s *UserStore) UpdateProfile(ctx context.Context, id string, email *string, displayName *string) (*model.User, error) {
 	var user model.User
 	err := s.pool.QueryRow(ctx,

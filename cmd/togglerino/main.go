@@ -130,6 +130,7 @@ func main() {
 	templateHandler := handler.NewTemplateHandler(templateStore, projectStore, auditStore)
 	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, auditStore)
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
+	userSearchHandler := handler.NewUserSearchHandler(userStore)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
 
 	// Permission middleware
@@ -192,6 +193,7 @@ func main() {
 	mux.Handle("PUT /api/v1/auth/me", wrap(authHandler.UpdateMe, sessionAuth))
 	mux.Handle("POST /api/v1/auth/change-password", authLimiter.Middleware(wrap(authHandler.ChangePassword, sessionAuth)))
 	mux.Handle("GET /api/v1/auth/me/project-role/{key}", wrap(myRoleHandler.GetProjectRole, sessionAuth))
+	mux.Handle("GET /api/v1/users/search", wrap(userSearchHandler.Search, sessionAuth))
 
 	// User management (admin-only)
 	mux.Handle("GET /api/v1/management/users", wrap(userHandler.List, sessionAuth, requireOrgUsersManage))

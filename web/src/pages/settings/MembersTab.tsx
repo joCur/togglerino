@@ -1,13 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { useProjectMembers, type ProjectRole } from '@/hooks/usePermissions'
 import { api } from '@/api/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
@@ -34,6 +33,35 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+
+interface UserSearchResult {
+  id: string
+  email: string
+  display_name: string | null
+}
+
+function useUserSearch(query: string) {
+  return useQuery({
+    queryKey: ['user-search', query],
+    queryFn: () =>
+      api.get<UserSearchResult[]>(`/users/search?q=${encodeURIComponent(query)}`),
+    enabled: query.length >= 1,
+    staleTime: 30_000,
+  })
+}
 
 const roleOptions: ProjectRole[] = ['admin', 'editor', 'viewer']
 
@@ -49,19 +77,30 @@ export default function MembersTab() {
   const { data: members, isLoading } = useProjectMembers(key)
 
   const [addOpen, setAddOpen] = useState(false)
-  const [addEmail, setAddEmail] = useState('')
+  const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null)
+  const [userSearchQuery, setUserSearchQuery] = useState('')
+  const [userPopoverOpen, setUserPopoverOpen] = useState(false)
   const [addRole, setAddRole] = useState<ProjectRole>('editor')
   const [error, setError] = useState('')
 
+  const { data: searchResults } = useUserSearch(userSearchQuery)
+
+  // Reset form state when dialog closes
+  useEffect(() => {
+    if (!addOpen) {
+      setSelectedUser(null)
+      setUserSearchQuery('')
+      setAddRole('editor')
+      setError('')
+    }
+  }, [addOpen])
+
   const addMutation = useMutation({
-    mutationFn: (data: { email: string; role: ProjectRole }) =>
+    mutationFn: (data: { user_id: string; role: ProjectRole }) =>
       api.post(`/projects/${key}/members`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-members', key] })
       setAddOpen(false)
-      setAddEmail('')
-      setAddRole('editor')
-      setError('')
     },
     onError: (err: Error) => {
       setError(err.message)
@@ -86,9 +125,9 @@ export default function MembersTab() {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!addEmail.trim()) return
+    if (!selectedUser) return
     setError('')
-    addMutation.mutate({ email: addEmail.trim(), role: addRole })
+    addMutation.mutate({ user_id: selectedUser.id, role: addRole })
   }
 
   const handleRemove = (userId: string, email: string) => {
@@ -124,15 +163,63 @@ export default function MembersTab() {
                 <form onSubmit={handleAdd} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label className="font-mono text-[10px] uppercase tracking-wider">
-                      Email
+                      User
                     </Label>
-                    <Input
-                      type="email"
-                      placeholder="user@example.com"
-                      value={addEmail}
-                      onChange={(e) => setAddEmail(e.target.value)}
-                      required
-                    />
+                    <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={userPopoverOpen}
+                          className="justify-between font-normal"
+                          type="button"
+                        >
+                          {selectedUser
+                            ? selectedUser.email
+                            : 'Search for a user...'}
+                          <span className="ml-2 opacity-50 text-xs">
+                            {selectedUser ? '' : ''}
+                          </span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder="Search by email or name..."
+                            value={userSearchQuery}
+                            onValueChange={setUserSearchQuery}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              {userSearchQuery.length < 1
+                                ? 'Type to search...'
+                                : 'No users found.'}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {(searchResults ?? []).map((u) => (
+                                <CommandItem
+                                  key={u.id}
+                                  value={u.id}
+                                  onSelect={() => {
+                                    setSelectedUser(u)
+                                    setUserPopoverOpen(false)
+                                  }}
+                                >
+                                  <div className="flex flex-col">
+                                    <span className="text-sm">{u.email}</span>
+                                    {u.display_name && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {u.display_name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label className="font-mono text-[10px] uppercase tracking-wider">
@@ -161,7 +248,7 @@ export default function MembersTab() {
                     <Button
                       type="submit"
                       size="sm"
-                      disabled={addMutation.isPending}
+                      disabled={!selectedUser || addMutation.isPending}
                     >
                       {addMutation.isPending ? 'Adding...' : 'Add Member'}
                     </Button>
