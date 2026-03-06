@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useCanWrite } from '@/hooks/usePermissions'
 import { Plus } from 'lucide-react'
 import BulkActionBar from '../components/BulkActionBar.tsx'
 import BulkConfirmDialog from '../components/BulkConfirmDialog.tsx'
@@ -55,6 +56,7 @@ export default function ProjectDetailPage() {
   } | null>(null)
   const unknownFlagsEnabled = useFlag('unknown-flags', false)
   const isMobile = useIsMobile()
+  const canWrite = useCanWrite(key)
 
   const { data: flags, isLoading: flagsLoading, error: flagsError } = useQuery({
     queryKey: ['projects', key, 'flags'],
@@ -210,7 +212,7 @@ export default function ProjectDetailPage() {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">{key}</h1>
-        {!isMobile && <Button onClick={() => setModalOpen(true)}>Create Flag</Button>}
+        {!isMobile && canWrite && <Button onClick={() => setModalOpen(true)}>Create Flag</Button>}
       </div>
 
       <Tabs defaultValue="flags">
@@ -341,7 +343,7 @@ export default function ProjectDetailPage() {
                     <TableHead className="font-mono text-[11px] uppercase tracking-wider">Requests</TableHead>
                     <TableHead className="font-mono text-[11px] uppercase tracking-wider">First Seen</TableHead>
                     <TableHead className="font-mono text-[11px] uppercase tracking-wider">Last Seen</TableHead>
-                    <TableHead className="font-mono text-[11px] uppercase tracking-wider">Actions</TableHead>
+                    {canWrite && <TableHead className="font-mono text-[11px] uppercase tracking-wider">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -362,27 +364,29 @@ export default function ProjectDetailPage() {
                       <TableCell className="text-[13px] text-muted-foreground/60">
                         {formatRelativeTime(uf.last_seen_at)}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-[11px] h-7"
-                            onClick={() => { setCreateFromKey(uf.flag_key); setModalOpen(true) }}
-                          >
-                            Create Flag
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-[11px] h-7 text-muted-foreground"
-                            onClick={() => dismissMutation.mutate(uf.id)}
-                            disabled={dismissMutation.isPending && dismissMutation.variables === uf.id}
-                          >
-                            Dismiss
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {canWrite && (
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-[11px] h-7"
+                              onClick={() => { setCreateFromKey(uf.flag_key); setModalOpen(true) }}
+                            >
+                              Create Flag
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-[11px] h-7 text-muted-foreground"
+                              onClick={() => dismissMutation.mutate(uf.id)}
+                              disabled={dismissMutation.isPending && dismissMutation.variables === uf.id}
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -401,7 +405,7 @@ export default function ProjectDetailPage() {
         onCreated={() => queryClient.invalidateQueries({ queryKey: ['projects', key, 'unknown-flags'] })}
       />
 
-      {isMobile && selectedFlags.size === 0 && (
+      {isMobile && canWrite && selectedFlags.size === 0 && (
         <button
           onClick={() => setModalOpen(true)}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#d4956a] text-white shadow-lg flex items-center justify-center hover:bg-[#e0a87a] active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#d4956a] focus-visible:ring-offset-2"

@@ -12,13 +12,15 @@ import (
 )
 
 type ProjectHandler struct {
-	projects     *store.ProjectStore
+	projects    *store.ProjectStore
 	environments *store.EnvironmentStore
-	audit        *store.AuditStore
+	audit       *store.AuditStore
+	orgSettings *store.OrgSettingsStore
+	members     *store.ProjectMemberStore
 }
 
-func NewProjectHandler(projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore) *ProjectHandler {
-	return &ProjectHandler{projects: projects, environments: environments, audit: audit}
+func NewProjectHandler(projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, orgSettings *store.OrgSettingsStore, members *store.ProjectMemberStore) *ProjectHandler {
+	return &ProjectHandler{projects: projects, environments: environments, audit: audit, orgSettings: orgSettings, members: members}
 }
 
 // Create handles POST /api/v1/projects
@@ -72,7 +74,53 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // List handles GET /api/v1/projects
 func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
-	projects, err := h.projects.List(r.Context())
+	user := auth.UserFromContext(r.Context())
+
+	// Admins always see all projects
+	if user != nil && user.Role == model.RoleAdmin {
+		projects, err := h.projects.List(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to list projects")
+			return
+		}
+		if projects == nil {
+			projects = []model.Project{}
+		}
+		writeJSON(w, http.StatusOK, projects)
+		return
+	}
+
+	// Check base project role — if not "none", everyone can see all projects
+	baseRole, _ := h.orgSettings.GetBaseProjectRole(r.Context())
+	if baseRole != "" && baseRole != "none" {
+		projects, err := h.projects.List(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to list projects")
+			return
+		}
+		if projects == nil {
+			projects = []model.Project{}
+		}
+		writeJSON(w, http.StatusOK, projects)
+		return
+	}
+
+	// Base role is "none" — only show explicitly assigned projects
+	if user == nil {
+		writeJSON(w, http.StatusOK, []model.Project{})
+		return
+	}
+	projectIDs, err := h.members.ListAccessibleProjectIDs(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list accessible projects")
+		return
+	}
+	if len(projectIDs) == 0 {
+		writeJSON(w, http.StatusOK, []model.Project{})
+		return
+	}
+
+	projects, err := h.projects.ListByIDs(r.Context(), projectIDs)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list projects")
 		return

@@ -130,12 +130,12 @@ Key internal packages:
 
 | Package | Responsibility |
 |---------|---------------|
-| `auth` | Session middleware (`SessionAuth`), SDK key middleware (`SDKAuth`), role middleware (`RequireRole`), bcrypt password hashing, context-based user extraction |
+| `auth` | Session middleware (`SessionAuth`), SDK key middleware (`SDKAuth`), permission middleware (`RequireOrgPermission`, `RequireProjectPermission`), role resolver (`BuildRoleResolver`), bcrypt password hashing, context-based user extraction |
 | `config` | Env-var config loading |
 | `evaluation` | Flag evaluation engine (consistent hashing via SHA-256 for rollouts, 16 condition operators including `segment_match`) + in-memory cache (`RWMutex`-protected map keyed by `projectKey:envKey` for flags, `projectKey` for segments) |
 | `handler` | HTTP handlers split into management API (session-authed) and client API (SDK-key-authed) |
 | `logging` | Configures `log/slog` (JSON/text), provides HTTP request logging middleware (method, path, status, duration_ms) |
-| `model` | Domain types: Flag (value types: `boolean`, `string`, `number`, `json`; flag types: `release`, `experiment`, `operational`, `kill-switch`, `permission`; lifecycle: `active`, `potentially_stale`, `stale`, `archived`), FlagEnvironmentConfig, Variant, TargetingRule, Condition, EvaluationContext, Segment, User (roles: `admin`, `member`, optional `display_name`), ProjectSettings, UnknownFlag, ContextAttribute |
+| `model` | Domain types: Flag (value types: `boolean`, `string`, `number`, `json`; flag types: `release`, `experiment`, `operational`, `kill-switch`, `permission`; lifecycle: `active`, `potentially_stale`, `stale`, `archived`), FlagEnvironmentConfig, Variant, TargetingRule, Condition, EvaluationContext, Segment, User (roles: `admin`, `member`, optional `display_name`), Permission, ProjectRole (`admin`, `editor`, `viewer`), ProjectMember, ProjectSettings, UnknownFlag, ContextAttribute |
 | `ratelimit` | Fixed-window per-IP rate limiter, applied to auth endpoints (10 req/60s) |
 | `staleness` | Automated flag staleness checker — periodic background goroutine (1hr interval) that transitions flags through lifecycle states based on per-project flag lifetime settings |
 | `oidc` | OIDC provider wrapper (`coreos/go-oidc/v3`), HMAC-signed state/link cookies, secure random generation |
@@ -199,8 +199,10 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `POST /api/v1/auth/change-password` — change password (rate-limited)
 - `GET /api/v1/auth/oidc/identities` — list current user's linked OIDC identities
 - **OIDC config (admin-only)**: `GET /PUT /api/v1/auth/oidc/config`, `DELETE /api/v1/auth/oidc/config`
-- **Users (admin-only)**: `GET /api/v1/management/users`, `POST .../invite`, `GET .../invites`, `DELETE .../{id}`, `POST .../{id}/reset-password`
-- **Projects**: CRUD on `/api/v1/projects[/{key}]` (delete is admin-only)
+- **Users (admin-only)**: `GET /api/v1/management/users`, `POST .../invite`, `GET .../invites`, `DELETE .../{id}`, `POST .../{id}/reset-password`, `GET /PUT .../{id}/projects` (project assignments)
+- **Org settings (admin-only)**: `GET /PUT /api/v1/settings/base-project-role`
+- **Projects**: CRUD on `/api/v1/projects[/{key}]` (create/delete require org permissions, list filtered by access)
+- **Project members**: `GET /POST /api/v1/projects/{key}/members`, `PUT /DELETE .../members/{userId}` (require `project:settings`)
 - **Environments**: `POST`, `GET` on `/api/v1/projects/{key}/environments`
 - **SDK Keys**: `POST`, `GET`, `DELETE` on `/api/v1/projects/{key}/environments/{env}/sdk-keys[/{id}]`
 - **Flags**: CRUD on `/api/v1/projects/{key}/flags[/{flag}]`, `PUT .../flags/{flag}/environments/{env}` for per-env config, `PUT .../flags/{flag}/archive` for archiving, `PUT .../flags/{flag}/staleness` for staleness override
@@ -220,7 +222,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 ## Key Patterns
 
 - **Two auth paths**: Session-based (cookies, `session_id`, HttpOnly, SameSite=Lax, 7-day MaxAge) for management UI; SDK-key-based (header) for client SDKs
-- **RBAC**: Two roles (`admin`, `member`). `RequireRole` middleware enforces admin-only access on user management and project deletion
+- **RBAC**: Two global roles (`admin`, `member`) for org-level permissions + three project roles (`admin`, `editor`, `viewer`) for project-level permissions. Org-wide "base project role" setting (default: `editor`) determines default project access for members; `none` requires explicit project membership. Per-project role overrides via `project_members` table. `RequireOrgPermission` middleware for org-level checks, `RequireProjectPermission` middleware for project-level checks (extracts project key from URL, resolves effective role via `BuildRoleResolver`). Global admins bypass all project permission checks. Org permissions: `org:users:manage`, `org:oidc:manage`, `org:projects:create`, `org:projects:delete`. Project permissions: `flags:read/write`, `environments:read/write`, `sdk_keys:manage`, `segments:write`, `templates:manage`, `project:settings`
 - **Invite & password reset**: Both use the `invites` table. Invite tokens expire in 7 days, reset tokens in 24 hours. Tokens are atomically claimed via conditional UPDATE (TOCTOU-safe)
 - **Initial setup**: First-run flow creates the initial admin user. Frontend `AuthRouter` detects `setup_required` and shows `SetupPage`
 - **Flag value types**: `boolean`, `string`, `number`, `json`
@@ -244,7 +246,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 
 ## Database
 
-PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`, `oidc_providers`, `oidc_identities`. Migrations in `migrations/` (currently: `001_initial_schema` through `014_oidc_singleton`).
+PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`, `oidc_providers`, `oidc_identities`, `org_settings`, `project_members`. Migrations in `migrations/` (currently: `001_initial_schema` through `016_rbac`).
 
 ## Testing
 

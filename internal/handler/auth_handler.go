@@ -147,7 +147,29 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	writeJSON(w, http.StatusOK, user)
+
+	// Build org-level permissions list
+	permissions := []string{}
+	for _, perm := range []model.Permission{
+		model.PermOrgUsersManage,
+		model.PermOrgOIDCManage,
+		model.PermOrgProjectsCreate,
+		model.PermOrgProjectsDelete,
+	} {
+		if user.Role.HasOrgPermission(perm) {
+			permissions = append(permissions, string(perm))
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":           user.ID,
+		"email":        user.Email,
+		"display_name": user.DisplayName,
+		"role":         user.Role,
+		"created_at":   user.CreatedAt,
+		"updated_at":   user.UpdatedAt,
+		"permissions":  permissions,
+	})
 }
 
 // GET /api/v1/auth/status — returns whether setup is needed (no auth required)

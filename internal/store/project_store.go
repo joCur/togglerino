@@ -53,6 +53,31 @@ func (s *ProjectStore) List(ctx context.Context) ([]model.Project, error) {
 	return projects, nil
 }
 
+// ListByIDs returns projects matching the given IDs.
+func (s *ProjectStore) ListByIDs(ctx context.Context, ids []string) ([]model.Project, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, key, name, description, created_at, updated_at FROM projects WHERE id = ANY($1) ORDER BY created_at DESC`,
+		ids,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing projects by IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var projects []model.Project
+	for rows.Next() {
+		var p model.Project
+		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning project: %w", err)
+		}
+		projects = append(projects, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating projects: %w", err)
+	}
+	return projects, nil
+}
+
 // FindByKey returns a project by its key.
 func (s *ProjectStore) FindByKey(ctx context.Context, key string) (*model.Project, error) {
 	var p model.Project

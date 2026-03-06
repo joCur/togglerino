@@ -36,6 +36,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gravatarUrl } from '@/lib/gravatar'
+import { useCanWrite } from '@/hooks/usePermissions'
 import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react'
 
 interface FlagDetailResponse {
@@ -48,6 +49,7 @@ export default function FlagDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
+  const canWrite = useCanWrite(key)
   const [expandedEnvs, setExpandedEnvs] = useState<Set<string> | null>(null)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -191,47 +193,49 @@ export default function FlagDetailPage() {
       <div className="flex items-start justify-between mb-1">
         <h1 className="text-xl font-mono text-[#d4956a] tracking-wide">{flag.key}</h1>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <Settings className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {flag.lifecycle_status === 'archived' ? (
-              <>
-                <DropdownMenuItem onClick={() => archiveMutation.mutate(false)}>
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Unarchive
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete permanently
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <>
-                {flag.lifecycle_status === 'potentially_stale' && (
-                  <>
-                    <DropdownMenuItem onClick={() => stalenessMutation.mutate()}>
-                      <AlertTriangle className="w-4 h-4 mr-2" />
-                      Mark as stale
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuItem onClick={() => setArchiveDialogOpen(true)}>
-                  <Archive className="w-4 h-4 mr-2" />
-                  Archive
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {canWrite && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {flag.lifecycle_status === 'archived' ? (
+                <>
+                  <DropdownMenuItem onClick={() => archiveMutation.mutate(false)}>
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Unarchive
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete permanently
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  {flag.lifecycle_status === 'potentially_stale' && (
+                    <>
+                      <DropdownMenuItem onClick={() => stalenessMutation.mutate()}>
+                        <AlertTriangle className="w-4 h-4 mr-2" />
+                        Mark as stale
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem onClick={() => setArchiveDialogOpen(true)}>
+                    <Archive className="w-4 h-4 mr-2" />
+                    Archive
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Flag name */}
@@ -279,6 +283,7 @@ export default function FlagDetailPage() {
         <Select
           value={flag.owner_id ?? 'unassigned'}
           onValueChange={(value) => ownerMutation.mutate(value === 'unassigned' ? null : value)}
+          disabled={!canWrite}
         >
           <SelectTrigger className="w-[220px] h-8 text-[13px]">
             <SelectValue>
@@ -372,7 +377,7 @@ export default function FlagDetailPage() {
                             </span>
                             <Switch
                               checked={enabled}
-                              disabled={!config || toggleMutation.isPending}
+                              disabled={!canWrite || !config || toggleMutation.isPending}
                               onCheckedChange={() => {
                                 if (config) toggleMutation.mutate({ envKey: env.key, config })
                               }}
@@ -401,6 +406,7 @@ export default function FlagDetailPage() {
                               flagKey={flagKey!}
                               allConfigs={data.environment_configs}
                               environments={environments}
+                              readOnly={!canWrite}
                             />
                           </div>
                         </CollapsibleContent>

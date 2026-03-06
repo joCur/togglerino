@@ -68,6 +68,8 @@ func main() {
 	scheduleStore := store.NewScheduleStore(pool)
 	oidcStore := store.NewOIDCStore(pool)
 	templateStore := store.NewTemplateStore(pool)
+	orgSettingsStore := store.NewOrgSettingsStore(pool)
+	projectMemberStore := store.NewProjectMemberStore(pool)
 
 	// 4b. Ensure session secret exists (for OIDC cookie signing)
 	sessionSecret := cfg.SessionSecret
@@ -109,8 +111,8 @@ func main() {
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
-	userHandler := handler.NewUserHandler(userStore, inviteStore)
-	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore)
+	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore, pool, auditStore)
+	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore, orgSettingsStore, projectMemberStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
 	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore, projectSettingsStore)
@@ -126,7 +128,13 @@ func main() {
 	streamHandler := handler.NewStreamHandler(hub)
 	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
 	templateHandler := handler.NewTemplateHandler(templateStore, projectStore, auditStore)
+	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, auditStore)
+	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
+
+	// Permission middleware
+	roleResolver := auth.BuildRoleResolver(projectMemberStore, projectStore, orgSettingsStore)
+	myRoleHandler := handler.NewMyRoleHandler(roleResolver)
 
 	// 7b. Initialize OIDC provider (non-blocking, logs errors)
 	callbackURL := ""
@@ -142,7 +150,20 @@ func main() {
 	sessionAuth := auth.SessionAuth(sessionStore, userStore)
 	sdkAuth := auth.SDKAuth(sdkKeyStore)
 	authLimiter := ratelimit.New(10, 60) // 10 requests per minute
-	requireAdmin := auth.RequireRole(model.RoleAdmin)
+
+	requireOrgUsersManage := auth.RequireOrgPermission(model.PermOrgUsersManage)
+	requireOrgOIDCManage := auth.RequireOrgPermission(model.PermOrgOIDCManage)
+	requireOrgProjectsCreate := auth.RequireOrgPermission(model.PermOrgProjectsCreate)
+	requireOrgProjectsDelete := auth.RequireOrgPermission(model.PermOrgProjectsDelete)
+
+	requireFlagsRead := auth.RequireProjectPermission(model.PermFlagsRead, roleResolver, projectStore)
+	requireFlagsWrite := auth.RequireProjectPermission(model.PermFlagsWrite, roleResolver, projectStore)
+	requireEnvsRead := auth.RequireProjectPermission(model.PermEnvironmentsRead, roleResolver, projectStore)
+	requireEnvsWrite := auth.RequireProjectPermission(model.PermEnvironmentsWrite, roleResolver, projectStore)
+	requireSDKKeysManage := auth.RequireProjectPermission(model.PermSDKKeysManage, roleResolver, projectStore)
+	requireSegmentsWrite := auth.RequireProjectPermission(model.PermSegmentsWrite, roleResolver, projectStore)
+	requireTemplatesManage := auth.RequireProjectPermission(model.PermTemplatesManage, roleResolver, projectStore)
+	requireProjectSettings := auth.RequireProjectPermission(model.PermProjectSettings, roleResolver, projectStore)
 
 	// --- Public routes (no auth) ---
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -161,99 +182,110 @@ func main() {
 	mux.HandleFunc("GET /api/v1/auth/oidc/authorize", oidcHandler.Authorize)
 	mux.Handle("GET /api/v1/auth/oidc/callback", authLimiter.Middleware(http.HandlerFunc(oidcHandler.Callback)))
 	mux.Handle("POST /api/v1/auth/oidc/link", authLimiter.Middleware(http.HandlerFunc(oidcHandler.Link)))
-	mux.Handle("GET /api/v1/auth/oidc/config", wrap(oidcHandler.GetConfig, sessionAuth, requireAdmin))
-	mux.Handle("PUT /api/v1/auth/oidc/config", wrap(oidcHandler.UpdateConfig, sessionAuth, requireAdmin))
-	mux.Handle("DELETE /api/v1/auth/oidc/config", wrap(oidcHandler.DeleteConfig, sessionAuth, requireAdmin))
+	mux.Handle("GET /api/v1/auth/oidc/config", wrap(oidcHandler.GetConfig, sessionAuth, requireOrgOIDCManage))
+	mux.Handle("PUT /api/v1/auth/oidc/config", wrap(oidcHandler.UpdateConfig, sessionAuth, requireOrgOIDCManage))
+	mux.Handle("DELETE /api/v1/auth/oidc/config", wrap(oidcHandler.DeleteConfig, sessionAuth, requireOrgOIDCManage))
 	mux.Handle("GET /api/v1/auth/oidc/identities", wrap(oidcHandler.OIDCIdentities, sessionAuth))
 
 	// --- Session-authed routes (management API) ---
 	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionAuth))
 	mux.Handle("PUT /api/v1/auth/me", wrap(authHandler.UpdateMe, sessionAuth))
 	mux.Handle("POST /api/v1/auth/change-password", authLimiter.Middleware(wrap(authHandler.ChangePassword, sessionAuth)))
+	mux.Handle("GET /api/v1/auth/me/project-role/{key}", wrap(myRoleHandler.GetProjectRole, sessionAuth))
 
 	// User management (admin-only)
-	mux.Handle("GET /api/v1/management/users", wrap(userHandler.List, sessionAuth, requireAdmin))
-	mux.Handle("POST /api/v1/management/users/invite", wrap(userHandler.Invite, sessionAuth, requireAdmin))
-	mux.Handle("GET /api/v1/management/users/invites", wrap(userHandler.ListInvites, sessionAuth, requireAdmin))
-	mux.Handle("DELETE /api/v1/management/users/{id}", wrap(userHandler.Delete, sessionAuth, requireAdmin))
-	mux.Handle("POST /api/v1/management/users/{id}/reset-password", wrap(http.HandlerFunc(userHandler.ResetPassword), sessionAuth, requireAdmin))
+	mux.Handle("GET /api/v1/management/users", wrap(userHandler.List, sessionAuth, requireOrgUsersManage))
+	mux.Handle("POST /api/v1/management/users/invite", wrap(userHandler.Invite, sessionAuth, requireOrgUsersManage))
+	mux.Handle("GET /api/v1/management/users/invites", wrap(userHandler.ListInvites, sessionAuth, requireOrgUsersManage))
+	mux.Handle("DELETE /api/v1/management/users/{id}", wrap(userHandler.Delete, sessionAuth, requireOrgUsersManage))
+	mux.Handle("POST /api/v1/management/users/{id}/reset-password", wrap(http.HandlerFunc(userHandler.ResetPassword), sessionAuth, requireOrgUsersManage))
+	mux.Handle("GET /api/v1/management/users/{id}/projects", wrap(userHandler.ListProjectAssignments, sessionAuth, requireOrgUsersManage))
+	mux.Handle("PUT /api/v1/management/users/{id}/projects", wrap(userHandler.UpdateProjectAssignments, sessionAuth, requireOrgUsersManage))
 
 	// Projects
-	mux.Handle("POST /api/v1/projects", wrap(projectHandler.Create, sessionAuth))
+	mux.Handle("POST /api/v1/projects", wrap(projectHandler.Create, sessionAuth, requireOrgProjectsCreate))
 	mux.Handle("GET /api/v1/projects", wrap(projectHandler.List, sessionAuth))
-	mux.Handle("GET /api/v1/projects/{key}", wrap(projectHandler.Get, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}", wrap(projectHandler.Update, sessionAuth))
-	mux.Handle("DELETE /api/v1/projects/{key}", wrap(projectHandler.Delete, sessionAuth, requireAdmin))
+	mux.Handle("GET /api/v1/projects/{key}", wrap(projectHandler.Get, sessionAuth, requireFlagsRead))
+	mux.Handle("PUT /api/v1/projects/{key}", wrap(projectHandler.Update, sessionAuth, requireProjectSettings))
+	mux.Handle("DELETE /api/v1/projects/{key}", wrap(projectHandler.Delete, sessionAuth, requireOrgProjectsDelete))
 
 	// Environments
-	mux.Handle("POST /api/v1/projects/{key}/environments", wrap(environmentHandler.Create, sessionAuth))
-	mux.Handle("GET /api/v1/projects/{key}/environments", wrap(environmentHandler.List, sessionAuth))
+	mux.Handle("POST /api/v1/projects/{key}/environments", wrap(environmentHandler.Create, sessionAuth, requireEnvsWrite))
+	mux.Handle("GET /api/v1/projects/{key}/environments", wrap(environmentHandler.List, sessionAuth, requireEnvsRead))
 
 	// SDK Keys
-	mux.Handle("POST /api/v1/projects/{key}/environments/{env}/sdk-keys", wrap(sdkKeyHandler.Create, sessionAuth))
-	mux.Handle("GET /api/v1/projects/{key}/environments/{env}/sdk-keys", wrap(sdkKeyHandler.List, sessionAuth))
-	mux.Handle("DELETE /api/v1/projects/{key}/environments/{env}/sdk-keys/{id}", wrap(sdkKeyHandler.Revoke, sessionAuth))
+	mux.Handle("POST /api/v1/projects/{key}/environments/{env}/sdk-keys", wrap(sdkKeyHandler.Create, sessionAuth, requireSDKKeysManage))
+	mux.Handle("GET /api/v1/projects/{key}/environments/{env}/sdk-keys", wrap(sdkKeyHandler.List, sessionAuth, requireSDKKeysManage))
+	mux.Handle("DELETE /api/v1/projects/{key}/environments/{env}/sdk-keys/{id}", wrap(sdkKeyHandler.Revoke, sessionAuth, requireSDKKeysManage))
 
 	// Flags
-	mux.Handle("POST /api/v1/projects/{key}/flags", wrap(flagHandler.Create, sessionAuth))
-	mux.Handle("GET /api/v1/projects/{key}/flags", wrap(flagHandler.List, sessionAuth))
-	mux.Handle("POST /api/v1/projects/{key}/flags/bulk", wrap(flagHandler.BulkAction, sessionAuth))
-	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Get, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Update, sessionAuth))
-	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Delete, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/archive", wrap(flagHandler.Archive, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/staleness", wrap(flagHandler.SetStaleness, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth))
+	mux.Handle("POST /api/v1/projects/{key}/flags", wrap(flagHandler.Create, sessionAuth, requireFlagsWrite))
+	mux.Handle("GET /api/v1/projects/{key}/flags", wrap(flagHandler.List, sessionAuth, requireFlagsRead))
+	mux.Handle("POST /api/v1/projects/{key}/flags/bulk", wrap(flagHandler.BulkAction, sessionAuth, requireFlagsWrite))
+	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Get, sessionAuth, requireFlagsRead))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Update, sessionAuth, requireFlagsWrite))
+	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Delete, sessionAuth, requireFlagsWrite))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/archive", wrap(flagHandler.Archive, sessionAuth, requireFlagsWrite))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/staleness", wrap(flagHandler.SetStaleness, sessionAuth, requireFlagsWrite))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth, requireFlagsWrite))
 
 	// Scheduled flag changes
-	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.List, sessionAuth))
-	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.Create, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Update, sessionAuth))
-	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Cancel, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.List, sessionAuth, requireFlagsRead))
+	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.Create, sessionAuth, requireFlagsWrite))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Update, sessionAuth, requireFlagsWrite))
+	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Cancel, sessionAuth, requireFlagsWrite))
 
 	// Flag history
-	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/history", wrap(historyHandler.List, sessionAuth))
-	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/history/{id}", wrap(historyHandler.Get, sessionAuth))
-
+	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/history", wrap(historyHandler.List, sessionAuth, requireFlagsRead))
+	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/history/{id}", wrap(historyHandler.Get, sessionAuth, requireFlagsRead))
 
 	// Unknown flags
-	mux.Handle("GET /api/v1/projects/{key}/unknown-flags", wrap(unknownFlagHandler.List, sessionAuth))
-	mux.Handle("DELETE /api/v1/projects/{key}/unknown-flags/{id}", wrap(unknownFlagHandler.Dismiss, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/unknown-flags", wrap(unknownFlagHandler.List, sessionAuth, requireFlagsRead))
+	mux.Handle("DELETE /api/v1/projects/{key}/unknown-flags/{id}", wrap(unknownFlagHandler.Dismiss, sessionAuth, requireFlagsWrite))
 
 	// Audit log
-	mux.Handle("GET /api/v1/projects/{key}/audit-log", wrap(auditHandler.List, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/audit-log", wrap(auditHandler.List, sessionAuth, requireFlagsRead))
 
 	// Project settings (flag lifetimes)
-	mux.Handle("GET /api/v1/projects/{key}/settings/flags", wrap(projectSettingsHandler.Get, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/settings/flags", wrap(projectSettingsHandler.Update, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/settings/flags", wrap(projectSettingsHandler.Get, sessionAuth, requireFlagsRead))
+	mux.Handle("PUT /api/v1/projects/{key}/settings/flags", wrap(projectSettingsHandler.Update, sessionAuth, requireProjectSettings))
 
 	// Environment defaults
-	mux.Handle("GET /api/v1/projects/{key}/settings/environments", wrap(projectSettingsHandler.GetEnvironmentDefaults, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/settings/environments", wrap(projectSettingsHandler.UpdateEnvironmentDefaults, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/settings/environments", wrap(projectSettingsHandler.GetEnvironmentDefaults, sessionAuth, requireFlagsRead))
+	mux.Handle("PUT /api/v1/projects/{key}/settings/environments", wrap(projectSettingsHandler.UpdateEnvironmentDefaults, sessionAuth, requireProjectSettings))
 
 	// Context attributes
-	mux.Handle("GET /api/v1/projects/{key}/context-attributes", wrap(contextAttributeHandler.List, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/context-attributes", wrap(contextAttributeHandler.List, sessionAuth, requireFlagsRead))
 
 	// Segments
-	mux.Handle("GET /api/v1/projects/{key}/segments", wrap(segmentHandler.List, sessionAuth))
-	mux.Handle("POST /api/v1/projects/{key}/segments", wrap(segmentHandler.Create, sessionAuth))
-	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Get, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Update, sessionAuth))
-	mux.Handle("DELETE /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Delete, sessionAuth))
-	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}/usage", wrap(segmentHandler.Usage, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/segments", wrap(segmentHandler.List, sessionAuth, requireFlagsRead))
+	mux.Handle("POST /api/v1/projects/{key}/segments", wrap(segmentHandler.Create, sessionAuth, requireSegmentsWrite))
+	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Get, sessionAuth, requireFlagsRead))
+	mux.Handle("PUT /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Update, sessionAuth, requireSegmentsWrite))
+	mux.Handle("DELETE /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Delete, sessionAuth, requireSegmentsWrite))
+	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}/usage", wrap(segmentHandler.Usage, sessionAuth, requireFlagsRead))
 
 	// Templates (global)
 	mux.Handle("GET /api/v1/templates", wrap(templateHandler.ListGlobal, sessionAuth))
-	mux.Handle("POST /api/v1/templates", wrap(templateHandler.CreateGlobal, sessionAuth, requireAdmin))
-	mux.Handle("PUT /api/v1/templates/{key}", wrap(templateHandler.UpdateGlobal, sessionAuth, requireAdmin))
-	mux.Handle("DELETE /api/v1/templates/{key}", wrap(templateHandler.DeleteGlobal, sessionAuth, requireAdmin))
+	mux.Handle("POST /api/v1/templates", wrap(templateHandler.CreateGlobal, sessionAuth, requireOrgUsersManage))
+	mux.Handle("PUT /api/v1/templates/{key}", wrap(templateHandler.UpdateGlobal, sessionAuth, requireOrgUsersManage))
+	mux.Handle("DELETE /api/v1/templates/{key}", wrap(templateHandler.DeleteGlobal, sessionAuth, requireOrgUsersManage))
 
 	// Templates (project-scoped)
-	// TODO(#36): Add RBAC — mutation routes currently allow any authenticated member
-	mux.Handle("GET /api/v1/projects/{key}/templates", wrap(templateHandler.ListForProject, sessionAuth))
-	mux.Handle("POST /api/v1/projects/{key}/templates", wrap(templateHandler.CreateForProject, sessionAuth))
-	mux.Handle("PUT /api/v1/projects/{key}/templates/{templateKey}", wrap(templateHandler.UpdateForProject, sessionAuth))
-	mux.Handle("DELETE /api/v1/projects/{key}/templates/{templateKey}", wrap(templateHandler.DeleteForProject, sessionAuth))
+	mux.Handle("GET /api/v1/projects/{key}/templates", wrap(templateHandler.ListForProject, sessionAuth, requireFlagsRead))
+	mux.Handle("POST /api/v1/projects/{key}/templates", wrap(templateHandler.CreateForProject, sessionAuth, requireTemplatesManage))
+	mux.Handle("PUT /api/v1/projects/{key}/templates/{templateKey}", wrap(templateHandler.UpdateForProject, sessionAuth, requireTemplatesManage))
+	mux.Handle("DELETE /api/v1/projects/{key}/templates/{templateKey}", wrap(templateHandler.DeleteForProject, sessionAuth, requireTemplatesManage))
+
+	// Project members
+	mux.Handle("GET /api/v1/projects/{key}/members", wrap(projectMemberHandler.List, sessionAuth, requireProjectSettings))
+	mux.Handle("POST /api/v1/projects/{key}/members", wrap(projectMemberHandler.Add, sessionAuth, requireProjectSettings))
+	mux.Handle("PUT /api/v1/projects/{key}/members/{userId}", wrap(projectMemberHandler.Update, sessionAuth, requireProjectSettings))
+	mux.Handle("DELETE /api/v1/projects/{key}/members/{userId}", wrap(projectMemberHandler.Remove, sessionAuth, requireProjectSettings))
+
+	// Org settings
+	mux.Handle("GET /api/v1/settings/base-project-role", wrap(orgSettingsHandler.GetBaseProjectRole, sessionAuth, requireOrgUsersManage))
+	mux.Handle("PUT /api/v1/settings/base-project-role", wrap(orgSettingsHandler.SetBaseProjectRole, sessionAuth, requireOrgUsersManage))
 
 	// --- SDK-authed routes (client API) ---
 	mux.Handle("POST /api/v1/evaluate", wrap(evaluateHandler.EvaluateAll, sdkAuth))

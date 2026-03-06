@@ -3,6 +3,7 @@ export interface User {
   email: string
   display_name?: string
   role: 'admin' | 'member'
+  permissions: string[]
   created_at: string
   updated_at: string
 }

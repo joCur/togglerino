@@ -8,10 +8,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useCanWrite } from '@/hooks/usePermissions'
 
 export default function EnvironmentsPage() {
   const { key } = useParams<{ key: string }>()
   const queryClient = useQueryClient()
+  const canWrite = useCanWrite(key)
   const [showForm, setShowForm] = useState(false)
   const [envKey, setEnvKey] = useState('')
   const [envName, setEnvName] = useState('')
@@ -73,7 +75,7 @@ export default function EnvironmentsPage() {
 
       <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">Environments</h1>
-        {!showForm && (
+        {canWrite && !showForm && (
           <Button onClick={() => setShowForm(true)}>Create Environment</Button>
         )}
       </div>
