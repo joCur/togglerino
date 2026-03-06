@@ -89,18 +89,15 @@ function RolloutBar({ step }: { step: TraceStep }) {
           {inRollout ? 'In rollout' : 'Outside rollout'}
         </Badge>
       </div>
-      <div className="h-1.5 bg-muted rounded-full overflow-hidden w-full max-w-[200px]">
+      <div className="h-1.5 bg-muted rounded-full overflow-hidden w-full max-w-[200px] relative">
         <div
-          className="h-full bg-[#d4956a] rounded-full relative"
+          className="h-full bg-[#d4956a] rounded-full"
           style={{ width: `${pct}%` }}
-        >
-          {bucket <= 100 && (
-            <div
-              className="absolute top-0 h-full w-0.5 bg-foreground"
-              style={{ left: `${(bucket / pct) * 100}%` }}
-            />
-          )}
-        </div>
+        />
+        <div
+          className="absolute top-0 h-full w-0.5 bg-foreground"
+          style={{ left: `${bucket}%` }}
+        />
       </div>
     </div>
   )
