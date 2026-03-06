@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gravatarUrl } from '@/lib/gravatar'
 import { useCanWrite } from '@/hooks/usePermissions'
-import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight } from 'lucide-react'
+import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play } from 'lucide-react'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -189,9 +189,18 @@ export default function FlagDetailPage() {
         <span className="text-foreground">{flag.key}</span>
       </div>
 
-      {/* Header: flag key + settings dropdown */}
+      {/* Header: flag key + actions */}
       <div className="flex items-start justify-between mb-1">
-        <h1 className="text-xl font-mono text-[#d4956a] tracking-wide">{flag.key}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-mono text-[#d4956a] tracking-wide">{flag.key}</h1>
+          <Link
+            to={`/projects/${key}/playground?flag=${flag.key}`}
+            className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-foreground/[0.05]"
+          >
+            <Play className="w-3.5 h-3.5" />
+            Test in Playground
+          </Link>
+        </div>
 
         {canWrite && (
           <DropdownMenu>
