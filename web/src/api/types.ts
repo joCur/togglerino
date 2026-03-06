@@ -92,6 +92,8 @@ export interface FlagEnvironmentConfig {
   variants: Variant[]
   targeting_rules: TargetingRule[]
   updated_at: string
+  updated_by?: string
+  updated_by_user?: FlagOwner
 }
 
 export interface AuditEntry {
