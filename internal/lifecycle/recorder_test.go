@@ -8,12 +8,12 @@ import (
 	"github.com/togglerino/togglerino/internal/model"
 )
 
-type mockAllFlagStore struct {
-	flags []model.Flag
+type mockLifecycleCounter struct {
+	rows []model.LifecycleCountRow
 }
 
-func (m *mockAllFlagStore) ListAll(_ context.Context) ([]model.Flag, error) {
-	return m.flags, nil
+func (m *mockLifecycleCounter) LifecycleCountsByProject(_ context.Context) ([]model.LifecycleCountRow, error) {
+	return m.rows, nil
 }
 
 type snapshot struct {
@@ -31,17 +31,16 @@ func (m *mockSnapshotStore) Record(_ context.Context, projectID string, active, 
 }
 
 func TestRecorder_Tick(t *testing.T) {
-	flags := &mockAllFlagStore{
-		flags: []model.Flag{
-			{ProjectID: "proj-1", LifecycleStatus: model.LifecycleActive},
-			{ProjectID: "proj-1", LifecycleStatus: model.LifecycleActive},
-			{ProjectID: "proj-1", LifecycleStatus: model.LifecycleStale},
-			{ProjectID: "proj-2", LifecycleStatus: model.LifecycleActive},
-			{ProjectID: "proj-2", LifecycleStatus: model.LifecycleArchived},
+	counter := &mockLifecycleCounter{
+		rows: []model.LifecycleCountRow{
+			{ProjectID: "proj-1", Status: "active", Count: 2},
+			{ProjectID: "proj-1", Status: "stale", Count: 1},
+			{ProjectID: "proj-2", Status: "active", Count: 1},
+			{ProjectID: "proj-2", Status: "archived", Count: 1},
 		},
 	}
 	ss := &mockSnapshotStore{}
-	r := NewRecorder(flags, ss, 24*time.Hour)
+	r := NewRecorder(counter, ss, 24*time.Hour)
 
 	r.tick(context.Background())
 
@@ -67,5 +66,24 @@ func TestRecorder_Tick(t *testing.T) {
 	}
 	if proj2.active != 1 || proj2.archived != 1 {
 		t.Errorf("proj-2: expected active=1 archived=1, got active=%d archived=%d", proj2.active, proj2.archived)
+	}
+}
+
+func TestRecorder_Tick_ZeroFlagProject(t *testing.T) {
+	counter := &mockLifecycleCounter{
+		rows: []model.LifecycleCountRow{
+			{ProjectID: "proj-empty", Status: "active", Count: 0},
+		},
+	}
+	ss := &mockSnapshotStore{}
+	r := NewRecorder(counter, ss, 24*time.Hour)
+
+	r.tick(context.Background())
+
+	if len(ss.recorded) != 1 {
+		t.Fatalf("expected 1 snapshot for zero-flag project, got %d", len(ss.recorded))
+	}
+	if ss.recorded[0].active != 0 {
+		t.Errorf("expected active=0, got %d", ss.recorded[0].active)
 	}
 }

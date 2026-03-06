@@ -272,31 +272,32 @@ func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	return flags, nil
 }
 
-// ListAll returns all flags across all projects (for snapshot recording).
-func (s *FlagStore) ListAll(ctx context.Context) ([]model.Flag, error) {
+// LifecycleCountsByProject returns flag counts grouped by project and lifecycle
+// status using a single aggregate query. Projects with zero flags are included
+// via a LEFT JOIN to the projects table.
+func (s *FlagStore) LifecycleCountsByProject(ctx context.Context) ([]model.LifecycleCountRow, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id
-		 FROM flags`)
+		`SELECT p.id, COALESCE(f.lifecycle_status, 'active'), COUNT(f.id)
+		 FROM projects p
+		 LEFT JOIN flags f ON f.project_id = p.id
+		 GROUP BY p.id, f.lifecycle_status`)
 	if err != nil {
-		return nil, fmt.Errorf("listing all flags: %w", err)
+		return nil, fmt.Errorf("querying lifecycle counts: %w", err)
 	}
 	defer rows.Close()
 
-	var flags []model.Flag
+	var result []model.LifecycleCountRow
 	for rows.Next() {
-		var f model.Flag
-		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID); err != nil {
-			return nil, fmt.Errorf("scanning flag: %w", err)
+		var r model.LifecycleCountRow
+		if err := rows.Scan(&r.ProjectID, &r.Status, &r.Count); err != nil {
+			return nil, fmt.Errorf("scanning lifecycle count row: %w", err)
 		}
-		if f.Tags == nil {
-			f.Tags = []string{}
-		}
-		flags = append(flags, f)
+		result = append(result, r)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating flags: %w", err)
+		return nil, fmt.Errorf("iterating lifecycle counts: %w", err)
 	}
-	return flags, nil
+	return result, nil
 }
 
 // Delete deletes a flag by ID (cascades to environment configs).

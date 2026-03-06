@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { api } from '../api/client'
-import type { Flag } from '../api/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -61,19 +60,18 @@ export default function LifecycleBoardPage() {
     enabled: !!key,
   })
 
-  const { data: trends } = useQuery({
+  const { data: trends, isLoading: trendsLoading, error: trendsError } = useQuery({
     queryKey: ['projects', key, 'lifecycle', 'trends'],
     queryFn: () => api.lifecycle.trends(key!),
     enabled: !!key,
   })
 
-  const { data: flags } = useQuery({
+  const { data: flags, isLoading: flagsLoading, error: flagsError } = useQuery({
     queryKey: ['projects', key, 'lifecycle-flags', statusFilter, typeFilter],
-    queryFn: () => {
-      let path = `/projects/${key}/flags?lifecycle_status=${statusFilter}`
-      if (typeFilter !== 'all') path += `&flag_type=${typeFilter}`
-      return api.get<Flag[]>(path)
-    },
+    queryFn: () => api.flags.list(key!, {
+      lifecycle_status: statusFilter,
+      flag_type: typeFilter !== 'all' ? typeFilter : undefined,
+    }),
     enabled: !!key,
   })
 
@@ -158,6 +156,20 @@ export default function LifecycleBoardPage() {
       )}
 
       {/* Trends Chart */}
+      {trendsLoading && (
+        <Card className="mb-8">
+          <CardContent className="p-4">
+            <div className="text-center py-12 text-muted-foreground/60 text-[13px] animate-pulse">Loading trends...</div>
+          </CardContent>
+        </Card>
+      )}
+      {trendsError && (
+        <Card className="mb-8">
+          <CardContent className="p-4">
+            <div className="text-center py-8 text-destructive text-[13px]">Failed to load trends data.</div>
+          </CardContent>
+        </Card>
+      )}
       {trends && trends.length > 0 && (
         <Card className="mb-8">
           <CardContent className="p-4">
@@ -243,7 +255,11 @@ export default function LifecycleBoardPage() {
             </div>
           </div>
 
-          {sortedFlags.length === 0 ? (
+          {flagsLoading ? (
+            <div className="text-center py-8 text-muted-foreground/60 text-[13px] animate-pulse">Loading flags...</div>
+          ) : flagsError ? (
+            <div className="text-center py-8 text-destructive text-[13px]">Failed to load flags.</div>
+          ) : sortedFlags.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground/40 text-[13px]">
               No flags match the current filters.
             </div>

@@ -36,6 +36,13 @@ const (
 	LifecycleArchived         LifecycleStatus = "archived"
 )
 
+// LifecycleCountRow holds a per-project, per-status flag count.
+type LifecycleCountRow struct {
+	ProjectID string
+	Status    string
+	Count     int
+}
+
 type Flag struct {
 	ID                       string          `json:"id"`
 	ProjectID                string          `json:"project_id"`

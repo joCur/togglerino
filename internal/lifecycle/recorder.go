@@ -8,9 +8,9 @@ import (
 	"github.com/togglerino/togglerino/internal/model"
 )
 
-// FlagLister lists all flags across all projects.
-type FlagLister interface {
-	ListAll(ctx context.Context) ([]model.Flag, error)
+// LifecycleCounter returns flag counts grouped by project and lifecycle status.
+type LifecycleCounter interface {
+	LifecycleCountsByProject(ctx context.Context) ([]model.LifecycleCountRow, error)
 }
 
 // SnapshotRecorder records a lifecycle snapshot for a project.
@@ -20,14 +20,14 @@ type SnapshotRecorder interface {
 
 // Recorder periodically records lifecycle snapshots for all projects.
 type Recorder struct {
-	flags     FlagLister
+	counter   LifecycleCounter
 	snapshots SnapshotRecorder
 	interval  time.Duration
 }
 
 // NewRecorder creates a new lifecycle snapshot recorder.
-func NewRecorder(flags FlagLister, snapshots SnapshotRecorder, interval time.Duration) *Recorder {
-	return &Recorder{flags: flags, snapshots: snapshots, interval: interval}
+func NewRecorder(counter LifecycleCounter, snapshots SnapshotRecorder, interval time.Duration) *Recorder {
+	return &Recorder{counter: counter, snapshots: snapshots, interval: interval}
 }
 
 // Run starts the recorder loop. Blocks until ctx is cancelled.
@@ -52,28 +52,28 @@ type projectCounts struct {
 }
 
 func (r *Recorder) tick(ctx context.Context) {
-	flags, err := r.flags.ListAll(ctx)
+	rows, err := r.counter.LifecycleCountsByProject(ctx)
 	if err != nil {
-		slog.Error("lifecycle recorder: failed to list flags", "error", err)
+		slog.Error("lifecycle recorder: failed to query counts", "error", err)
 		return
 	}
 
 	counts := map[string]*projectCounts{}
-	for _, f := range flags {
-		c, ok := counts[f.ProjectID]
+	for _, row := range rows {
+		c, ok := counts[row.ProjectID]
 		if !ok {
 			c = &projectCounts{}
-			counts[f.ProjectID] = c
+			counts[row.ProjectID] = c
 		}
-		switch f.LifecycleStatus {
-		case model.LifecycleActive:
-			c.active++
-		case model.LifecyclePotentiallyStale:
-			c.potentiallyStale++
-		case model.LifecycleStale:
-			c.stale++
-		case model.LifecycleArchived:
-			c.archived++
+		switch row.Status {
+		case "active":
+			c.active += row.Count
+		case "potentially_stale":
+			c.potentiallyStale += row.Count
+		case "stale":
+			c.stale += row.Count
+		case "archived":
+			c.archived += row.Count
 		}
 	}
 

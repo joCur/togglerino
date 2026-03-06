@@ -8,5 +8,3 @@ CREATE TABLE lifecycle_snapshots (
     recorded_at DATE NOT NULL DEFAULT CURRENT_DATE,
     UNIQUE (project_id, recorded_at)
 );
-
-CREATE INDEX idx_lifecycle_snapshots_project_date ON lifecycle_snapshots (project_id, recorded_at);
