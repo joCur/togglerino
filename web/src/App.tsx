@@ -30,6 +30,7 @@ import EnvironmentDefaultsTab from './pages/settings/EnvironmentDefaultsTab.tsx'
 import MembersTab from './pages/settings/MembersTab.tsx'
 import ProjectTemplatesPage from './pages/ProjectTemplatesPage.tsx'
 import TemplatesPage from './pages/TemplatesPage.tsx'
+import PlaygroundPage from './pages/PlaygroundPage.tsx'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,6 +109,7 @@ function AuthRouter() {
           <Route path="members" element={<MembersTab />} />
         </Route>
         <Route path="segments" element={<SegmentsPage />} />
+        <Route path="playground" element={<PlaygroundPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/projects" replace />} />
       <Route path="*" element={<Navigate to="/projects" replace />} />

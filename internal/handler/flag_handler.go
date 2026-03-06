@@ -153,6 +153,11 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Refresh cache for all environments so the new flag is immediately available
+	h.refreshAllEnvironments(r.Context(), projectKey, project.ID, req.Key, stream.Event{
+		Type: "flag_create",
+	})
+
 	writeJSON(w, http.StatusCreated, flag)
 }
 

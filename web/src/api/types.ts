@@ -228,3 +228,51 @@ export interface TemplatesForProject {
     global: FlagTemplate[]
     project: FlagTemplate[]
 }
+
+// Playground types
+export interface ConditionTrace {
+  attribute: string
+  operator: string
+  condition_value: unknown
+  actual_value?: unknown
+  passed: boolean
+  segment_trace?: ConditionTrace[]
+}
+
+export interface TraceStep {
+  type: 'lifecycle_check' | 'enabled_check' | 'rule'
+  passed: boolean
+  status?: string
+  enabled?: boolean
+  rule_index?: number
+  variant?: string
+  percentage_rollout?: number
+  hash_bucket?: number
+  in_rollout?: boolean
+  matched?: boolean
+  skipped?: boolean
+  conditions?: ConditionTrace[]
+}
+
+export interface EvaluationTrace {
+  flag_key: string
+  value: unknown
+  variant: string
+  reason: 'archived' | 'disabled' | 'rule_match' | 'default'
+  steps: TraceStep[]
+  default_variant: string
+  selected_step: number
+}
+
+export interface PlaygroundRequest {
+  environment_key: string
+  flag_key?: string
+  context?: {
+    user_id: string
+    attributes: Record<string, unknown>
+  }
+}
+
+export interface PlaygroundResponse {
+  results: EvaluationTrace[]
+}
