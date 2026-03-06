@@ -219,6 +219,17 @@ func (c *Cache) Set(projectKey, envKey string, flags map[string]FlagData) {
 	c.mu.Unlock()
 }
 
+// SetFlag directly sets a single flag's data for a project/environment (useful for testing).
+func (c *Cache) SetFlag(projectKey, envKey, flagKey string, data FlagData) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	key := cacheKey(projectKey, envKey)
+	if c.data[key] == nil {
+		c.data[key] = make(map[string]FlagData)
+	}
+	c.data[key][flagKey] = data
+}
+
 // GetSegments returns all segments for a project, keyed by segment key.
 // Returns nil if the project has no segments cached.
 func (c *Cache) GetSegments(projectKey string) map[string]model.Segment {
