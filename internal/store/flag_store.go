@@ -274,7 +274,9 @@ func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 
 // LifecycleCountsByProject returns flag counts grouped by project and lifecycle
 // status using a single aggregate query. Projects with zero flags are included
-// via a LEFT JOIN to the projects table.
+// via a LEFT JOIN to the projects table — they produce a single row with
+// COUNT(f.id) = 0. The COALESCE maps the NULL lifecycle_status to 'active' for
+// these zero-flag rows; the status value is irrelevant since the count is 0.
 func (s *FlagStore) LifecycleCountsByProject(ctx context.Context) ([]model.LifecycleCountRow, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT p.id, COALESCE(f.lifecycle_status, 'active'), COUNT(f.id)
@@ -426,19 +428,10 @@ func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	return &cfg, nil
 }
 
-// LifecycleSummary holds per-status flag counts and a derived health score.
-type LifecycleSummary struct {
-	Active           int     `json:"active"`
-	PotentiallyStale int     `json:"potentially_stale"`
-	Stale            int     `json:"stale"`
-	Archived         int     `json:"archived"`
-	HealthScore      float64 `json:"health_score"`
-}
-
 // LifecycleSummary returns flag counts grouped by lifecycle status for a
 // project, plus a health score (percentage of non-archived flags that are
 // active).
-func (s *FlagStore) LifecycleSummary(ctx context.Context, projectID string) (*LifecycleSummary, error) {
+func (s *FlagStore) LifecycleSummary(ctx context.Context, projectID string) (*model.LifecycleSummary, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT lifecycle_status, COUNT(*)
 		 FROM flags WHERE project_id = $1
@@ -450,7 +443,7 @@ func (s *FlagStore) LifecycleSummary(ctx context.Context, projectID string) (*Li
 	}
 	defer rows.Close()
 
-	summary := &LifecycleSummary{}
+	summary := &model.LifecycleSummary{}
 	for rows.Next() {
 		var status string
 		var count int

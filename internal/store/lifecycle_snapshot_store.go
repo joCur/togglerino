@@ -6,15 +6,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/togglerino/togglerino/internal/model"
 )
-
-type LifecycleSnapshot struct {
-	Date                  string `json:"date"`
-	ActiveCount           int    `json:"active"`
-	PotentiallyStaleCount int    `json:"potentially_stale"`
-	StaleCount            int    `json:"stale"`
-	ArchivedCount         int    `json:"archived"`
-}
 
 type LifecycleSnapshotStore struct {
 	pool *pgxpool.Pool
@@ -43,7 +36,8 @@ func (s *LifecycleSnapshotStore) Record(ctx context.Context, projectID string, a
 }
 
 // GetTrends returns lifecycle snapshots for the given project over the last N days, ordered by date ascending.
-func (s *LifecycleSnapshotStore) GetTrends(ctx context.Context, projectID string, days int) ([]LifecycleSnapshot, error) {
+// Always returns a non-nil slice.
+func (s *LifecycleSnapshotStore) GetTrends(ctx context.Context, projectID string, days int) ([]model.LifecycleSnapshot, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT recorded_at, active_count, potentially_stale_count, stale_count, archived_count
 		 FROM lifecycle_snapshots
@@ -56,9 +50,9 @@ func (s *LifecycleSnapshotStore) GetTrends(ctx context.Context, projectID string
 	}
 	defer rows.Close()
 
-	var snapshots []LifecycleSnapshot
+	snapshots := []model.LifecycleSnapshot{}
 	for rows.Next() {
-		var snap LifecycleSnapshot
+		var snap model.LifecycleSnapshot
 		var recordedAt time.Time
 		if err := rows.Scan(&recordedAt, &snap.ActiveCount, &snap.PotentiallyStaleCount, &snap.StaleCount, &snap.ArchivedCount); err != nil {
 			return nil, fmt.Errorf("scanning lifecycle snapshot: %w", err)

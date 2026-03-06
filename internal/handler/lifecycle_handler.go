@@ -56,7 +56,16 @@ func (h *LifecycleHandler) Trends(w http.ResponseWriter, r *http.Request) {
 
 	days := 30
 	if d := r.URL.Query().Get("days"); d != "" {
-		if parsed, err := strconv.Atoi(d); err == nil && parsed > 0 && parsed <= 365 {
+		parsed, err := strconv.Atoi(d)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "days must be a number")
+			return
+		}
+		if parsed < 1 {
+			days = 1
+		} else if parsed > 365 {
+			days = 365
+		} else {
 			days = parsed
 		}
 	}
@@ -65,10 +74,6 @@ func (h *LifecycleHandler) Trends(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get lifecycle trends")
 		return
-	}
-
-	if trends == nil {
-		trends = []store.LifecycleSnapshot{}
 	}
 
 	writeJSON(w, http.StatusOK, trends)

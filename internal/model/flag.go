@@ -43,6 +43,24 @@ type LifecycleCountRow struct {
 	Count     int
 }
 
+// LifecycleSummary holds per-status flag counts and a derived health score.
+type LifecycleSummary struct {
+	Active           int     `json:"active"`
+	PotentiallyStale int     `json:"potentially_stale"`
+	Stale            int     `json:"stale"`
+	Archived         int     `json:"archived"`
+	HealthScore      float64 `json:"health_score"`
+}
+
+// LifecycleSnapshot holds a single day's lifecycle counts for a project.
+type LifecycleSnapshot struct {
+	Date                  string `json:"date"`
+	ActiveCount           int    `json:"active"`
+	PotentiallyStaleCount int    `json:"potentially_stale"`
+	StaleCount            int    `json:"stale"`
+	ArchivedCount         int    `json:"archived"`
+}
+
 type Flag struct {
 	ID                       string          `json:"id"`
 	ProjectID                string          `json:"project_id"`
