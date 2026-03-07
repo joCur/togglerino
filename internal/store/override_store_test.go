@@ -132,6 +132,54 @@ func TestOverrideStore_ListByUser(t *testing.T) {
 	}
 }
 
+func TestOverrideStore_ListByUserAndFlag(t *testing.T) {
+	pool := testPool(t)
+	s := store.NewOverrideStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	ctx := context.Background()
+
+	userID := createTestUserForOverrides(t, pool)
+	projectID := createTestProjectForOverrides(t, pool)
+	flagID1 := createTestFlagForOverrides(t, pool, projectID)
+	flagID2 := createTestFlagForOverrides(t, pool, projectID)
+	envID := getTestEnvironmentID(t, pool, projectID)
+
+	// Create a second environment
+	env2, err := es.Create(ctx, projectID, uniqueKey("staging"), "Staging")
+	if err != nil {
+		t.Fatalf("creating second env: %v", err)
+	}
+
+	// Set overrides: flag1 in both envs, flag2 in env1
+	if _, err := s.Set(ctx, userID, flagID1, envID, json.RawMessage(`true`), nil); err != nil {
+		t.Fatalf("Set flag1/env1: %v", err)
+	}
+	if _, err := s.Set(ctx, userID, flagID1, env2.ID, json.RawMessage(`true`), nil); err != nil {
+		t.Fatalf("Set flag1/env2: %v", err)
+	}
+	if _, err := s.Set(ctx, userID, flagID2, envID, json.RawMessage(`false`), nil); err != nil {
+		t.Fatalf("Set flag2/env1: %v", err)
+	}
+
+	// ListByUserAndFlag for flag1 should return 2
+	overrides, err := s.ListByUserAndFlag(ctx, userID, flagID1)
+	if err != nil {
+		t.Fatalf("ListByUserAndFlag: %v", err)
+	}
+	if len(overrides) != 2 {
+		t.Fatalf("expected 2 overrides for flag1, got %d", len(overrides))
+	}
+
+	// ListByUserAndFlag for flag2 should return 1
+	overrides, err = s.ListByUserAndFlag(ctx, userID, flagID2)
+	if err != nil {
+		t.Fatalf("ListByUserAndFlag: %v", err)
+	}
+	if len(overrides) != 1 {
+		t.Fatalf("expected 1 override for flag2, got %d", len(overrides))
+	}
+}
+
 func TestOverrideStore_DeleteExpired(t *testing.T) {
 	pool := testPool(t)
 	s := store.NewOverrideStore(pool)
