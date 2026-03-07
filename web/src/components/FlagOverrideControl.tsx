@@ -53,7 +53,7 @@ export function FlagOverrideControl({ projectKey, flagKey, envKey, valueType, ov
           throw new Error('Invalid JSON value')
         }
       }
-      const effectiveDuration = duration === 'none' ? null : duration
+      const effectiveDuration = duration === 'none' ? '' : duration
       return api.overrides.set(projectKey, flagKey, envKey, parsedValue, effectiveDuration)
     },
     onSuccess: () => {
