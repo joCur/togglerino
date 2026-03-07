@@ -35,41 +35,45 @@ func (s *UnknownFlagStore) Upsert(ctx context.Context, projectID, environmentID,
 	return nil
 }
 
-// ListByProject returns all non-dismissed unknown flags for a project, ordered by
-// last_seen_at descending. Environment key and name are populated via JOIN.
-func (s *UnknownFlagStore) ListByProject(ctx context.Context, projectID string) ([]model.UnknownFlag, error) {
+// ListByProject returns non-dismissed unknown flags for a project with pagination,
+// ordered by last_seen_at descending. Environment key and name are populated via JOIN.
+// Returns the flags, total count (before pagination), and any error.
+func (s *UnknownFlagStore) ListByProject(ctx context.Context, projectID string, limit, offset int) ([]model.UnknownFlag, int, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT uf.id, uf.project_id, uf.environment_id, uf.flag_key,
 		        uf.request_count, uf.first_seen_at, uf.last_seen_at,
-		        e.key, e.name
+		        e.key, e.name,
+		        COUNT(*) OVER() AS total_count
 		 FROM unknown_flags uf
 		 JOIN environments e ON e.id = uf.environment_id
 		 WHERE uf.project_id = $1 AND uf.dismissed_at IS NULL
-		 ORDER BY uf.last_seen_at DESC`,
-		projectID,
+		 ORDER BY uf.last_seen_at DESC
+		 LIMIT $2 OFFSET $3`,
+		projectID, limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("listing unknown flags: %w", err)
+		return nil, 0, fmt.Errorf("listing unknown flags: %w", err)
 	}
 	defer rows.Close()
 
 	var flags []model.UnknownFlag
+	totalCount := 0
 	for rows.Next() {
 		var f model.UnknownFlag
 		if err := rows.Scan(&f.ID, &f.ProjectID, &f.EnvironmentID, &f.FlagKey,
 			&f.RequestCount, &f.FirstSeenAt, &f.LastSeenAt,
-			&f.EnvironmentKey, &f.EnvironmentName); err != nil {
-			return nil, fmt.Errorf("scanning unknown flag: %w", err)
+			&f.EnvironmentKey, &f.EnvironmentName, &totalCount); err != nil {
+			return nil, 0, fmt.Errorf("scanning unknown flag: %w", err)
 		}
 		flags = append(flags, f)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating unknown flags: %w", err)
+		return nil, 0, fmt.Errorf("iterating unknown flags: %w", err)
 	}
 	if flags == nil {
 		flags = []model.UnknownFlag{}
 	}
-	return flags, nil
+	return flags, totalCount, nil
 }
 
 // Dismiss soft-deletes an unknown flag by setting dismissed_at.

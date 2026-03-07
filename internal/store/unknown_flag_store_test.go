@@ -34,7 +34,7 @@ func TestUnknownFlagStore_Upsert(t *testing.T) {
 	}
 
 	// Verify the row was created with request_count = 1
-	flags, err := ufs.ListByProject(ctx, project.ID)
+	flags, _, err := ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestUnknownFlagStore_Upsert(t *testing.T) {
 		t.Fatalf("second Upsert: %v", err)
 	}
 
-	flags, err = ufs.ListByProject(ctx, project.ID)
+	flags, _, err = ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject after second upsert: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestUnknownFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Empty list initially
-	flags, err := ufs.ListByProject(ctx, project.ID)
+	flags, _, err := ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject empty: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestUnknownFlagStore_ListByProject(t *testing.T) {
 		t.Fatalf("Upsert flag-beta: %v", err)
 	}
 
-	flags, err = ufs.ListByProject(ctx, project.ID)
+	flags, _, err = ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestUnknownFlagStore_Dismiss(t *testing.T) {
 		t.Fatalf("Upsert: %v", err)
 	}
 
-	flags, err := ufs.ListByProject(ctx, project.ID)
+	flags, _, err := ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestUnknownFlagStore_Dismiss(t *testing.T) {
 	}
 
 	// Verify it disappears from the list
-	flags, err = ufs.ListByProject(ctx, project.ID)
+	flags, _, err = ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject after dismiss: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestUnknownFlagStore_Dismiss(t *testing.T) {
 		t.Fatalf("Upsert after dismiss: %v", err)
 	}
 
-	flags, err = ufs.ListByProject(ctx, project.ID)
+	flags, _, err = ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject after re-upsert: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestUnknownFlagStore_DeleteByProjectAndKey(t *testing.T) {
 	}
 
 	// Verify we have 3 flags
-	flags, err := ufs.ListByProject(ctx, project.ID)
+	flags, _, err := ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestUnknownFlagStore_DeleteByProjectAndKey(t *testing.T) {
 	}
 
 	// Verify only "keep-this" remains
-	flags, err = ufs.ListByProject(ctx, project.ID)
+	flags, _, err = ufs.ListByProject(ctx, project.ID, 100, 0)
 	if err != nil {
 		t.Fatalf("ListByProject after delete: %v", err)
 	}
