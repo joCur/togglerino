@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, FlagTemplate, User } from '../api/types.ts'
+import type { Flag, FlagTemplate, User, PaginatedResponse } from '../api/types.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -60,11 +60,12 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     enabled: open,
   })
 
-  const { data: users } = useQuery({
+  const { data: usersResponse } = useQuery({
     queryKey: ['users'],
-    queryFn: () => api.get<User[]>('/management/users'),
+    queryFn: () => api.get<PaginatedResponse<User>>('/management/users'),
     enabled: open,
   })
+  const users = usersResponse?.data
 
   const { data: templatesData } = useQuery({
     queryKey: ['projects', projectKey, 'templates'],

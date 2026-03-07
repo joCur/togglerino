@@ -92,7 +92,7 @@ func TestAuditStore_ListByProject(t *testing.T) {
 	}
 
 	// List with limit and offset
-	entries, err := as.ListByProject(ctx, project.ID, 50, 0)
+	entries, _, err := as.ListByProject(ctx, project.ID, 50, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestAuditStore_ListByProject_Pagination(t *testing.T) {
 	}
 
 	// Fetch first page (limit=2)
-	page1, err := as.ListByProject(ctx, project.ID, 2, 0)
+	page1, _, err := as.ListByProject(ctx, project.ID, 2, 0)
 	if err != nil {
 		t.Fatalf("ListByProject page1: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestAuditStore_ListByProject_Pagination(t *testing.T) {
 	}
 
 	// Fetch second page (limit=2, offset=2)
-	page2, err := as.ListByProject(ctx, project.ID, 2, 2)
+	page2, _, err := as.ListByProject(ctx, project.ID, 2, 2)
 	if err != nil {
 		t.Fatalf("ListByProject page2: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestAuditStore_ListByProject_Empty(t *testing.T) {
 		t.Fatalf("Create project: %v", err)
 	}
 
-	entries, err := as.ListByProject(ctx, project.ID, 50, 0)
+	entries, _, err := as.ListByProject(ctx, project.ID, 50, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestAuditStore_GetByID(t *testing.T) {
 	}
 
 	// List to find the ID
-	entries, err := as.ListByProject(ctx, project.ID, 1, 0)
+	entries, _, err := as.ListByProject(ctx, project.ID, 1, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestAuditStore_ListByFlag(t *testing.T) {
 	}
 
 	// ListByFlag for flag-a should return 4 entries (3 config + 1 flag)
-	entries, err := as.ListByFlag(ctx, project.ID, "flag-a", nil, 50, 0)
+	entries, _, err := as.ListByFlag(ctx, project.ID, "flag-a", nil, 50, 0)
 	if err != nil {
 		t.Fatalf("ListByFlag: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestAuditStore_ListByFlag_EnvFilter(t *testing.T) {
 	}
 
 	// Filter by env1 should return 2
-	entries, err := as.ListByFlag(ctx, project.ID, "my-flag", &env1ID, 50, 0)
+	entries, _, err := as.ListByFlag(ctx, project.ID, "my-flag", &env1ID, 50, 0)
 	if err != nil {
 		t.Fatalf("ListByFlag with env filter: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestAuditStore_Record_WithBatchID(t *testing.T) {
 	}
 
 	// Verify the batch_id was stored and can be read back
-	entries, err := as.ListByProject(ctx, project.ID, 1, 0)
+	entries, _, err := as.ListByProject(ctx, project.ID, 1, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}

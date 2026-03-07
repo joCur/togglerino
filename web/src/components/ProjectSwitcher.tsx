@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Project } from '../api/types.ts'
+import type { Project, PaginatedResponse } from '../api/types.ts'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 
@@ -14,10 +14,11 @@ export default function ProjectSwitcher() {
   const containerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  const { data: projects = [] } = useQuery({
+  const { data: projectsResponse } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => api.get<Project[]>('/projects'),
+    queryFn: () => api.get<PaginatedResponse<Project>>('/projects'),
   })
+  const projects = projectsResponse?.data ?? []
 
   const currentProject = projects.find((p) => p.key === key)
 

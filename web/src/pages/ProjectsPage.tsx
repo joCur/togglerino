@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client.ts'
-import type { Project } from '../api/types.ts'
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import CreateProjectModal from '../components/CreateProjectModal.tsx'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,10 +15,29 @@ export default function ProjectsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const isMobile = useIsMobile()
 
-  const { data: projects, isLoading, error } = useQuery({
+  const PAGE_SIZE = 50
+
+  const {
+    data: projectsData,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['projects'],
-    queryFn: () => api.get<Project[]>('/projects'),
+    queryFn: ({ pageParam }) =>
+      api.projects.list({ limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
   })
+
+  const projects = projectsData?.pages.flatMap((page) => page.data)
+
+  const scrollRef = useInfiniteScroll({ hasNextPage, isFetchingNextPage, fetchNextPage })
 
   if (isLoading) {
     return (
@@ -53,6 +72,7 @@ export default function ProjectsPage() {
           </div>
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3 md:gap-4">
           {projects.map((project, index) => (
             <Card
@@ -76,6 +96,13 @@ export default function ProjectsPage() {
             </Card>
           ))}
         </div>
+        <div ref={scrollRef} className="h-1" />
+        {isFetchingNextPage && (
+          <div className="text-center py-4 text-muted-foreground/60 text-[13px] animate-pulse">
+            Loading more projects...
+          </div>
+        )}
+        </>
       )}
 
       <CreateProjectModal open={modalOpen} onClose={() => setModalOpen(false)} />

@@ -1,4 +1,4 @@
-import type { Condition, Segment, Flag, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot } from './types'
+import type { Condition, Segment, Flag, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -42,12 +42,16 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 
   flags: {
-    list: (projectKey: string, params?: { lifecycle_status?: string; flag_type?: string }) => {
+    list: (projectKey: string, params?: { search?: string; tag?: string; lifecycle_status?: string; flag_type?: string; limit?: number; offset?: number }) => {
       const search = new URLSearchParams()
+      if (params?.search) search.set('search', params.search)
+      if (params?.tag) search.set('tag', params.tag)
       if (params?.lifecycle_status) search.set('lifecycle_status', params.lifecycle_status)
       if (params?.flag_type) search.set('flag_type', params.flag_type)
+      if (params?.limit !== undefined) search.set('limit', String(params.limit))
+      if (params?.offset !== undefined) search.set('offset', String(params.offset))
       const qs = search.toString()
-      return request<Flag[]>(`/projects/${projectKey}/flags${qs ? `?${qs}` : ''}`)
+      return request<PaginatedResponse<Flag>>(`/projects/${projectKey}/flags${qs ? `?${qs}` : ''}`)
     },
     bulk: (projectKey: string, body: BulkActionRequest) =>
       request<BulkActionResponse>(`/projects/${projectKey}/flags/bulk`, {
@@ -57,7 +61,13 @@ export const api = {
   },
 
   segments: {
-    list: (projectKey: string) => request<Segment[]>(`/projects/${projectKey}/segments`),
+    list: (projectKey: string, params?: { limit?: number; offset?: number }) => {
+      const search = new URLSearchParams()
+      if (params?.limit !== undefined) search.set('limit', String(params.limit))
+      if (params?.offset !== undefined) search.set('offset', String(params.offset))
+      const qs = search.toString()
+      return request<PaginatedResponse<Segment>>(`/projects/${projectKey}/segments${qs ? `?${qs}` : ''}`)
+    },
     get: (projectKey: string, segmentKey: string) =>
       request<Segment>(`/projects/${projectKey}/segments/${segmentKey}`),
     create: (
@@ -94,6 +104,46 @@ export const api = {
       request<LifecycleSummary>(`/projects/${projectKey}/lifecycle/summary`),
     trends: (projectKey: string, days = 30) =>
       request<LifecycleSnapshot[]>(`/projects/${projectKey}/lifecycle/trends?days=${days}`),
+  },
+
+  projects: {
+    list: (params?: { limit?: number; offset?: number }) => {
+      const search = new URLSearchParams()
+      if (params?.limit !== undefined) search.set('limit', String(params.limit))
+      if (params?.offset !== undefined) search.set('offset', String(params.offset))
+      const qs = search.toString()
+      return request<PaginatedResponse<Project>>(`/projects${qs ? `?${qs}` : ''}`)
+    },
+  },
+
+  users: {
+    list: (params?: { limit?: number; offset?: number }) => {
+      const search = new URLSearchParams()
+      if (params?.limit !== undefined) search.set('limit', String(params.limit))
+      if (params?.offset !== undefined) search.set('offset', String(params.offset))
+      const qs = search.toString()
+      return request<PaginatedResponse<User>>(`/management/users${qs ? `?${qs}` : ''}`)
+    },
+  },
+
+  unknownFlags: {
+    list: (projectKey: string, params?: { limit?: number; offset?: number }) => {
+      const search = new URLSearchParams()
+      if (params?.limit !== undefined) search.set('limit', String(params.limit))
+      if (params?.offset !== undefined) search.set('offset', String(params.offset))
+      const qs = search.toString()
+      return request<PaginatedResponse<UnknownFlag>>(`/projects/${projectKey}/unknown-flags${qs ? `?${qs}` : ''}`)
+    },
+  },
+
+  auditLog: {
+    list: (projectKey: string, params?: { limit?: number; offset?: number }) => {
+      const search = new URLSearchParams()
+      if (params?.limit !== undefined) search.set('limit', String(params.limit))
+      if (params?.offset !== undefined) search.set('offset', String(params.offset))
+      const qs = search.toString()
+      return request<PaginatedResponse<AuditEntry>>(`/projects/${projectKey}/audit-log${qs ? `?${qs}` : ''}`)
+    },
   },
 
   templates: {

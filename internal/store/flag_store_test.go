@@ -133,16 +133,19 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Basic list — should return all 3
-	flags, err := fs.ListByProject(ctx, project.ID, "", "", "", "", "")
+	flags, totalCount, err := fs.ListByProject(ctx, project.ID, "", "", "", "", "", 50, 0)
 	if err != nil {
 		t.Fatalf("ListByProject: %v", err)
 	}
 	if len(flags) != 3 {
 		t.Fatalf("expected 3 flags, got %d", len(flags))
 	}
+	if totalCount != 3 {
+		t.Fatalf("expected totalCount 3, got %d", totalCount)
+	}
 
 	// Filter by tag "ui" — should return flag-a and flag-c
-	flags, err = fs.ListByProject(ctx, project.ID, "ui", "", "", "", "")
+	flags, _, err = fs.ListByProject(ctx, project.ID, "ui", "", "", "", "", 50, 0)
 	if err != nil {
 		t.Fatalf("ListByProject with tag: %v", err)
 	}
@@ -151,7 +154,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Filter by tag "backend" — should return flag-b
-	flags, err = fs.ListByProject(ctx, project.ID, "backend", "", "", "", "")
+	flags, _, err = fs.ListByProject(ctx, project.ID, "backend", "", "", "", "", 50, 0)
 	if err != nil {
 		t.Fatalf("ListByProject with tag 'backend': %v", err)
 	}
@@ -163,7 +166,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Search by name "Dark" — should return flag-c
-	flags, err = fs.ListByProject(ctx, project.ID, "", "Dark", "", "", "")
+	flags, _, err = fs.ListByProject(ctx, project.ID, "", "Dark", "", "", "", 50, 0)
 	if err != nil {
 		t.Fatalf("ListByProject with search 'Dark': %v", err)
 	}
@@ -175,7 +178,7 @@ func TestFlagStore_ListByProject(t *testing.T) {
 	}
 
 	// Search by key "flag-a" — should match flag-a
-	flags, err = fs.ListByProject(ctx, project.ID, "", "flag-a", "", "", "")
+	flags, _, err = fs.ListByProject(ctx, project.ID, "", "flag-a", "", "", "", 50, 0)
 	if err != nil {
 		t.Fatalf("ListByProject with search 'flag-a': %v", err)
 	}
@@ -779,7 +782,7 @@ func TestFlagStore_ListByProject_OwnerFilter(t *testing.T) {
 	}
 
 	// Filter by owner
-	flags, err := fs.ListByProject(ctx, project.ID, "", "", "", "", user.ID)
+	flags, _, err := fs.ListByProject(ctx, project.ID, "", "", "", "", user.ID, 50, 0)
 	if err != nil {
 		t.Fatalf("ListByProject with owner filter: %v", err)
 	}

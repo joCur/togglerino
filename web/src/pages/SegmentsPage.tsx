@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useFlag } from '@togglerino/react'
 import { api } from '../api/client.ts'
 import type { Segment, Condition } from '../api/types.ts'
@@ -21,6 +21,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useCanWrite } from '@/hooks/usePermissions'
+
+const PAGE_SIZE = 50
 
 const OPERATOR_GROUPS = [
   {
@@ -474,11 +476,26 @@ export default function SegmentsPage() {
   const [editSegment, setEditSegment] = useState<Segment | null>(null)
   const autocompleteEnabled = useFlag('context-attribute-autocomplete', false)
 
-  const { data: segments, isLoading, error } = useQuery({
+  const {
+    data: segmentsData,
+    isLoading,
+    error,
+    hasNextPage: segmentsHasNextPage,
+    fetchNextPage: fetchNextSegments,
+    isFetchingNextPage: segmentsFetchingNext,
+  } = useInfiniteQuery({
     queryKey: ['segments', key],
-    queryFn: () => api.segments.list(key!),
+    queryFn: ({ pageParam = 0 }) =>
+      api.segments.list(key!, { limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: !!key,
   })
+
+  const segments = segmentsData?.pages.flatMap((page) => page.data)
 
   if (isLoading) {
     return (
@@ -561,6 +578,14 @@ export default function SegmentsPage() {
               ))}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {segmentsHasNextPage && (
+        <div className="text-center mt-4">
+          <Button variant="outline" onClick={() => fetchNextSegments()} disabled={segmentsFetchingNext}>
+            {segmentsFetchingNext ? 'Loading...' : 'Load More'}
+          </Button>
         </div>
       )}
 

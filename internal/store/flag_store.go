@@ -111,11 +111,13 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 	return &f, nil
 }
 
-// ListByProject returns all flags for a project. Supports optional tag filter, search query,
-// lifecycle status filter, flag type filter, and owner filter.
-func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string) ([]model.Flag, error) {
+// ListByProject returns flags for a project with pagination. Supports optional tag filter,
+// search query, lifecycle status filter, flag type filter, and owner filter.
+// Returns the flags, total count (before pagination), and any error.
+func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string, limit, offset int) ([]model.Flag, int, error) {
 	query := `SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id,
-	       u.id, u.email, u.display_name
+	       u.id, u.email, u.display_name,
+	       COUNT(*) OVER() AS total_count
 		FROM flags f
 		LEFT JOIN users u ON f.owner_id = u.id
 		WHERE f.project_id = $1`
@@ -154,22 +156,24 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 		argIdx++
 	}
 
-	query += " ORDER BY f.created_at DESC"
+	query += fmt.Sprintf(" ORDER BY f.created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+	args = append(args, limit, offset)
 
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("listing flags: %w", err)
+		return nil, 0, fmt.Errorf("listing flags: %w", err)
 	}
 	defer rows.Close()
 
 	var flags []model.Flag
+	totalCount := 0
 	for rows.Next() {
 		var f model.Flag
 		var ownerUserID, ownerEmail *string
 		var ownerDisplayName *string
 		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID,
-			&ownerUserID, &ownerEmail, &ownerDisplayName); err != nil {
-			return nil, fmt.Errorf("scanning flag: %w", err)
+			&ownerUserID, &ownerEmail, &ownerDisplayName, &totalCount); err != nil {
+			return nil, 0, fmt.Errorf("scanning flag: %w", err)
 		}
 		if ownerUserID != nil {
 			f.Owner = &model.FlagOwner{ID: *ownerUserID, Email: *ownerEmail, DisplayName: ownerDisplayName}
@@ -180,7 +184,18 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 		flags = append(flags, f)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating flags: %w", err)
+		return nil, 0, fmt.Errorf("iterating flags: %w", err)
+	}
+	return flags, totalCount, nil
+}
+
+// ListAllByProject returns all flags for a project without pagination.
+// Used by callers that need the complete set.
+func (s *FlagStore) ListAllByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string) ([]model.Flag, error) {
+	// Use a very high limit to get all results
+	flags, _, err := s.ListByProject(ctx, projectID, tag, search, lifecycleStatus, flagType, owner, 2147483647, 0)
+	if err != nil {
+		return nil, err
 	}
 	return flags, nil
 }

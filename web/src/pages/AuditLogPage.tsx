@@ -1,8 +1,6 @@
-import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { AuditEntry } from '../api/types.ts'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -31,30 +29,27 @@ function formatAction(action: string): string {
 
 export default function AuditLogPage() {
   const { key } = useParams<{ key: string }>()
-  const [offset, setOffset] = useState(0)
-  const [allEntries, setAllEntries] = useState<AuditEntry[]>([])
-  const [hasMore, setHasMore] = useState(true)
 
-  const { isLoading, error } = useQuery({
-    queryKey: ['projects', key, 'audit-log', offset],
-    queryFn: async () => {
-      const entries = await api.get<AuditEntry[]>(
-        `/projects/${key}/audit-log?limit=${PAGE_SIZE}&offset=${offset}`
-      )
-      if (offset === 0) {
-        setAllEntries(entries)
-      } else {
-        setAllEntries((prev) => [...prev, ...entries])
-      }
-      setHasMore(entries.length === PAGE_SIZE)
-      return entries
-    },
+  const {
+    data,
+    isLoading,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['projects', key, 'audit-log'],
+    queryFn: ({ pageParam = 0 }) =>
+      api.auditLog.list(key!, { limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: !!key,
   })
 
-  const handleLoadMore = () => {
-    setOffset((prev) => prev + PAGE_SIZE)
-  }
+  const allEntries = data?.pages.flatMap((page) => page.data) ?? []
 
   if (isLoading && allEntries.length === 0) {
     return (
@@ -155,14 +150,14 @@ export default function AuditLogPage() {
             Showing {allEntries.length} entries
           </div>
 
-          {hasMore && (
+          {hasNextPage && (
             <div className="text-center mt-4">
               <Button
                 variant="outline"
-                onClick={handleLoadMore}
-                disabled={isLoading}
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
               >
-                {isLoading ? 'Loading...' : 'Load More'}
+                {isFetchingNextPage ? 'Loading...' : 'Load More'}
               </Button>
             </div>
           )}

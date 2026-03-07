@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import type { Flag, Environment, FlagEnvironmentConfig } from '@/api/types'
 import { useCanWrite } from '@/hooks/usePermissions'
@@ -59,11 +59,24 @@ export default function KillSwitchDashboardPage() {
   const [toggleError, setToggleError] = useState<string | null>(null)
   const [pendingToggle, setPendingToggle] = useState<string | null>(null)
 
-  const { data: flags, isLoading: flagsLoading } = useQuery({
+  const PAGE_SIZE = 50
+  const {
+    data: flagsData,
+    isLoading: flagsLoading,
+    hasNextPage: flagsHasNextPage,
+    isFetchingNextPage: flagsFetchingNext,
+    fetchNextPage: fetchNextFlags,
+  } = useInfiniteQuery({
     queryKey: ['projects', key, 'flags', { flag_type: 'kill-switch' }],
-    queryFn: () => api.flags.list(key!, { flag_type: 'kill-switch' }),
+    queryFn: ({ pageParam = 0 }) => api.flags.list(key!, { flag_type: 'kill-switch', limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: !!key,
   })
+  const flags = flagsData?.pages.flatMap((page) => page.data)
 
   const { data: environments, isLoading: envsLoading } = useQuery({
     queryKey: ['projects', key, 'environments'],
@@ -260,6 +273,14 @@ export default function KillSwitchDashboardPage() {
           </tbody>
         </table>
       </div>
+
+      {flagsHasNextPage && (
+        <div className="text-center mt-4">
+          <Button variant="outline" onClick={() => fetchNextFlags()} disabled={flagsFetchingNext}>
+            {flagsFetchingNext ? 'Loading...' : 'Load More'}
+          </Button>
+        </div>
+      )}
 
       {/* Confirmation dialog */}
       <Dialog open={!!toggleTarget} onOpenChange={(open) => !open && setToggleTarget(null)}>

@@ -30,29 +30,31 @@ func (s *AuditStore) Record(ctx context.Context, entry model.AuditEntry) error {
 }
 
 // ListByProject returns audit entries for a project, ordered by created_at DESC, with pagination.
-func (s *AuditStore) ListByProject(ctx context.Context, projectID string, limit, offset int) ([]model.AuditEntry, error) {
+// Returns the entries, total count (before pagination), and any error.
+func (s *AuditStore) ListByProject(ctx context.Context, projectID string, limit, offset int) ([]model.AuditEntry, int, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, user_id, user_email, environment_id, batch_id, action, entity_type, entity_id, old_value, new_value, created_at
+		`SELECT id, project_id, user_id, user_email, environment_id, batch_id, action, entity_type, entity_id, old_value, new_value, created_at, COUNT(*) OVER() AS total_count
 		 FROM audit_log WHERE project_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
 		projectID, limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("listing audit entries: %w", err)
+		return nil, 0, fmt.Errorf("listing audit entries: %w", err)
 	}
 	defer rows.Close()
 
 	var entries []model.AuditEntry
+	totalCount := 0
 	for rows.Next() {
 		var e model.AuditEntry
-		if err := rows.Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.BatchID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scanning audit entry: %w", err)
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.BatchID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt, &totalCount); err != nil {
+			return nil, 0, fmt.Errorf("scanning audit entry: %w", err)
 		}
 		entries = append(entries, e)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating audit entries: %w", err)
+		return nil, 0, fmt.Errorf("iterating audit entries: %w", err)
 	}
-	return entries, nil
+	return entries, totalCount, nil
 }
 
 // GetByID returns a single audit entry by its ID.
@@ -70,8 +72,9 @@ func (s *AuditStore) GetByID(ctx context.Context, id string) (*model.AuditEntry,
 }
 
 // ListByFlag returns audit entries for a specific flag, optionally filtered by environment.
-func (s *AuditStore) ListByFlag(ctx context.Context, projectID, flagKey string, envID *string, limit, offset int) ([]model.AuditEntry, error) {
-	query := `SELECT id, project_id, user_id, user_email, environment_id, batch_id, action, entity_type, entity_id, old_value, new_value, created_at
+// Returns the entries, total count (before pagination), and any error.
+func (s *AuditStore) ListByFlag(ctx context.Context, projectID, flagKey string, envID *string, limit, offset int) ([]model.AuditEntry, int, error) {
+	query := `SELECT id, project_id, user_id, user_email, environment_id, batch_id, action, entity_type, entity_id, old_value, new_value, created_at, COUNT(*) OVER() AS total_count
 		 FROM audit_log
 		 WHERE project_id = $1 AND entity_id = $2 AND entity_type IN ('flag', 'flag_config')`
 	args := []any{projectID, flagKey}
@@ -88,20 +91,21 @@ func (s *AuditStore) ListByFlag(ctx context.Context, projectID, flagKey string, 
 
 	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("listing audit entries by flag: %w", err)
+		return nil, 0, fmt.Errorf("listing audit entries by flag: %w", err)
 	}
 	defer rows.Close()
 
 	var entries []model.AuditEntry
+	totalCount := 0
 	for rows.Next() {
 		var e model.AuditEntry
-		if err := rows.Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.BatchID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scanning audit entry: %w", err)
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.UserID, &e.UserEmail, &e.EnvironmentID, &e.BatchID, &e.Action, &e.EntityType, &e.EntityID, &e.OldValue, &e.NewValue, &e.CreatedAt, &totalCount); err != nil {
+			return nil, 0, fmt.Errorf("scanning audit entry: %w", err)
 		}
 		entries = append(entries, e)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating audit entries: %w", err)
+		return nil, 0, fmt.Errorf("iterating audit entries: %w", err)
 	}
-	return entries, nil
+	return entries, totalCount, nil
 }

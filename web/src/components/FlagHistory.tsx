@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { AuditEntry, Environment } from '../api/types'
+import type { AuditEntry, Environment, PaginatedResponse } from '../api/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,35 +44,35 @@ function formatAction(action: string): string {
 
 export default function FlagHistory({ projectKey, flagKey, environments }: FlagHistoryProps) {
   const [envFilter, setEnvFilter] = useState<string>('all')
-  const [offset, setOffset] = useState(0)
-  const [allEntries, setAllEntries] = useState<AuditEntry[]>([])
-  const [hasMore, setHasMore] = useState(true)
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set())
 
   const envParam = envFilter === 'all' ? '' : `&env=${envFilter}`
 
-  const { isLoading, error } = useQuery({
-    queryKey: ['projects', projectKey, 'flags', flagKey, 'history', envFilter, offset],
-    queryFn: async () => {
-      const entries = await api.get<AuditEntry[]>(
-        `/projects/${projectKey}/flags/${flagKey}/history?limit=${PAGE_SIZE}&offset=${offset}${envParam}`
-      )
-      if (offset === 0) {
-        setAllEntries(entries)
-      } else {
-        setAllEntries((prev) => [...prev, ...entries])
-      }
-      setHasMore(entries.length === PAGE_SIZE)
-      return entries
-    },
+  const {
+    data,
+    isLoading,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['projects', projectKey, 'flags', flagKey, 'history', envFilter],
+    queryFn: ({ pageParam = 0 }) =>
+      api.get<PaginatedResponse<AuditEntry>>(
+        `/projects/${projectKey}/flags/${flagKey}/history?limit=${PAGE_SIZE}&offset=${pageParam}${envParam}`
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: !!projectKey && !!flagKey,
   })
 
+  const allEntries = data?.pages.flatMap((page) => page.data) ?? []
+
   const handleEnvChange = (value: string) => {
     setEnvFilter(value)
-    setOffset(0)
-    setAllEntries([])
-    setHasMore(true)
   }
 
   const toggleExpanded = (id: string) => {
@@ -208,14 +208,14 @@ export default function FlagHistory({ projectKey, flagKey, environments }: FlagH
       )}
 
       {/* Load more */}
-      {hasMore && allEntries.length > 0 && (
+      {hasNextPage && allEntries.length > 0 && (
         <div className="text-center mt-6">
           <Button
             variant="outline"
-            onClick={() => setOffset((prev) => prev + PAGE_SIZE)}
-            disabled={isLoading}
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
           >
-            {isLoading ? 'Loading...' : 'Load More'}
+            {isFetchingNextPage ? 'Loading...' : 'Load More'}
           </Button>
         </div>
       )}

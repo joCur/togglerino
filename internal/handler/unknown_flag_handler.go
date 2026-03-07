@@ -32,13 +32,19 @@ func (h *UnknownFlagHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	flags, err := h.unknownFlags.ListByProject(r.Context(), project.ID)
+	limit, offset := parsePagination(r)
+	flags, totalCount, err := h.unknownFlags.ListByProject(r.Context(), project.ID, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list unknown flags")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, flags)
+	writeJSON(w, http.StatusOK, PaginatedResponse{
+		Data:       flags,
+		Total: totalCount,
+		Limit:      limit,
+		Offset:     offset,
+	})
 }
 
 // Dismiss handles DELETE /api/v1/projects/{key}/unknown-flags/{id}

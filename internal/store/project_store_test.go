@@ -78,13 +78,16 @@ func TestProjectStore_List(t *testing.T) {
 		t.Fatalf("Create 2: %v", err)
 	}
 
-	projects, err := ps.List(ctx)
+	projects, totalCount, err := ps.List(ctx, 100, 0)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
 
 	if len(projects) < 2 {
 		t.Fatalf("expected at least 2 projects, got %d", len(projects))
+	}
+	if totalCount < 2 {
+		t.Fatalf("expected totalCount at least 2, got %d", totalCount)
 	}
 
 	// Verify ordering is created_at DESC (most recent first)

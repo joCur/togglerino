@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
@@ -40,18 +39,7 @@ func (h *HistoryHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := 50
-	offset := 0
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-	if v := r.URL.Query().Get("offset"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
-			offset = parsed
-		}
-	}
+	limit, offset := parsePagination(r)
 
 	var envID *string
 	if envKey := r.URL.Query().Get("env"); envKey != "" {
@@ -63,7 +51,7 @@ func (h *HistoryHandler) List(w http.ResponseWriter, r *http.Request) {
 		envID = &env.ID
 	}
 
-	entries, err := h.audit.ListByFlag(r.Context(), project.ID, flagKey, envID, limit, offset)
+	entries, totalCount, err := h.audit.ListByFlag(r.Context(), project.ID, flagKey, envID, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list flag history")
 		return
@@ -72,7 +60,12 @@ func (h *HistoryHandler) List(w http.ResponseWriter, r *http.Request) {
 		entries = []model.AuditEntry{}
 	}
 
-	writeJSON(w, http.StatusOK, entries)
+	writeJSON(w, http.StatusOK, PaginatedResponse{
+		Data:       entries,
+		Total: totalCount,
+		Limit:      limit,
+		Offset:     offset,
+	})
 }
 
 // Get handles GET /api/v1/projects/{key}/flags/{flag}/history/{id}
@@ -105,4 +98,3 @@ func (h *HistoryHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, entry)
 }
-
