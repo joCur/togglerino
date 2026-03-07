@@ -31,6 +31,7 @@ import MembersTab from './pages/settings/MembersTab.tsx'
 import ProjectTemplatesPage from './pages/ProjectTemplatesPage.tsx'
 import TemplatesPage from './pages/TemplatesPage.tsx'
 import PlaygroundPage from './pages/PlaygroundPage.tsx'
+import KillSwitchDashboardPage from './pages/KillSwitchDashboardPage.tsx'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -96,6 +97,7 @@ function AuthRouter() {
       <Route path="/projects/:key" element={<ProjectLayout />}>
         <Route index element={<ProjectDetailPage />} />
         <Route path="lifecycle" element={<LifecycleBoardPage />} />
+        <Route path="kill-switches" element={<KillSwitchDashboardPage />} />
         <Route path="flags/:flag" element={<FlagDetailPage />} />
         <Route path="environments" element={<EnvironmentsPage />} />
         <Route path="environments/:env/sdk-keys" element={<SDKKeysPage />} />

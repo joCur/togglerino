@@ -520,7 +520,12 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		// Continue — audit old_value will be nil, but the update should still proceed
 	}
 
-	cfg, err := h.flags.UpdateEnvironmentConfig(r.Context(), flag.ID, env.ID, req.Enabled, req.DefaultVariant, req.Variants, req.TargetingRules)
+	var updatedBy *string
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		updatedBy = &user.ID
+	}
+
+	cfg, err := h.flags.UpdateEnvironmentConfig(r.Context(), flag.ID, env.ID, req.Enabled, req.DefaultVariant, req.Variants, req.TargetingRules, updatedBy)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update environment config")
 		return
@@ -771,8 +776,13 @@ func (h *FlagHandler) bulkEnableDisable(ctx context.Context, project *model.Proj
 		return fmt.Errorf("failed to get environment config")
 	}
 
+	var updatedBy *string
+	if user != nil {
+		updatedBy = &user.ID
+	}
+
 	cfg, err := h.flags.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, enable, oldConfig.DefaultVariant,
-		marshalJSON(oldConfig.Variants), marshalJSON(oldConfig.TargetingRules))
+		marshalJSON(oldConfig.Variants), marshalJSON(oldConfig.TargetingRules), updatedBy)
 	if err != nil {
 		return fmt.Errorf("failed to update environment config")
 	}

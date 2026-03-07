@@ -314,18 +314,26 @@ func (s *FlagStore) Delete(ctx context.Context, flagID string) error {
 // GetEnvironmentConfig returns the flag config for a specific environment.
 func (s *FlagStore) GetEnvironmentConfig(ctx context.Context, flagID, environmentID string) (*model.FlagEnvironmentConfig, error) {
 	row := s.pool.QueryRow(ctx,
-		`SELECT id, flag_id, environment_id, enabled, default_variant, variants, targeting_rules, updated_at
-		 FROM flag_environment_configs WHERE flag_id = $1 AND environment_id = $2`,
+		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
+		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
+		        u.id, u.email, u.display_name
+		 FROM flag_environment_configs fec
+		 LEFT JOIN users u ON fec.updated_by = u.id
+		 WHERE fec.flag_id = $1 AND fec.environment_id = $2`,
 		flagID, environmentID,
 	)
-	return scanFlagEnvConfig(row)
+	return scanFlagEnvConfigWithUser(row)
 }
 
 // GetAllEnvironmentConfigs returns all environment configs for a flag.
 func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string) ([]model.FlagEnvironmentConfig, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, flag_id, environment_id, enabled, default_variant, variants, targeting_rules, updated_at
-		 FROM flag_environment_configs WHERE flag_id = $1 ORDER BY updated_at`,
+		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
+		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
+		        u.id, u.email, u.display_name
+		 FROM flag_environment_configs fec
+		 LEFT JOIN users u ON fec.updated_by = u.id
+		 WHERE fec.flag_id = $1 ORDER BY fec.updated_at`,
 		flagID,
 	)
 	if err != nil {
@@ -337,8 +345,11 @@ func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string)
 	for rows.Next() {
 		var cfg model.FlagEnvironmentConfig
 		var variantsJSON, rulesJSON json.RawMessage
+		var updatedByUserID, updatedByEmail *string
+		var updatedByDisplayName *string
 		if err := rows.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-			&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt); err != nil {
+			&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+			&updatedByUserID, &updatedByEmail, &updatedByDisplayName); err != nil {
 			return nil, fmt.Errorf("scanning environment config: %w", err)
 		}
 		json.Unmarshal(variantsJSON, &cfg.Variants)
@@ -348,6 +359,9 @@ func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string)
 		}
 		if cfg.TargetingRules == nil {
 			cfg.TargetingRules = []model.TargetingRule{}
+		}
+		if updatedByUserID != nil {
+			cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
 		}
 		configs = append(configs, cfg)
 	}
@@ -359,13 +373,14 @@ func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string)
 
 // UpdateEnvironmentConfig updates the flag config for a specific environment.
 // This includes enabled, default_variant, variants (JSON), and targeting_rules (JSON).
-func (s *FlagStore) UpdateEnvironmentConfig(ctx context.Context, flagID, environmentID string, enabled bool, defaultVariant string, variants json.RawMessage, targetingRules json.RawMessage) (*model.FlagEnvironmentConfig, error) {
+// updatedBy optionally records which user made the change.
+func (s *FlagStore) UpdateEnvironmentConfig(ctx context.Context, flagID, environmentID string, enabled bool, defaultVariant string, variants json.RawMessage, targetingRules json.RawMessage, updatedBy *string) (*model.FlagEnvironmentConfig, error) {
 	row := s.pool.QueryRow(ctx,
 		`UPDATE flag_environment_configs
-		 SET enabled=$3, default_variant=$4, variants=$5, targeting_rules=$6, updated_at=NOW()
+		 SET enabled=$3, default_variant=$4, variants=$5, targeting_rules=$6, updated_at=NOW(), updated_by=$7
 		 WHERE flag_id=$1 AND environment_id=$2
-		 RETURNING id, flag_id, environment_id, enabled, default_variant, variants, targeting_rules, updated_at`,
-		flagID, environmentID, enabled, defaultVariant, variants, targetingRules,
+		 RETURNING id, flag_id, environment_id, enabled, default_variant, variants, targeting_rules, updated_at, updated_by`,
+		flagID, environmentID, enabled, defaultVariant, variants, targetingRules, updatedBy,
 	)
 	return scanFlagEnvConfig(row)
 }
@@ -413,7 +428,7 @@ func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	var cfg model.FlagEnvironmentConfig
 	var variantsJSON, rulesJSON json.RawMessage
 	err := row.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt)
+		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy)
 	if err != nil {
 		return nil, fmt.Errorf("scanning flag environment config: %w", err)
 	}
@@ -424,6 +439,31 @@ func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	}
 	if cfg.TargetingRules == nil {
 		cfg.TargetingRules = []model.TargetingRule{}
+	}
+	return &cfg, nil
+}
+
+func scanFlagEnvConfigWithUser(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
+	var cfg model.FlagEnvironmentConfig
+	var variantsJSON, rulesJSON json.RawMessage
+	var updatedByUserID, updatedByEmail *string
+	var updatedByDisplayName *string
+	err := row.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
+		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&updatedByUserID, &updatedByEmail, &updatedByDisplayName)
+	if err != nil {
+		return nil, fmt.Errorf("scanning flag environment config: %w", err)
+	}
+	json.Unmarshal(variantsJSON, &cfg.Variants)
+	json.Unmarshal(rulesJSON, &cfg.TargetingRules)
+	if cfg.Variants == nil {
+		cfg.Variants = []model.Variant{}
+	}
+	if cfg.TargetingRules == nil {
+		cfg.TargetingRules = []model.TargetingRule{}
+	}
+	if updatedByUserID != nil {
+		cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
 	}
 	return &cfg, nil
 }
