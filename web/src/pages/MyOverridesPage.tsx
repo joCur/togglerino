@@ -3,12 +3,13 @@ import { api } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Link } from 'react-router-dom'
 
 export default function MyOverridesPage() {
   const queryClient = useQueryClient()
 
-  const { data: overrides, isLoading } = useQuery({
+  const { data: overrides, isLoading, error } = useQuery({
     queryKey: ['my-overrides'],
     queryFn: () => api.overrides.listMine(),
   })
@@ -26,6 +27,16 @@ export default function MyOverridesPage() {
       <div className="text-center py-16 text-muted-foreground/60 text-[13px] animate-pulse">
         Loading overrides...
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>
+          Failed to load overrides: {error instanceof Error ? error.message : 'Unknown error'}
+        </AlertDescription>
+      </Alert>
     )
   }
 
@@ -48,7 +59,7 @@ export default function MyOverridesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {overrides?.map((o) => (
+            {overrides?.filter((o) => o.project_key && o.flag_key && o.environment_key).map((o) => (
               <TableRow key={o.id}>
                 <TableCell>
                   <Link to={`/projects/${o.project_key}`} className="text-[#d4956a] hover:underline">
@@ -76,9 +87,9 @@ export default function MyOverridesPage() {
                     size="sm"
                     onClick={() =>
                       deleteMutation.mutate({
-                        projectKey: o.project_key!,
-                        flagKey: o.flag_key!,
-                        envKey: o.environment_key!,
+                        projectKey: o.project_key as string,
+                        flagKey: o.flag_key as string,
+                        envKey: o.environment_key as string,
                       })
                     }
                   >

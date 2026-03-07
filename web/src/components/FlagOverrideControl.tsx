@@ -35,6 +35,8 @@ export function FlagOverrideControl({ projectKey, flagKey, envKey, valueType, ov
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['app-identity', projectKey] })
       setShowIdentityDialog(false)
+      setOverrideValue('')
+      setDuration('24h')
       setShowSetDialog(true)
     },
   })
@@ -44,8 +46,15 @@ export function FlagOverrideControl({ projectKey, flagKey, envKey, valueType, ov
       let parsedValue: unknown = overrideValue
       if (valueType === 'boolean') parsedValue = overrideValue === 'true'
       else if (valueType === 'number') parsedValue = Number(overrideValue)
-      else if (valueType === 'json') parsedValue = JSON.parse(overrideValue)
-      return api.overrides.set(projectKey, flagKey, envKey, parsedValue, duration || null)
+      else if (valueType === 'json') {
+        try {
+          parsedValue = JSON.parse(overrideValue)
+        } catch {
+          throw new Error('Invalid JSON value')
+        }
+      }
+      const effectiveDuration = duration === 'none' ? null : duration
+      return api.overrides.set(projectKey, flagKey, envKey, parsedValue, effectiveDuration)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['flag-overrides', projectKey, flagKey] })
@@ -63,9 +72,14 @@ export function FlagOverrideControl({ projectKey, flagKey, envKey, valueType, ov
   const handleOverrideClick = () => {
     if (override) {
       deleteOverrideMutation.mutate()
+    } else if (identityQuery.isLoading) {
+      return
     } else if (identityQuery.error) {
       setShowIdentityDialog(true)
     } else {
+      setOverrideValue('')
+      setDuration('24h')
+      setValueError(null)
       setShowSetDialog(true)
     }
   }
@@ -88,7 +102,7 @@ export function FlagOverrideControl({ projectKey, flagKey, envKey, valueType, ov
             </Button>
           </>
         ) : (
-          <Button variant="outline" size="sm" onClick={handleOverrideClick}>
+          <Button variant="outline" size="sm" onClick={handleOverrideClick} disabled={identityQuery.isLoading}>
             Override for me
           </Button>
         )}
@@ -155,6 +169,11 @@ export function FlagOverrideControl({ projectKey, flagKey, envKey, valueType, ov
               </Select>
             </div>
           </div>
+          {setOverrideMutation.error && (
+            <p className="text-sm text-destructive">
+              {setOverrideMutation.error instanceof Error ? setOverrideMutation.error.message : 'Failed to set override'}
+            </p>
+          )}
           <DialogFooter>
             <Button onClick={() => setOverrideMutation.mutate()}>
               Set Override

@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, User, PaginatedResponse, FlagOverrideEntry } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, User, PaginatedResponse } from '../api/types.ts'
 import NotFoundState from '../components/NotFoundState.tsx'
 import ConfigEditor from '../components/ConfigEditor.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
@@ -446,7 +446,7 @@ export default function FlagDetailPage() {
                                 flagKey={flagKey!}
                                 envKey={env.key}
                                 valueType={flag.value_type}
-                                override={overridesData?.find((o: FlagOverrideEntry) => o.environment_key === env.key)}
+                                override={overridesData?.find((o) => o.environment_key === env.key)}
                               />
                             </div>
                             <PendingSchedules
