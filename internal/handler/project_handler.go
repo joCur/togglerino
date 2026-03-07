@@ -87,7 +87,7 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 		if projects == nil {
 			projects = []model.Project{}
 		}
-		writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, TotalCount: totalCount, Limit: limit, Offset: offset})
+		writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, Total: totalCount, Limit: limit, Offset: offset})
 		return
 	}
 
@@ -102,13 +102,13 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 		if projects == nil {
 			projects = []model.Project{}
 		}
-		writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, TotalCount: totalCount, Limit: limit, Offset: offset})
+		writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, Total: totalCount, Limit: limit, Offset: offset})
 		return
 	}
 
 	// Base role is "none" — only show explicitly assigned projects
 	if user == nil {
-		writeJSON(w, http.StatusOK, PaginatedResponse{Data: []model.Project{}, TotalCount: 0, Limit: limit, Offset: offset})
+		writeJSON(w, http.StatusOK, PaginatedResponse{Data: []model.Project{}, Total: 0, Limit: limit, Offset: offset})
 		return
 	}
 	projectIDs, err := h.members.ListAccessibleProjectIDs(r.Context(), user.ID)
@@ -117,7 +117,7 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(projectIDs) == 0 {
-		writeJSON(w, http.StatusOK, PaginatedResponse{Data: []model.Project{}, TotalCount: 0, Limit: limit, Offset: offset})
+		writeJSON(w, http.StatusOK, PaginatedResponse{Data: []model.Project{}, Total: 0, Limit: limit, Offset: offset})
 		return
 	}
 
@@ -129,7 +129,7 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	if projects == nil {
 		projects = []model.Project{}
 	}
-	writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, TotalCount: totalCount, Limit: limit, Offset: offset})
+	writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, Total: totalCount, Limit: limit, Offset: offset})
 }
 
 // Get handles GET /api/v1/projects/{key}

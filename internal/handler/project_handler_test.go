@@ -90,7 +90,7 @@ func decodeProjects(t *testing.T, rr *httptest.ResponseRecorder) []model.Project
 	t.Helper()
 	var resp struct {
 		Data       []model.Project `json:"data"`
-		TotalCount int             `json:"total_count"`
+		Total int             `json:"total_count"`
 		Limit      int             `json:"limit"`
 		Offset     int             `json:"offset"`
 	}

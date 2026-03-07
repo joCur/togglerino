@@ -41,7 +41,7 @@ func (h *UnknownFlagHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, PaginatedResponse{
 		Data:       flags,
-		TotalCount: totalCount,
+		Total: totalCount,
 		Limit:      limit,
 		Offset:     offset,
 	})

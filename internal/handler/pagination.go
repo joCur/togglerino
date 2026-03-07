@@ -8,7 +8,7 @@ import (
 // PaginatedResponse wraps a paginated result with metadata.
 type PaginatedResponse struct {
 	Data       any `json:"data"`
-	TotalCount int `json:"total_count"`
+	Total int `json:"total"`
 	Limit      int `json:"limit"`
 	Offset     int `json:"offset"`
 }

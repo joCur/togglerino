@@ -43,7 +43,7 @@ func (h *AuditHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, PaginatedResponse{
 		Data:       entries,
-		TotalCount: totalCount,
+		Total: totalCount,
 		Limit:      limit,
 		Offset:     offset,
 	})

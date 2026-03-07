@@ -39,7 +39,7 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, PaginatedResponse{
 		Data:       users,
-		TotalCount: totalCount,
+		Total: totalCount,
 		Limit:      limit,
 		Offset:     offset,
 	})
