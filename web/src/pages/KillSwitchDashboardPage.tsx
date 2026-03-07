@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Zap } from 'lucide-react'
 
 interface FlagDetailResponse {
@@ -55,6 +56,7 @@ export default function KillSwitchDashboardPage() {
   const queryClient = useQueryClient()
   const canWrite = useCanWrite(key)
   const [toggleTarget, setToggleTarget] = useState<ToggleTarget | null>(null)
+  const [toggleError, setToggleError] = useState<string | null>(null)
 
   const { data: flags, isLoading: flagsLoading } = useQuery({
     queryKey: ['projects', key, 'flags', { flag_type: 'kill-switch' }],
@@ -73,21 +75,24 @@ export default function KillSwitchDashboardPage() {
     [flags],
   )
 
+  const activeFlagKeys = useMemo(() => activeFlags.map((f) => f.key), [activeFlags])
+
   const { data: configsMap } = useQuery({
-    queryKey: ['projects', key, 'kill-switch-configs'],
+    queryKey: ['projects', key, 'kill-switch-configs', activeFlagKeys],
     queryFn: async () => {
-      const results = await Promise.all(
+      const results = await Promise.allSettled(
         activeFlags.map((flag) =>
           api.get<FlagDetailResponse>(`/projects/${key}/flags/${flag.key}`),
         ),
       )
       const map: Record<string, Record<string, FlagEnvironmentConfig>> = {}
       for (const result of results) {
+        if (result.status !== 'fulfilled') continue
         const flagConfigs: Record<string, FlagEnvironmentConfig> = {}
-        for (const config of result.environment_configs) {
+        for (const config of result.value.environment_configs) {
           flagConfigs[config.environment_id] = config
         }
-        map[result.flag.key] = flagConfigs
+        map[result.value.flag.key] = flagConfigs
       }
       return map
     },
@@ -105,7 +110,11 @@ export default function KillSwitchDashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'kill-switch-configs'] })
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
+      setToggleError(null)
       setToggleTarget(null)
+    },
+    onError: (err) => {
+      setToggleError(err instanceof Error ? err.message : 'Failed to toggle kill switch')
     },
   })
 
@@ -209,9 +218,10 @@ export default function KillSwitchDashboardPage() {
                           <Switch
                             checked={isEnabled}
                             disabled={!canWrite || toggleMutation.isPending}
-                            onCheckedChange={() =>
+                            onCheckedChange={() => {
+                              setToggleError(null)
                               setToggleTarget({ flag, envKey: env.key, envName: env.name, config })
-                            }
+                            }}
                             className={cn(
                               'data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-red-900/40',
                             )}
@@ -257,6 +267,11 @@ export default function KillSwitchDashboardPage() {
                 {toggleTarget.envName}?
               </DialogDescription>
             </DialogHeader>
+            {toggleError && (
+              <Alert variant="destructive">
+                <AlertDescription>{toggleError}</AlertDescription>
+              </Alert>
+            )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setToggleTarget(null)}>
                 Cancel
