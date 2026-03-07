@@ -1,9 +1,11 @@
 package evaluation_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/model"
@@ -163,4 +165,96 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestCache_Overrides(t *testing.T) {
+	c := evaluation.NewCache()
+
+	// Set an override
+	c.SetOverride("myproject", "production", "app-user-1", "feature-x", json.RawMessage(`true`), nil)
+
+	// Get override — should find it
+	val, ok := c.GetOverride("myproject", "production", "app-user-1", "feature-x")
+	if !ok {
+		t.Fatal("expected to find override")
+	}
+	if string(val) != "true" {
+		t.Fatalf("expected true, got %s", string(val))
+	}
+
+	// Get override for different user — should not find it
+	_, ok = c.GetOverride("myproject", "production", "other-user", "feature-x")
+	if ok {
+		t.Fatal("expected no override for other user")
+	}
+
+	// Delete override
+	c.DeleteOverride("myproject", "production", "app-user-1", "feature-x")
+	_, ok = c.GetOverride("myproject", "production", "app-user-1", "feature-x")
+	if ok {
+		t.Fatal("expected override to be deleted")
+	}
+}
+
+func TestCache_OverrideExpiry(t *testing.T) {
+	c := evaluation.NewCache()
+
+	past := time.Now().Add(-1 * time.Hour)
+	c.SetOverride("proj", "dev", "user-1", "flag-a", json.RawMessage(`true`), &past)
+
+	// Expired override should not be returned
+	_, ok := c.GetOverride("proj", "dev", "user-1", "flag-a")
+	if ok {
+		t.Fatal("expected expired override to not be found")
+	}
+}
+
+func TestCache_DeleteOverridesForUser(t *testing.T) {
+	c := evaluation.NewCache()
+
+	c.SetOverride("proj", "dev", "user-1", "flag-a", json.RawMessage(`true`), nil)
+	c.SetOverride("proj", "dev", "user-1", "flag-b", json.RawMessage(`false`), nil)
+	c.SetOverride("proj", "dev", "user-2", "flag-a", json.RawMessage(`true`), nil)
+
+	c.DeleteOverridesForUser("proj", "dev", "user-1")
+
+	_, ok := c.GetOverride("proj", "dev", "user-1", "flag-a")
+	if ok {
+		t.Fatal("expected user-1 flag-a to be deleted")
+	}
+	_, ok = c.GetOverride("proj", "dev", "user-1", "flag-b")
+	if ok {
+		t.Fatal("expected user-1 flag-b to be deleted")
+	}
+	// user-2 should be unaffected
+	_, ok = c.GetOverride("proj", "dev", "user-2", "flag-a")
+	if !ok {
+		t.Fatal("expected user-2 flag-a to still exist")
+	}
+}
+
+func TestCache_LoadOverrides(t *testing.T) {
+	c := evaluation.NewCache()
+
+	entries := []evaluation.OverrideCacheEntryData{
+		{ProjectKey: "proj", EnvironmentKey: "dev", FlagKey: "flag-a", AppUserID: "user-1", Value: json.RawMessage(`true`)},
+		{ProjectKey: "proj", EnvironmentKey: "prod", FlagKey: "flag-b", AppUserID: "user-2", Value: json.RawMessage(`42`)},
+	}
+	c.LoadOverrides(entries)
+
+	val, ok := c.GetOverride("proj", "dev", "user-1", "flag-a")
+	if !ok {
+		t.Fatal("expected override after LoadOverrides")
+	}
+	if string(val) != "true" {
+		t.Fatalf("expected true, got %s", string(val))
+	}
+
+	val, ok = c.GetOverride("proj", "prod", "user-2", "flag-b")
+	if !ok {
+		t.Fatal("expected override after LoadOverrides")
+	}
+	if string(val) != "42" {
+		t.Fatalf("expected 42, got %s", string(val))
+	}
 }

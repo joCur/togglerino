@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,22 @@ type FlagData struct {
 	Config model.FlagEnvironmentConfig
 }
 
+// OverrideEntry holds a cached personal override value.
+type OverrideEntry struct {
+	Value     json.RawMessage
+	ExpiresAt *time.Time
+}
+
+// OverrideCacheEntryData is the data needed to populate the override cache.
+type OverrideCacheEntryData struct {
+	ProjectKey     string
+	EnvironmentKey string
+	FlagKey        string
+	AppUserID      string
+	Value          json.RawMessage
+	ExpiresAt      *time.Time
+}
+
 // Cache holds all flag data in memory for fast evaluation.
 type Cache struct {
 	mu sync.RWMutex
@@ -24,13 +41,16 @@ type Cache struct {
 	data map[string]map[string]FlagData
 	// Key: projectKey, Value: map of segmentKey -> Segment
 	segments map[string]map[string]model.Segment
+	// Key: "projectKey:envKey", Value: map of "appUserID:flagKey" -> OverrideEntry
+	overrides map[string]map[string]OverrideEntry
 }
 
 // NewCache creates a new empty cache.
 func NewCache() *Cache {
 	return &Cache{
-		data:     make(map[string]map[string]FlagData),
-		segments: make(map[string]map[string]model.Segment),
+		data:      make(map[string]map[string]FlagData),
+		segments:  make(map[string]map[string]model.Segment),
+		overrides: make(map[string]map[string]OverrideEntry),
 	}
 }
 
@@ -304,4 +324,78 @@ func scanFlagRow(row rowScanner) (projectKey, envKey string, fd FlagData, err er
 	}
 
 	return projectKey, envKey, fd, nil
+}
+
+func overrideKey(appUserID, flagKey string) string {
+	return appUserID + ":" + flagKey
+}
+
+func (c *Cache) SetOverride(projectKey, envKey, appUserID, flagKey string, value json.RawMessage, expiresAt *time.Time) {
+	key := cacheKey(projectKey, envKey)
+	oKey := overrideKey(appUserID, flagKey)
+	c.mu.Lock()
+	if c.overrides[key] == nil {
+		c.overrides[key] = make(map[string]OverrideEntry)
+	}
+	c.overrides[key][oKey] = OverrideEntry{Value: value, ExpiresAt: expiresAt}
+	c.mu.Unlock()
+}
+
+func (c *Cache) GetOverride(projectKey, envKey, appUserID, flagKey string) (json.RawMessage, bool) {
+	key := cacheKey(projectKey, envKey)
+	oKey := overrideKey(appUserID, flagKey)
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	overrides := c.overrides[key]
+	if overrides == nil {
+		return nil, false
+	}
+	entry, ok := overrides[oKey]
+	if !ok {
+		return nil, false
+	}
+	if entry.ExpiresAt != nil && entry.ExpiresAt.Before(time.Now()) {
+		return nil, false
+	}
+	return entry.Value, true
+}
+
+func (c *Cache) DeleteOverride(projectKey, envKey, appUserID, flagKey string) {
+	key := cacheKey(projectKey, envKey)
+	oKey := overrideKey(appUserID, flagKey)
+	c.mu.Lock()
+	if c.overrides[key] != nil {
+		delete(c.overrides[key], oKey)
+	}
+	c.mu.Unlock()
+}
+
+func (c *Cache) DeleteOverridesForUser(projectKey, envKey, appUserID string) {
+	key := cacheKey(projectKey, envKey)
+	prefix := appUserID + ":"
+	c.mu.Lock()
+	if c.overrides[key] != nil {
+		for k := range c.overrides[key] {
+			if strings.HasPrefix(k, prefix) {
+				delete(c.overrides[key], k)
+			}
+		}
+	}
+	c.mu.Unlock()
+}
+
+// LoadOverrides bulk-loads override entries into the cache.
+func (c *Cache) LoadOverrides(entries []OverrideCacheEntryData) {
+	newOverrides := make(map[string]map[string]OverrideEntry)
+	for _, e := range entries {
+		key := cacheKey(e.ProjectKey, e.EnvironmentKey)
+		oKey := overrideKey(e.AppUserID, e.FlagKey)
+		if newOverrides[key] == nil {
+			newOverrides[key] = make(map[string]OverrideEntry)
+		}
+		newOverrides[key][oKey] = OverrideEntry{Value: e.Value, ExpiresAt: e.ExpiresAt}
+	}
+	c.mu.Lock()
+	c.overrides = newOverrides
+	c.mu.Unlock()
 }
