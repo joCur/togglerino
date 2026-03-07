@@ -57,6 +57,7 @@ export default function KillSwitchDashboardPage() {
   const canWrite = useCanWrite(key)
   const [toggleTarget, setToggleTarget] = useState<ToggleTarget | null>(null)
   const [toggleError, setToggleError] = useState<string | null>(null)
+  const [pendingToggle, setPendingToggle] = useState<string | null>(null)
 
   const { data: flags, isLoading: flagsLoading } = useQuery({
     queryKey: ['projects', key, 'flags', { flag_type: 'kill-switch' }],
@@ -97,16 +98,22 @@ export default function KillSwitchDashboardPage() {
       return map
     },
     enabled: !!key && activeFlags.length > 0,
+    refetchInterval: 30_000,
   })
 
   const toggleMutation = useMutation({
-    mutationFn: ({ flagKey, envKey, config }: { flagKey: string; envKey: string; config: FlagEnvironmentConfig }) =>
-      api.put(`/projects/${key}/flags/${flagKey}/environments/${envKey}`, {
+    mutationFn: ({ flagKey, envKey, config }: { flagKey: string; envKey: string; config: FlagEnvironmentConfig }) => {
+      setPendingToggle(`${flagKey}:${envKey}`)
+      return api.put(`/projects/${key}/flags/${flagKey}/environments/${envKey}`, {
         enabled: !config.enabled,
         default_variant: config.default_variant,
         variants: config.variants,
         targeting_rules: config.targeting_rules,
-      }),
+      })
+    },
+    onSettled: () => {
+      setPendingToggle(null)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'kill-switch-configs'] })
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
@@ -217,7 +224,7 @@ export default function KillSwitchDashboardPage() {
                         <div className="flex items-center gap-2">
                           <Switch
                             checked={isEnabled}
-                            disabled={!canWrite || toggleMutation.isPending}
+                            disabled={!canWrite || pendingToggle === `${flag.key}:${env.key}`}
                             onCheckedChange={() => {
                               setToggleError(null)
                               setToggleTarget({ flag, envKey: env.key, envName: env.name, config })
