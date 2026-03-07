@@ -1023,8 +1023,9 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 		targetEnabled = oldTargetConfig.Enabled
 	}
 
+	user := auth.UserFromContext(r.Context())
 	var updatedBy *string
-	if user := auth.UserFromContext(r.Context()); user != nil {
+	if user != nil {
 		updatedBy = &user.ID
 	}
 
@@ -1044,7 +1045,7 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 	}
 
 	// Best-effort audit logging
-	if user := auth.UserFromContext(r.Context()); user != nil {
+	if user != nil {
 		var oldVal json.RawMessage
 		if oldTargetConfig != nil {
 			oldVal, _ = json.Marshal(oldTargetConfig)

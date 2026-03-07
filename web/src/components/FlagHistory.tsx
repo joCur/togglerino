@@ -185,12 +185,11 @@ export default function FlagHistory({ projectKey, flagKey, environments }: FlagH
                       </Badge>
                     )}
 
-                    {(() => {
-                      const promotedDesc = formatPromotedDescription(entry, envNameMap)
-                      return promotedDesc ? (
-                        <span className="text-xs text-muted-foreground/80">{promotedDesc}</span>
-                      ) : null
-                    })()}
+                    {formatPromotedDescription(entry, envNameMap) && (
+                      <span className="text-xs text-muted-foreground/80">
+                        {formatPromotedDescription(entry, envNameMap)}
+                      </span>
+                    )}
 
                     <span className="text-xs text-muted-foreground/60 ml-auto whitespace-nowrap">
                       {entry.user_email ?? (entry.user_id ? entry.user_id.slice(0, 8) + '...' : 'system')}

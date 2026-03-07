@@ -542,6 +542,7 @@ export default function FlagDetailPage() {
           onOpenChange={(open) => { if (!open) setPromoteState(null) }}
           onConfirm={() => promoteMutation.mutate(promoteState)}
           isLoading={promoteMutation.isPending}
+          error={promoteMutation.error instanceof Error ? promoteMutation.error : promoteMutation.error ? new Error('Promotion failed') : null}
         />
       )}
     </div>

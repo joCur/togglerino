@@ -220,7 +220,7 @@ func main() {
 	// Environments
 	mux.Handle("POST /api/v1/projects/{key}/environments", wrap(environmentHandler.Create, sessionAuth, requireEnvsWrite))
 	mux.Handle("GET /api/v1/projects/{key}/environments", wrap(environmentHandler.List, sessionAuth, requireEnvsRead))
-	mux.Handle("PUT /api/v1/projects/{key}/environments/order", wrap(environmentHandler.UpdateOrder, sessionAuth, requireEnvsWrite))
+	mux.Handle("PUT /api/v1/projects/{key}/environments/order", wrap(environmentHandler.UpdateOrder, sessionAuth, requireProjectSettings))
 
 	// SDK Keys
 	mux.Handle("POST /api/v1/projects/{key}/environments/{env}/sdk-keys", wrap(sdkKeyHandler.Create, sessionAuth, requireSDKKeysManage))

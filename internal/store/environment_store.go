@@ -128,6 +128,26 @@ func (s *EnvironmentStore) CreateDefaultEnvironments(ctx context.Context, projec
 
 // UpdateOrder reorders environments within a project. environmentIDs must contain all environment IDs for the project.
 func (s *EnvironmentStore) UpdateOrder(ctx context.Context, projectID string, environmentIDs []string) error {
+	// Validate that the list contains all environments for the project
+	var count int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM environments WHERE project_id = $1`, projectID,
+	).Scan(&count); err != nil {
+		return fmt.Errorf("counting environments: %w", err)
+	}
+	if len(environmentIDs) != count {
+		return fmt.Errorf("expected %d environment IDs, got %d: must include all environments", count, len(environmentIDs))
+	}
+
+	// Check for duplicate IDs
+	seen := make(map[string]bool, len(environmentIDs))
+	for _, id := range environmentIDs {
+		if seen[id] {
+			return fmt.Errorf("duplicate environment ID: %s", id)
+		}
+		seen[id] = true
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)

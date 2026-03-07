@@ -19,6 +19,7 @@ interface PromoteDialogProps {
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
   isLoading: boolean
+  error: Error | null
 }
 
 function formatValue(val: unknown): string {
@@ -59,6 +60,7 @@ export default function PromoteDialog({
   onOpenChange,
   onConfirm,
   isLoading,
+  error,
 }: PromoteDialogProps) {
   const sourceDefault = sourceConfig?.default_variant ?? 'none'
   const targetDefault = targetConfig?.default_variant ?? 'none'
@@ -95,6 +97,12 @@ export default function PromoteDialog({
             Enabled state preserved (unchanged)
           </div>
         </div>
+
+        {error && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+            {error.message || 'Promotion failed'}
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
