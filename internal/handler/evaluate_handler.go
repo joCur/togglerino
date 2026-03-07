@@ -64,11 +64,12 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 	segments := h.cache.GetSegments(sdkKey.ProjectKey)
 	results := make(map[string]*model.EvaluationResult, len(flags))
 	for flagKey, fd := range flags {
-		if evalCtx.UserID != "" {
+		if evalCtx.UserID != "" && fd.Flag.LifecycleStatus != model.LifecycleArchived {
 			if overrideVal, ok := h.cache.GetOverride(sdkKey.ProjectKey, sdkKey.EnvironmentKey, evalCtx.UserID, flagKey); ok {
 				results[flagKey] = &model.EvaluationResult{
-					Value:  rawToAny(overrideVal),
-					Reason: "override",
+					Value:   rawToAny(overrideVal),
+					Variant: "override",
+					Reason:  "override",
 				}
 				continue
 			}
@@ -100,11 +101,12 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if evalCtx.UserID != "" {
+	if evalCtx.UserID != "" && fd.Flag.LifecycleStatus != model.LifecycleArchived {
 		if overrideVal, ok := h.cache.GetOverride(sdkKey.ProjectKey, sdkKey.EnvironmentKey, evalCtx.UserID, flagKey); ok {
 			writeJSON(w, http.StatusOK, &model.EvaluationResult{
-				Value:  rawToAny(overrideVal),
-				Reason: "override",
+				Value:   rawToAny(overrideVal),
+				Variant: "override",
+				Reason:  "override",
 			})
 			return
 		}
