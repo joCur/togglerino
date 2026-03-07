@@ -237,6 +237,7 @@ func main() {
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/archive", wrap(flagHandler.Archive, sessionAuth, requireFlagsWrite))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/staleness", wrap(flagHandler.SetStaleness, sessionAuth, requireFlagsWrite))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth, requireFlagsWrite))
+	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/promote", wrap(flagHandler.PromoteEnvironmentConfig, sessionAuth, requireFlagsWrite))
 
 	// Scheduled flag changes
 	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.List, sessionAuth, requireFlagsRead))

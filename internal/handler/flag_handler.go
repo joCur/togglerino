@@ -952,6 +952,137 @@ func (h *FlagHandler) bulkSetOwner(ctx context.Context, project *model.Project, 
 	return nil
 }
 
+// PromoteEnvironmentConfig handles POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/promote
+func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Request) {
+	projectKey := r.PathValue("key")
+	flagKey := r.PathValue("flag")
+	targetEnvKey := r.PathValue("env")
+	if projectKey == "" || flagKey == "" || targetEnvKey == "" {
+		writeError(w, http.StatusBadRequest, "project key, flag key, and environment key are required")
+		return
+	}
+
+	project, err := h.projects.FindByKey(r.Context(), projectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	flag, err := h.flags.FindByKey(r.Context(), project.ID, flagKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "flag not found")
+		return
+	}
+
+	var req struct {
+		SourceEnvironmentKey string `json:"source_environment_key"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.SourceEnvironmentKey == "" {
+		writeError(w, http.StatusBadRequest, "source_environment_key is required")
+		return
+	}
+
+	sourceEnv, err := h.environments.FindByKey(r.Context(), project.ID, req.SourceEnvironmentKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "source environment not found")
+		return
+	}
+
+	targetEnv, err := h.environments.FindByKey(r.Context(), project.ID, targetEnvKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "target environment not found")
+		return
+	}
+
+	// Enforce forward-only promotion
+	if targetEnv.SortOrder <= sourceEnv.SortOrder {
+		writeError(w, http.StatusBadRequest, "can only promote forward: target environment must come after source in sort order")
+		return
+	}
+
+	// Get source config
+	sourceConfig, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, sourceEnv.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "source environment config not found")
+		return
+	}
+
+	// Get old target config for audit
+	oldTargetConfig, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, targetEnv.ID)
+	if err != nil {
+		slog.Warn("failed to fetch old target config for audit", "error", err)
+	}
+
+	// Copy source config to target, preserving target's enabled state
+	targetEnabled := false
+	if oldTargetConfig != nil {
+		targetEnabled = oldTargetConfig.Enabled
+	}
+
+	var updatedBy *string
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		updatedBy = &user.ID
+	}
+
+	cfg, err := h.flags.UpdateEnvironmentConfig(
+		r.Context(),
+		flag.ID,
+		targetEnv.ID,
+		targetEnabled,
+		sourceConfig.DefaultVariant,
+		marshalJSON(sourceConfig.Variants),
+		marshalJSON(sourceConfig.TargetingRules),
+		updatedBy,
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to promote environment config")
+		return
+	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		var oldVal json.RawMessage
+		if oldTargetConfig != nil {
+			oldVal, _ = json.Marshal(oldTargetConfig)
+		}
+		newValMap := map[string]any{
+			"config":             cfg,
+			"promoted_from_env":  req.SourceEnvironmentKey,
+		}
+		newVal, _ := json.Marshal(newValMap)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:     &project.ID,
+			UserID:        &user.ID,
+			UserEmail:     &user.Email,
+			EnvironmentID: &targetEnv.ID,
+			Action:        "promoted",
+			EntityType:    "flag_config",
+			EntityID:      flag.Key,
+			OldValue:      oldVal,
+			NewValue:      newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
+
+	// Refresh cache and broadcast SSE for target env
+	if err := h.cache.Refresh(r.Context(), h.pool, projectKey, targetEnvKey); err != nil {
+		slog.Warn("failed to refresh cache", "error", err)
+	}
+	h.hub.Broadcast(projectKey, targetEnvKey, stream.Event{
+		Type:    "flag_update",
+		FlagKey: flagKey,
+		Value:   cfg.Enabled,
+		Variant: cfg.DefaultVariant,
+	})
+
+	writeJSON(w, http.StatusOK, cfg)
+}
+
 func marshalJSON(v any) json.RawMessage {
 	b, err := json.Marshal(v)
 	if err != nil {
