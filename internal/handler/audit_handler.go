@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
@@ -31,21 +30,9 @@ func (h *AuditHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := 50
-	offset := 0
+	limit, offset := parsePagination(r)
 
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-	if v := r.URL.Query().Get("offset"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
-			offset = parsed
-		}
-	}
-
-	entries, err := h.audit.ListByProject(r.Context(), project.ID, limit, offset)
+	entries, totalCount, err := h.audit.ListByProject(r.Context(), project.ID, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list audit log")
 		return
@@ -54,5 +41,10 @@ func (h *AuditHandler) List(w http.ResponseWriter, r *http.Request) {
 		entries = []model.AuditEntry{}
 	}
 
-	writeJSON(w, http.StatusOK, entries)
+	writeJSON(w, http.StatusOK, PaginatedResponse{
+		Data:       entries,
+		TotalCount: totalCount,
+		Limit:      limit,
+		Offset:     offset,
+	})
 }
