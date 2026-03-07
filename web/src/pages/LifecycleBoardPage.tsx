@@ -66,7 +66,7 @@ export default function LifecycleBoardPage() {
     enabled: !!key,
   })
 
-  const { data: flags, isLoading: flagsLoading, error: flagsError } = useQuery({
+  const { data: flagsResponse, isLoading: flagsLoading, error: flagsError } = useQuery({
     queryKey: ['projects', key, 'lifecycle-flags', statusFilter, typeFilter],
     queryFn: () => api.flags.list(key!, {
       lifecycle_status: statusFilter,
@@ -74,6 +74,7 @@ export default function LifecycleBoardPage() {
     }),
     enabled: !!key,
   })
+  const flags = flagsResponse?.data
 
   const sortedFlags = [...(flags || [])].sort((a, b) =>
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()

@@ -69,11 +69,12 @@ const OPERATOR_GROUPS = [
 ]
 
 function SegmentPicker({ projectKey, value, onChange }: { projectKey?: string; value: string; onChange: (v: string) => void }) {
-  const { data: segments } = useQuery({
+  const { data: segmentsResponse } = useQuery({
     queryKey: ['segments', projectKey],
     queryFn: () => api.segments.list(projectKey!),
     enabled: !!projectKey,
   })
+  const segments = segmentsResponse?.data
 
   return (
     <select

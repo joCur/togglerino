@@ -59,11 +59,12 @@ export default function KillSwitchDashboardPage() {
   const [toggleError, setToggleError] = useState<string | null>(null)
   const [pendingToggle, setPendingToggle] = useState<string | null>(null)
 
-  const { data: flags, isLoading: flagsLoading } = useQuery({
+  const { data: flagsResponse, isLoading: flagsLoading } = useQuery({
     queryKey: ['projects', key, 'flags', { flag_type: 'kill-switch' }],
     queryFn: () => api.flags.list(key!, { flag_type: 'kill-switch' }),
     enabled: !!key,
   })
+  const flags = flagsResponse?.data
 
   const { data: environments, isLoading: envsLoading } = useQuery({
     queryKey: ['projects', key, 'environments'],
