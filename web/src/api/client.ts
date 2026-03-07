@@ -1,4 +1,4 @@
-import type { Condition, Segment, Flag, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User } from './types'
+import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -57,6 +57,19 @@ export const api = {
       request<BulkActionResponse>(`/projects/${projectKey}/flags/bulk`, {
         method: 'POST',
         body: JSON.stringify(body),
+      }),
+  },
+
+  environments: {
+    reorder: (projectKey: string, environmentIds: string[]) =>
+      request<void>(`/projects/${projectKey}/environments/order`, {
+        method: 'PUT',
+        body: JSON.stringify({ environment_ids: environmentIds }),
+      }),
+    promote: (projectKey: string, flagKey: string, sourceEnvKey: string, targetEnvKey: string) =>
+      request<FlagEnvironmentConfig>(`/projects/${projectKey}/flags/${flagKey}/environments/${targetEnvKey}/promote`, {
+        method: 'POST',
+        body: JSON.stringify({ source_environment_key: sourceEnvKey }),
       }),
   },
 

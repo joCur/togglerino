@@ -29,6 +29,7 @@ export interface Environment {
   project_id: string
   key: string
   name: string
+  sort_order: number
   created_at: string
 }
 

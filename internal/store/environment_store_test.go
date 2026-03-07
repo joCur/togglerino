@@ -191,6 +191,98 @@ func TestEnvironmentStore_Delete(t *testing.T) {
 	}
 }
 
+func TestEnvironmentStore_SortOrder(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	ctx := context.Background()
+
+	projectID := createTestProject(t, ps)
+
+	// CreateDefaultEnvironments should assign sequential sort_order 0, 1, 2
+	err := es.CreateDefaultEnvironments(ctx, projectID)
+	if err != nil {
+		t.Fatalf("CreateDefaultEnvironments: %v", err)
+	}
+
+	envs, err := es.ListByProject(ctx, projectID)
+	if err != nil {
+		t.Fatalf("ListByProject: %v", err)
+	}
+	if len(envs) != 3 {
+		t.Fatalf("expected 3 environments, got %d", len(envs))
+	}
+
+	// Verify sort_order is sequential
+	for i, env := range envs {
+		if env.SortOrder != i {
+			t.Errorf("envs[%d].SortOrder: got %d, want %d", i, env.SortOrder, i)
+		}
+	}
+
+	// Verify ordering: development(0), staging(1), production(2)
+	expectedOrder := []string{"development", "staging", "production"}
+	for i, env := range envs {
+		if env.Key != expectedOrder[i] {
+			t.Errorf("envs[%d].Key: got %q, want %q", i, env.Key, expectedOrder[i])
+		}
+	}
+
+	// Create a new environment — should get sort_order 3
+	newEnv, err := es.Create(ctx, projectID, "qa", "QA")
+	if err != nil {
+		t.Fatalf("Create qa: %v", err)
+	}
+	if newEnv.SortOrder != 3 {
+		t.Errorf("new env SortOrder: got %d, want 3", newEnv.SortOrder)
+	}
+
+	// Reorder: production, staging, development, qa
+	err = es.UpdateOrder(ctx, projectID, []string{envs[2].ID, envs[1].ID, envs[0].ID, newEnv.ID})
+	if err != nil {
+		t.Fatalf("UpdateOrder: %v", err)
+	}
+
+	reordered, err := es.ListByProject(ctx, projectID)
+	if err != nil {
+		t.Fatalf("ListByProject after reorder: %v", err)
+	}
+
+	expectedReorder := []string{"production", "staging", "development", "qa"}
+	for i, env := range reordered {
+		if env.Key != expectedReorder[i] {
+			t.Errorf("reordered[%d].Key: got %q, want %q", i, env.Key, expectedReorder[i])
+		}
+		if env.SortOrder != i {
+			t.Errorf("reordered[%d].SortOrder: got %d, want %d", i, env.SortOrder, i)
+		}
+	}
+
+	// Verify FindByKey includes sort_order
+	found, err := es.FindByKey(ctx, projectID, "staging")
+	if err != nil {
+		t.Fatalf("FindByKey: %v", err)
+	}
+	if found.SortOrder != 1 {
+		t.Errorf("FindByKey staging SortOrder: got %d, want 1", found.SortOrder)
+	}
+
+	// Verify FindByID includes sort_order
+	foundByID, err := es.FindByID(ctx, found.ID)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	if foundByID.SortOrder != 1 {
+		t.Errorf("FindByID staging SortOrder: got %d, want 1", foundByID.SortOrder)
+	}
+
+	// Verify UpdateOrder rejects unknown environment ID
+	err = es.UpdateOrder(ctx, projectID, []string{"nonexistent-id"})
+	if err == nil {
+		t.Fatal("expected error for unknown environment ID, got nil")
+	}
+}
+
 func TestEnvironmentStore_CreateDefaultEnvironments(t *testing.T) {
 	pool := testPool(t)
 	ps := store.NewProjectStore(pool)

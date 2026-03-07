@@ -20,10 +20,11 @@ func NewEnvironmentStore(pool *pgxpool.Pool) *EnvironmentStore {
 func (s *EnvironmentStore) Create(ctx context.Context, projectID, key, name string) (*model.Environment, error) {
 	var e model.Environment
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO environments (project_id, key, name) VALUES ($1, $2, $3)
-		 RETURNING id, project_id, key, name, created_at`,
+		`INSERT INTO environments (project_id, key, name, sort_order)
+		 VALUES ($1, $2, $3, COALESCE((SELECT MAX(sort_order) + 1 FROM environments WHERE project_id = $1), 0))
+		 RETURNING id, project_id, key, name, sort_order, created_at`,
 		projectID, key, name,
-	).Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.CreatedAt)
+	).Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.SortOrder, &e.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("creating environment: %w", err)
 	}
@@ -33,7 +34,7 @@ func (s *EnvironmentStore) Create(ctx context.Context, projectID, key, name stri
 // ListByProject returns all environments for a project.
 func (s *EnvironmentStore) ListByProject(ctx context.Context, projectID string) ([]model.Environment, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, key, name, created_at FROM environments WHERE project_id = $1 ORDER BY created_at`,
+		`SELECT id, project_id, key, name, sort_order, created_at FROM environments WHERE project_id = $1 ORDER BY sort_order`,
 		projectID,
 	)
 	if err != nil {
@@ -44,7 +45,7 @@ func (s *EnvironmentStore) ListByProject(ctx context.Context, projectID string) 
 	var envs []model.Environment
 	for rows.Next() {
 		var e model.Environment
-		if err := rows.Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.SortOrder, &e.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning environment: %w", err)
 		}
 		envs = append(envs, e)
@@ -59,9 +60,9 @@ func (s *EnvironmentStore) ListByProject(ctx context.Context, projectID string) 
 func (s *EnvironmentStore) FindByKey(ctx context.Context, projectID, key string) (*model.Environment, error) {
 	var e model.Environment
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, project_id, key, name, created_at FROM environments WHERE project_id = $1 AND key = $2`,
+		`SELECT id, project_id, key, name, sort_order, created_at FROM environments WHERE project_id = $1 AND key = $2`,
 		projectID, key,
-	).Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.CreatedAt)
+	).Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.SortOrder, &e.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("finding environment by key: %w", err)
 	}
@@ -72,8 +73,8 @@ func (s *EnvironmentStore) FindByKey(ctx context.Context, projectID, key string)
 func (s *EnvironmentStore) FindByID(ctx context.Context, id string) (*model.Environment, error) {
 	var e model.Environment
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, project_id, key, name, created_at FROM environments WHERE id = $1`, id,
-	).Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.CreatedAt)
+		`SELECT id, project_id, key, name, sort_order, created_at FROM environments WHERE id = $1`, id,
+	).Scan(&e.ID, &e.ProjectID, &e.Key, &e.Name, &e.SortOrder, &e.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("finding environment by id: %w", err)
 	}
@@ -113,14 +114,58 @@ func (s *EnvironmentStore) CreateDefaultEnvironments(ctx context.Context, projec
 		{"production", "Production"},
 	}
 
-	for _, d := range defaults {
+	for i, d := range defaults {
 		_, err := s.pool.Exec(ctx,
-			`INSERT INTO environments (project_id, key, name) VALUES ($1, $2, $3)`,
-			projectID, d.key, d.name,
+			`INSERT INTO environments (project_id, key, name, sort_order) VALUES ($1, $2, $3, $4)`,
+			projectID, d.key, d.name, i,
 		)
 		if err != nil {
 			return fmt.Errorf("creating default environment %q: %w", d.key, err)
 		}
 	}
 	return nil
+}
+
+// UpdateOrder reorders environments within a project. environmentIDs must contain all environment IDs for the project.
+func (s *EnvironmentStore) UpdateOrder(ctx context.Context, projectID string, environmentIDs []string) error {
+	// Validate that the list contains all environments for the project
+	var count int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM environments WHERE project_id = $1`, projectID,
+	).Scan(&count); err != nil {
+		return fmt.Errorf("counting environments: %w", err)
+	}
+	if len(environmentIDs) != count {
+		return fmt.Errorf("expected %d environment IDs, got %d: must include all environments", count, len(environmentIDs))
+	}
+
+	// Check for duplicate IDs
+	seen := make(map[string]bool, len(environmentIDs))
+	for _, id := range environmentIDs {
+		if seen[id] {
+			return fmt.Errorf("duplicate environment ID: %s", id)
+		}
+		seen[id] = true
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	for i, id := range environmentIDs {
+		tag, err := tx.Exec(ctx,
+			`UPDATE environments SET sort_order = $1 WHERE id = $2 AND project_id = $3`,
+			i, id, projectID,
+		)
+		if err != nil {
+			return fmt.Errorf("updating sort_order for environment %s: %w", id, err)
+		}
+		if tag.RowsAffected() == 0 {
+			return fmt.Errorf("environment %s not found in project", id)
+		}
+	}
+
+	return tx.Commit(ctx)
 }
