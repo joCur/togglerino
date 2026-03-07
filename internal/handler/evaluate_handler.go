@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -63,6 +64,15 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 	segments := h.cache.GetSegments(sdkKey.ProjectKey)
 	results := make(map[string]*model.EvaluationResult, len(flags))
 	for flagKey, fd := range flags {
+		if evalCtx.UserID != "" {
+			if overrideVal, ok := h.cache.GetOverride(sdkKey.ProjectKey, sdkKey.EnvironmentKey, evalCtx.UserID, flagKey); ok {
+				results[flagKey] = &model.EvaluationResult{
+					Value:  rawToAny(overrideVal),
+					Reason: "override",
+				}
+				continue
+			}
+		}
 		results[flagKey] = h.engine.EvaluateWithSegments(&fd.Flag, &fd.Config, evalCtx, segments)
 	}
 
@@ -90,6 +100,16 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if evalCtx.UserID != "" {
+		if overrideVal, ok := h.cache.GetOverride(sdkKey.ProjectKey, sdkKey.EnvironmentKey, evalCtx.UserID, flagKey); ok {
+			writeJSON(w, http.StatusOK, &model.EvaluationResult{
+				Value:  rawToAny(overrideVal),
+				Reason: "override",
+			})
+			return
+		}
+	}
+
 	segments := h.cache.GetSegments(sdkKey.ProjectKey)
 	result := h.engine.EvaluateWithSegments(&fd.Flag, &fd.Config, evalCtx, segments)
 	writeJSON(w, http.StatusOK, result)
@@ -113,4 +133,13 @@ func (h *EvaluateHandler) parseContext(r *http.Request) *model.EvaluationContext
 	}
 
 	return req.Context
+}
+
+// rawToAny converts a json.RawMessage to a native Go value.
+func rawToAny(raw json.RawMessage) any {
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return string(raw)
+	}
+	return v
 }
