@@ -42,8 +42,10 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 
   flags: {
-    list: (projectKey: string, params?: { lifecycle_status?: string; flag_type?: string; limit?: number; offset?: number }) => {
+    list: (projectKey: string, params?: { search?: string; tag?: string; lifecycle_status?: string; flag_type?: string; limit?: number; offset?: number }) => {
       const search = new URLSearchParams()
+      if (params?.search) search.set('search', params.search)
+      if (params?.tag) search.set('tag', params.tag)
       if (params?.lifecycle_status) search.set('lifecycle_status', params.lifecycle_status)
       if (params?.flag_type) search.set('flag_type', params.flag_type)
       if (params?.limit !== undefined) search.set('limit', String(params.limit))

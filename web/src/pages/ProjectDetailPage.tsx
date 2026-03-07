@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, UnknownFlag, FlagPurpose, LifecycleStatus, User, BulkAction } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, FlagPurpose, LifecycleStatus, User, BulkAction } from '../api/types.ts'
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { useFlag } from '@togglerino/react'
 import FlagCard from '../components/FlagCard.tsx'
 import CreateFlagModal from '../components/CreateFlagModal.tsx'
@@ -58,11 +59,37 @@ export default function ProjectDetailPage() {
   const isMobile = useIsMobile()
   const canWrite = useCanWrite(key)
 
-  const { data: flags, isLoading: flagsLoading, error: flagsError } = useQuery({
-    queryKey: ['projects', key, 'flags'],
-    queryFn: () => api.get<Flag[]>(`/projects/${key}/flags`),
+  const PAGE_SIZE = 50
+
+  const {
+    data: flagsData,
+    isLoading: flagsLoading,
+    error: flagsError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['projects', key, 'flags', { search, tag: tagFilter, lifecycle_status: statusFilter, flag_type: purposeFilter }],
+    queryFn: ({ pageParam }) =>
+      api.flags.list(key!, {
+        search: search || undefined,
+        tag: tagFilter || undefined,
+        lifecycle_status: statusFilter || undefined,
+        flag_type: purposeFilter || undefined,
+        limit: PAGE_SIZE,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: !!key,
   })
+
+  const flags = flagsData?.pages.flatMap((page) => page.data)
+
+  const scrollRef = useInfiniteScroll({ hasNextPage, isFetchingNextPage, fetchNextPage })
 
   const { data: environments } = useQuery({
     queryKey: ['projects', key, 'environments'],
@@ -89,12 +116,15 @@ export default function ProjectDetailPage() {
       )
       return configMap
     },
-    enabled: !!flags && flags.length > 0,
+    enabled: !!flags && flags.length > 0 && !isFetchingNextPage,
   })
 
   const { data: unknownFlags } = useQuery({
     queryKey: ['projects', key, 'unknown-flags'],
-    queryFn: () => api.get<UnknownFlag[]>(`/projects/${key}/unknown-flags`),
+    queryFn: async () => {
+      const res = await api.unknownFlags.list(key!)
+      return res.data
+    },
     enabled: !!key && unknownFlagsEnabled,
   })
 
@@ -119,19 +149,12 @@ export default function ProjectDetailPage() {
 
   const filtered = useMemo(() => {
     if (!flags) return []
+    if (!ownerFilter) return flags
     return flags.filter((f) => {
-      const matchesSearch =
-        !search ||
-        f.key.toLowerCase().includes(search.toLowerCase()) ||
-        f.name.toLowerCase().includes(search.toLowerCase())
-      const matchesTag = !tagFilter || (f.tags && f.tags.includes(tagFilter))
-      const matchesPurpose = !purposeFilter || f.flag_type === purposeFilter
-      const matchesStatus = !statusFilter || f.lifecycle_status === statusFilter
-      const matchesOwner = !ownerFilter ||
-        (ownerFilter === 'unassigned' ? !f.owner_id : f.owner_id === ownerFilter)
-      return matchesSearch && matchesTag && matchesPurpose && matchesStatus && matchesOwner
+      const matchesOwner = ownerFilter === 'unassigned' ? !f.owner_id : f.owner_id === ownerFilter
+      return matchesOwner
     })
-  }, [flags, search, tagFilter, purposeFilter, statusFilter, ownerFilter])
+  }, [flags, ownerFilter])
 
   const selectAllChecked: boolean | 'indeterminate' =
     selectedFlags.size === 0
@@ -300,15 +323,16 @@ export default function ProjectDetailPage() {
           {filtered.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-[15px] font-medium text-foreground mb-1.5">
-                {flags && flags.length > 0 ? 'No flags match your filters' : 'No flags yet'}
+                {flagsData && flagsData.pages[0]?.total > 0 ? 'No flags match your filters' : 'No flags yet'}
               </div>
               <div className="text-[13px] text-muted-foreground/60">
-                {flags && flags.length > 0
+                {flagsData && flagsData.pages[0]?.total > 0
                   ? 'Try adjusting your search or tag filter.'
                   : 'Create your first feature flag to get started.'}
               </div>
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filtered.map((flag) => (
                 <FlagCard
@@ -322,6 +346,13 @@ export default function ProjectDetailPage() {
                 />
               ))}
             </div>
+            <div ref={scrollRef} className="h-1" />
+            {isFetchingNextPage && (
+              <div className="text-center py-4 text-muted-foreground/60 text-[13px] animate-pulse">
+                Loading more flags...
+              </div>
+            )}
+            </>
           )}
         </TabsContent>
 

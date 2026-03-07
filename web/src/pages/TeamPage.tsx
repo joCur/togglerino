@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth.ts'
 import { api } from '../api/client.ts'
 import type { UserProjectAssignment, ProjectRole } from '@/hooks/usePermissions'
@@ -48,6 +48,8 @@ interface InviteResponse {
   token: string
   expires_at: string
 }
+
+const PAGE_SIZE = 50
 
 const projectRoleOptions: ProjectRole[] = ['admin', 'editor', 'viewer']
 
@@ -324,10 +326,24 @@ export default function TeamPage() {
   const [copiedLink, setCopiedLink] = useState(false)
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
 
-  const { data: members, isLoading: membersLoading } = useQuery({
+  const {
+    data: membersData,
+    isLoading: membersLoading,
+    hasNextPage: membersHasNextPage,
+    fetchNextPage: fetchNextMembers,
+    isFetchingNextPage: membersFetchingNext,
+  } = useInfiniteQuery({
     queryKey: ['users'],
-    queryFn: () => api.get<SafeUser[]>('/management/users'),
+    queryFn: ({ pageParam = 0 }) =>
+      api.users.list({ limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
   })
+
+  const members = membersData?.pages.flatMap((page) => page.data)
 
   const { data: invites, isLoading: invitesLoading } = useQuery({
     queryKey: ['invites'],
@@ -540,6 +556,14 @@ export default function TeamPage() {
                 {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Failed to remove member'}
               </AlertDescription>
             </Alert>
+          )}
+
+          {membersHasNextPage && (
+            <div className="text-center mt-4">
+              <Button variant="outline" onClick={() => fetchNextMembers()} disabled={membersFetchingNext}>
+                {membersFetchingNext ? 'Loading...' : 'Load More'}
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
