@@ -366,7 +366,7 @@ export default function FlagDetailPage() {
               </div>
 
               <div className="flex flex-col gap-3">
-                {sortedEnvironments!.map((env, envIndex) => {
+                {sortedEnvironments!.map((env) => {
                   const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
                   const enabled = config?.enabled ?? false
                   const isExpanded = effectiveExpandedEnvs.has(env.key)
