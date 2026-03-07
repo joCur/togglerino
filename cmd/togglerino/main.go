@@ -20,6 +20,7 @@ import (
 	"github.com/togglerino/togglerino/internal/handler"
 	"github.com/togglerino/togglerino/internal/lifecycle"
 	"github.com/togglerino/togglerino/internal/logging"
+	"github.com/togglerino/togglerino/internal/override"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/ratelimit"
 	"github.com/togglerino/togglerino/internal/schedule"
@@ -130,9 +131,11 @@ func main() {
 	if err := templateStore.SeedSystemTemplates(ctx); err != nil {
 		log.Fatalf("failed to seed system templates: %v", err)
 	}
+	overrideCleaner := override.NewCleaner(overrideStore, 15*time.Minute)
 	go stalenessChecker.Run(ctx)
 	go snapshotRecorder.Run(ctx)
 	go scheduleChecker.Run(ctx)
+	go overrideCleaner.Run(ctx)
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
