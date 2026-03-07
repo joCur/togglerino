@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Environment, Flag, PlaygroundRequest, PlaygroundResponse, EvaluationTrace } from '../api/types.ts'
+import type { Environment, Flag, PlaygroundRequest, PlaygroundResponse, EvaluationTrace, PaginatedResponse } from '../api/types.ts'
 import PlaygroundTrace from '../components/PlaygroundTrace.tsx'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,11 +61,12 @@ export default function PlaygroundPage() {
     enabled: !!key,
   })
 
-  const { data: flags } = useQuery({
+  const { data: flagsResponse } = useQuery({
     queryKey: ['projects', key, 'flags'],
-    queryFn: () => api.get<Flag[]>(`/projects/${key}/flags`),
+    queryFn: () => api.get<PaginatedResponse<Flag>>(`/projects/${key}/flags`),
     enabled: !!key,
   })
+  const flags = flagsResponse?.data
 
   // Set default environment when environments load
   useEffect(() => {

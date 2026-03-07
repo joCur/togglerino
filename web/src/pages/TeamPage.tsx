@@ -3,7 +3,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { useAuth } from '../hooks/useAuth.ts'
 import { api } from '../api/client.ts'
 import type { UserProjectAssignment, ProjectRole } from '@/hooks/usePermissions'
-import type { Project } from '@/api/types'
+import type { Project, PaginatedResponse } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -70,10 +70,11 @@ function UserProjectAssignments({ userId }: { userId: string }) {
       api.get<UserProjectAssignment[]>(`/management/users/${userId}/projects`),
   })
 
-  const { data: projects } = useQuery({
+  const { data: projectsResponse } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => api.get<Project[]>('/projects'),
+    queryFn: () => api.get<PaginatedResponse<Project>>('/projects'),
   })
+  const projects = projectsResponse?.data
 
   const saveMutation = useMutation({
     mutationFn: (data: UserProjectAssignment[]) =>

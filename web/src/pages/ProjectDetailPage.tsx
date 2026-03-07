@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, FlagPurpose, LifecycleStatus, User, BulkAction } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, FlagPurpose, LifecycleStatus, User, BulkAction, PaginatedResponse } from '../api/types.ts'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { useFlag } from '@togglerino/react'
 import FlagCard from '../components/FlagCard.tsx'
@@ -128,10 +128,11 @@ export default function ProjectDetailPage() {
     enabled: !!key && unknownFlagsEnabled,
   })
 
-  const { data: users } = useQuery({
+  const { data: usersResponse } = useQuery({
     queryKey: ['users'],
-    queryFn: () => api.get<User[]>('/management/users'),
+    queryFn: () => api.get<PaginatedResponse<User>>('/management/users'),
   })
+  const users = usersResponse?.data
 
   const dismissMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/projects/${key}/unknown-flags/${id}`),
