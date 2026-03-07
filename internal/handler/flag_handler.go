@@ -180,8 +180,9 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 	lifecycleStatus := r.URL.Query().Get("lifecycle_status")
 	flagType := r.URL.Query().Get("flag_type")
 	owner := r.URL.Query().Get("owner")
+	limit, offset := parsePagination(r)
 
-	flags, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType, owner)
+	flags, totalCount, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType, owner, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list flags")
 		return
@@ -189,7 +190,12 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 	if flags == nil {
 		flags = []model.Flag{}
 	}
-	writeJSON(w, http.StatusOK, flags)
+	writeJSON(w, http.StatusOK, PaginatedResponse{
+		Data:       flags,
+		TotalCount: totalCount,
+		Limit:      limit,
+		Offset:     offset,
+	})
 }
 
 // Get handles GET /api/v1/projects/{key}/flags/{flag}
