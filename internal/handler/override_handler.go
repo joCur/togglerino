@@ -112,8 +112,8 @@ func (h *OverrideHandler) DeleteAppIdentity(w http.ResponseWriter, r *http.Reque
 	// Look up identity before deleting so we can clean up the cache
 	identity, _ := h.identities.Get(r.Context(), user.ID, project.ID)
 
-	// Delete all overrides for this user in this project's flags
-	if err := h.overrides.DeleteAllByUser(r.Context(), user.ID); err != nil {
+	// Delete overrides scoped to this project only
+	if err := h.overrides.DeleteByUserAndProject(r.Context(), user.ID, project.ID); err != nil {
 		slog.Error("deleting overrides on identity removal", "error", err)
 	}
 

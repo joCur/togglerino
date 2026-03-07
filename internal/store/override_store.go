@@ -198,6 +198,17 @@ func (s *OverrideStore) DeleteExpired(ctx context.Context) (int64, error) {
 	return tag.RowsAffected(), nil
 }
 
+func (s *OverrideStore) DeleteByUserAndProject(ctx context.Context, userID, projectID string) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM flag_overrides WHERE user_id = $1 AND flag_id IN (SELECT id FROM flags WHERE project_id = $2)`,
+		userID, projectID,
+	)
+	if err != nil {
+		return fmt.Errorf("deleting overrides for user in project: %w", err)
+	}
+	return nil
+}
+
 func (s *OverrideStore) DeleteAllByUser(ctx context.Context, userID string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM flag_overrides WHERE user_id = $1`, userID)
 	if err != nil {
