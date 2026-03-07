@@ -32,6 +32,7 @@ import ProjectTemplatesPage from './pages/ProjectTemplatesPage.tsx'
 import TemplatesPage from './pages/TemplatesPage.tsx'
 import PlaygroundPage from './pages/PlaygroundPage.tsx'
 import KillSwitchDashboardPage from './pages/KillSwitchDashboardPage.tsx'
+import MyOverridesPage from './pages/MyOverridesPage.tsx'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +94,7 @@ function AuthRouter() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/preferences" element={<PreferencesPage />} />
+        <Route path="/overrides" element={<MyOverridesPage />} />
       </Route>
       <Route path="/projects/:key" element={<ProjectLayout />}>
         <Route index element={<ProjectDetailPage />} />

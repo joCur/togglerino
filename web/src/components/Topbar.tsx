@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ChevronDown, User as UserIcon, Settings, LogOut, Menu } from 'lucide-react'
+import { ChevronDown, User as UserIcon, Settings, LogOut, Menu, ToggleRight } from 'lucide-react'
 
 interface TopbarProps {
   children?: ReactNode
@@ -73,6 +73,10 @@ export default function Topbar({ children, onMenuClick }: TopbarProps) {
           <DropdownMenuItem onClick={() => navigate('/preferences')}>
             <Settings className="mr-2 h-4 w-4" />
             Preferences
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/overrides')}>
+            <ToggleRight className="mr-2 h-4 w-4" />
+            My Overrides
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
