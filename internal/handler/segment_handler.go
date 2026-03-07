@@ -78,7 +78,8 @@ func (h *SegmentHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	segments, err := h.segments.ListByProject(r.Context(), project.ID)
+	limit, offset := parsePagination(r)
+	segments, totalCount, err := h.segments.ListByProject(r.Context(), project.ID, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list segments")
 		return
@@ -86,7 +87,12 @@ func (h *SegmentHandler) List(w http.ResponseWriter, r *http.Request) {
 	if segments == nil {
 		segments = []model.Segment{}
 	}
-	writeJSON(w, http.StatusOK, segments)
+	writeJSON(w, http.StatusOK, PaginatedResponse{
+		Data:       segments,
+		TotalCount: totalCount,
+		Limit:      limit,
+		Offset:     offset,
+	})
 }
 
 // Create handles POST /api/v1/projects/{key}/segments

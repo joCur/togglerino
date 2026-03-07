@@ -60,27 +60,29 @@ func (s *SegmentStore) GetByKey(ctx context.Context, projectID, key string) (*mo
 	return &seg, nil
 }
 
-// ListByProject returns all segments for a project, ordered by created_at DESC.
-func (s *SegmentStore) ListByProject(ctx context.Context, projectID string) ([]model.Segment, error) {
+// ListByProject returns segments for a project with pagination, ordered by created_at DESC.
+// Returns the segments, total count (before pagination), and any error.
+func (s *SegmentStore) ListByProject(ctx context.Context, projectID string, limit, offset int) ([]model.Segment, int, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, key, name, description, conditions, created_at, updated_at
-		 FROM segments WHERE project_id = $1 ORDER BY created_at DESC`,
-		projectID,
+		`SELECT id, project_id, key, name, description, conditions, created_at, updated_at, COUNT(*) OVER() AS total_count
+		 FROM segments WHERE project_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		projectID, limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("listing segments: %w", err)
+		return nil, 0, fmt.Errorf("listing segments: %w", err)
 	}
 	defer rows.Close()
 
 	var segments []model.Segment
+	totalCount := 0
 	for rows.Next() {
 		var seg model.Segment
 		var conditionsJSON []byte
-		if err := rows.Scan(&seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &conditionsJSON, &seg.CreatedAt, &seg.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scanning segment: %w", err)
+		if err := rows.Scan(&seg.ID, &seg.ProjectID, &seg.Key, &seg.Name, &seg.Description, &conditionsJSON, &seg.CreatedAt, &seg.UpdatedAt, &totalCount); err != nil {
+			return nil, 0, fmt.Errorf("scanning segment: %w", err)
 		}
 		if err := json.Unmarshal(conditionsJSON, &seg.Conditions); err != nil {
-			return nil, fmt.Errorf("unmarshaling segment conditions: %w", err)
+			return nil, 0, fmt.Errorf("unmarshaling segment conditions: %w", err)
 		}
 		if seg.Conditions == nil {
 			seg.Conditions = []model.Condition{}
@@ -88,7 +90,17 @@ func (s *SegmentStore) ListByProject(ctx context.Context, projectID string) ([]m
 		segments = append(segments, seg)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating segments: %w", err)
+		return nil, 0, fmt.Errorf("iterating segments: %w", err)
+	}
+	return segments, totalCount, nil
+}
+
+// ListAllByProject returns all segments for a project without pagination.
+// Used by callers that need the complete set (e.g., cache loading).
+func (s *SegmentStore) ListAllByProject(ctx context.Context, projectID string) ([]model.Segment, error) {
+	segments, _, err := s.ListByProject(ctx, projectID, 2147483647, 0)
+	if err != nil {
+		return nil, err
 	}
 	return segments, nil
 }
