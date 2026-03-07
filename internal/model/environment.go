@@ -7,6 +7,7 @@ type Environment struct {
 	ProjectID string    `json:"project_id"`
 	Key       string    `json:"key"`
 	Name      string    `json:"name"`
+	SortOrder int       `json:"sort_order"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
