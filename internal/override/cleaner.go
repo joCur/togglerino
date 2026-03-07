@@ -4,16 +4,19 @@ import (
 	"context"
 	"log/slog"
 	"time"
-
-	"github.com/togglerino/togglerino/internal/store"
 )
 
+// ExpiredDeleter is the interface the cleaner needs for deleting expired overrides.
+type ExpiredDeleter interface {
+	DeleteExpired(ctx context.Context) (int64, error)
+}
+
 type Cleaner struct {
-	overrides *store.OverrideStore
+	overrides ExpiredDeleter
 	interval  time.Duration
 }
 
-func NewCleaner(overrides *store.OverrideStore, interval time.Duration) *Cleaner {
+func NewCleaner(overrides ExpiredDeleter, interval time.Duration) *Cleaner {
 	return &Cleaner{overrides: overrides, interval: interval}
 }
 
