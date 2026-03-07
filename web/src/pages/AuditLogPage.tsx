@@ -137,7 +137,9 @@ export default function AuditLogPage() {
                         className="text-xs text-muted-foreground max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap block"
                         title={entry.new_value ? JSON.stringify(entry.new_value) : undefined}
                       >
-                        {entry.new_value ? JSON.stringify(entry.new_value).slice(0, 50) : '--'}
+                        {entry.action === 'promoted' && entry.new_value && typeof entry.new_value === 'object' && (entry.new_value as Record<string, unknown>).promoted_from_env
+                          ? `Promoted from ${(entry.new_value as Record<string, unknown>).promoted_from_env}`
+                          : entry.new_value ? JSON.stringify(entry.new_value).slice(0, 50) : '--'}
                       </span>
                     </TableCell>
                   </TableRow>

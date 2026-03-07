@@ -42,6 +42,15 @@ function formatAction(action: string): string {
   return action.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+function formatPromotedDescription(entry: AuditEntry, envNameMap: Map<string, string>): string | null {
+  if (entry.action !== 'promoted') return null
+  const newVal = entry.new_value as Record<string, unknown> | undefined
+  const promotedFromEnv = newVal?.promoted_from_env as string | undefined
+  if (!promotedFromEnv) return null
+  const targetEnvName = entry.environment_id ? (envNameMap.get(entry.environment_id) ?? 'unknown') : 'unknown'
+  return `Promoted config from ${promotedFromEnv} to ${targetEnvName}`
+}
+
 export default function FlagHistory({ projectKey, flagKey, environments }: FlagHistoryProps) {
   const [envFilter, setEnvFilter] = useState<string>('all')
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set())
@@ -175,6 +184,13 @@ export default function FlagHistory({ projectKey, flagKey, environments }: FlagH
                         {envNameMap.get(entry.environment_id) ?? 'unknown'}
                       </Badge>
                     )}
+
+                    {(() => {
+                      const promotedDesc = formatPromotedDescription(entry, envNameMap)
+                      return promotedDesc ? (
+                        <span className="text-xs text-muted-foreground/80">{promotedDesc}</span>
+                      ) : null
+                    })()}
 
                     <span className="text-xs text-muted-foreground/60 ml-auto whitespace-nowrap">
                       {entry.user_email ?? (entry.user_id ? entry.user_id.slice(0, 8) + '...' : 'system')}
