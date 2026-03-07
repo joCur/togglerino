@@ -37,7 +37,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gravatarUrl } from '@/lib/gravatar'
 import { useCanWrite } from '@/hooks/usePermissions'
-import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play } from 'lucide-react'
+import PromoteDialog from '../components/PromoteDialog.tsx'
+import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play, ArrowRightFromLine } from 'lucide-react'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -53,6 +54,7 @@ export default function FlagDetailPage() {
   const [expandedEnvs, setExpandedEnvs] = useState<Set<string> | null>(null)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [promoteState, setPromoteState] = useState<{ sourceEnvKey: string; targetEnvKey: string } | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['projects', key, 'flags', flagKey],
@@ -127,6 +129,18 @@ export default function FlagDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
     },
   })
+
+  const promoteMutation = useMutation({
+    mutationFn: ({ sourceEnvKey, targetEnvKey }: { sourceEnvKey: string; targetEnvKey: string }) =>
+      api.environments.promote(key!, flagKey!, sourceEnvKey, targetEnvKey),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+      setPromoteState(null)
+    },
+  })
+
+  // Sort environments by sort_order for promotion targets
+  const sortedEnvironments = environments ? [...environments].sort((a, b) => a.sort_order - b.sort_order) : undefined
 
   // Derive effective expanded set: null means "not yet interacted, show first env expanded"
   const defaultExpanded = environments && environments.length > 0
@@ -352,10 +366,11 @@ export default function FlagDetailPage() {
               </div>
 
               <div className="flex flex-col gap-3">
-                {environments.map((env) => {
+                {sortedEnvironments!.map((env, envIndex) => {
                   const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
                   const enabled = config?.enabled ?? false
                   const isExpanded = effectiveExpandedEnvs.has(env.key)
+                  const promoteTargets = sortedEnvironments!.filter((e) => e.sort_order > env.sort_order)
 
                   return (
                     <Collapsible
@@ -379,6 +394,26 @@ export default function FlagDetailPage() {
                             className="flex items-center gap-2 ml-auto"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            {canWrite && promoteTargets.length > 0 && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground">
+                                    <ArrowRightFromLine className="w-3.5 h-3.5 mr-1" />
+                                    Promote
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {promoteTargets.map((target) => (
+                                    <DropdownMenuItem
+                                      key={target.id}
+                                      onClick={() => setPromoteState({ sourceEnvKey: env.key, targetEnvKey: target.key })}
+                                    >
+                                      Promote to {target.name}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                             <span className={cn(
                               'text-[11px] font-mono font-medium',
                               enabled ? 'text-emerald-400' : 'text-muted-foreground/50',
@@ -495,6 +530,20 @@ export default function FlagDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Promote Dialog */}
+      {promoteState && sortedEnvironments && (
+        <PromoteDialog
+          sourceConfig={data.environment_configs.find((c) => c.environment_id === sortedEnvironments.find((e) => e.key === promoteState.sourceEnvKey)?.id) ?? null}
+          targetConfig={data.environment_configs.find((c) => c.environment_id === sortedEnvironments.find((e) => e.key === promoteState.targetEnvKey)?.id) ?? null}
+          sourceEnvName={sortedEnvironments.find((e) => e.key === promoteState.sourceEnvKey)?.name ?? promoteState.sourceEnvKey}
+          targetEnvName={sortedEnvironments.find((e) => e.key === promoteState.targetEnvKey)?.name ?? promoteState.targetEnvKey}
+          open={!!promoteState}
+          onOpenChange={(open) => { if (!open) setPromoteState(null) }}
+          onConfirm={() => promoteMutation.mutate(promoteState)}
+          isLoading={promoteMutation.isPending}
+        />
+      )}
     </div>
   )
 }
