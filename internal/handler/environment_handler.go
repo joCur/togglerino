@@ -81,3 +81,42 @@ func (h *EnvironmentHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, envs)
 }
+
+// UpdateOrder handles PUT /api/v1/projects/{key}/environments/order
+func (h *EnvironmentHandler) UpdateOrder(w http.ResponseWriter, r *http.Request) {
+	projectKey := r.PathValue("key")
+	if projectKey == "" {
+		writeError(w, http.StatusBadRequest, "project key is required")
+		return
+	}
+
+	project, err := h.projects.FindByKey(r.Context(), projectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	var req struct {
+		EnvironmentIDs []string `json:"environment_ids"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.EnvironmentIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "environment_ids is required")
+		return
+	}
+
+	if err := h.environments.UpdateOrder(r.Context(), project.ID, req.EnvironmentIDs); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	envs, err := h.environments.ListByProject(r.Context(), project.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list environments")
+		return
+	}
+	writeJSON(w, http.StatusOK, envs)
+}
