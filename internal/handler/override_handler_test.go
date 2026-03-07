@@ -98,7 +98,9 @@ func TestOverrideHandler_SetAndGetAppIdentity(t *testing.T) {
 	}
 
 	var identity model.AppIdentity
-	json.NewDecoder(rr.Body).Decode(&identity)
+	if err := json.NewDecoder(rr.Body).Decode(&identity); err != nil {
+		t.Fatalf("decoding identity: %v", err)
+	}
 	if identity.AppUserID != "my-app-id" {
 		t.Fatalf("expected my-app-id, got %s", identity.AppUserID)
 	}
@@ -240,7 +242,9 @@ func TestOverrideHandler_ListMyOverrides(t *testing.T) {
 	}
 
 	var overrides []model.FlagOverride
-	json.NewDecoder(rr.Body).Decode(&overrides)
+	if err := json.NewDecoder(rr.Body).Decode(&overrides); err != nil {
+		t.Fatalf("decoding overrides: %v", err)
+	}
 	if len(overrides) != 1 {
 		t.Fatalf("expected 1 override, got %d", len(overrides))
 	}

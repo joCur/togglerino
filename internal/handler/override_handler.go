@@ -2,14 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/evaluation"
-	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
 
@@ -65,7 +64,7 @@ func (h *OverrideHandler) SetAppIdentity(w http.ResponseWriter, r *http.Request)
 
 	identity, err := h.identities.Set(r.Context(), user.ID, project.ID, req.AppUserID)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if errors.Is(err, store.ErrDuplicateAppUserID) {
 			writeError(w, http.StatusConflict, "app user ID already claimed by another user")
 			return
 		}
@@ -110,10 +109,29 @@ func (h *OverrideHandler) DeleteAppIdentity(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Look up identity before deleting so we can clean up the cache
+	identity, _ := h.identities.Get(r.Context(), user.ID, project.ID)
+
+	// Delete all overrides for this user in this project's flags
+	if err := h.overrides.DeleteAllByUser(r.Context(), user.ID); err != nil {
+		slog.Error("deleting overrides on identity removal", "error", err)
+	}
+
 	if err := h.identities.Delete(r.Context(), user.ID, project.ID); err != nil {
 		slog.Error("deleting app identity", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete app identity")
 		return
+	}
+
+	// Clear cached overrides for this user
+	if identity != nil {
+		envs, err := h.environments.ListByProject(r.Context(), project.ID)
+		if err != nil {
+			slog.Error("listing environments for cache cleanup", "error", err)
+		}
+		for _, env := range envs {
+			h.cache.DeleteOverridesForUser(projectKey, env.Key, identity.AppUserID)
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -171,7 +189,11 @@ func (h *OverrideHandler) SetOverride(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expiresAt := parseExpiry(req.Duration)
+	expiresAt, err := parseExpiry(req.Duration)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	override, err := h.overrides.Set(r.Context(), user.ID, flag.ID, env.ID, req.Value, expiresAt)
 	if err != nil {
@@ -272,14 +294,25 @@ func (h *OverrideHandler) SetOverrideAllEnvs(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	expiresAt := parseExpiry(req.Duration)
+	expiresAt, err := parseExpiry(req.Duration)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
+	var failed []string
 	for _, env := range envs {
 		if _, err := h.overrides.Set(r.Context(), user.ID, flag.ID, env.ID, req.Value, expiresAt); err != nil {
 			slog.Error("setting override for env", "env", env.Key, "error", err)
+			failed = append(failed, env.Key)
 			continue
 		}
 		h.cache.SetOverride(projectKey, env.Key, identity.AppUserID, flagKey, req.Value, expiresAt)
+	}
+
+	if len(failed) > 0 {
+		writeError(w, http.StatusInternalServerError, "failed to set override for some environments")
+		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -315,7 +348,10 @@ func (h *OverrideHandler) DeleteOverrideAllEnvs(w http.ResponseWriter, r *http.R
 	}
 
 	if identity, err := h.identities.GetByProjectKey(r.Context(), user.ID, projectKey); err == nil {
-		envs, _ := h.environments.ListByProject(r.Context(), project.ID)
+		envs, err := h.environments.ListByProject(r.Context(), project.ID)
+		if err != nil {
+			slog.Error("listing environments for cache cleanup", "error", err)
+		}
 		for _, env := range envs {
 			h.cache.DeleteOverride(projectKey, env.Key, identity.AppUserID, flagKey)
 		}
@@ -365,47 +401,33 @@ func (h *OverrideHandler) GetFlagOverrides(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	allOverrides, err := h.overrides.ListByUser(r.Context(), user.ID)
+	flagOverrides, err := h.overrides.ListByUserAndFlag(r.Context(), user.ID, flag.ID)
 	if err != nil {
-		slog.Error("listing overrides", "error", err)
+		slog.Error("listing flag overrides", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list overrides")
 		return
-	}
-
-	var flagOverrides []model.FlagOverride
-	for _, o := range allOverrides {
-		if o.FlagID == flag.ID {
-			flagOverrides = append(flagOverrides, o)
-		}
-	}
-	if flagOverrides == nil {
-		flagOverrides = []model.FlagOverride{}
 	}
 
 	writeJSON(w, http.StatusOK, flagOverrides)
 }
 
-func isUniqueViolation(err error) bool {
-	s := err.Error()
-	return strings.Contains(s, "unique") || strings.Contains(s, "duplicate key")
-}
-
-func parseExpiry(duration *string) *time.Time {
+// parseExpiry converts a duration string to an expiry time.
+// - nil (field omitted): defaults to 24h expiry
+// - "" (empty string): no expiry (override persists until manually deleted)
+// - "1h", "8h", "24h", "7d": specific duration
+// - invalid value: returns error via 400 in the caller
+func parseExpiry(duration *string) (*time.Time, error) {
 	if duration == nil {
-		// Default: 24h
 		t := time.Now().Add(24 * time.Hour)
-		return &t
+		return &t, nil
 	}
 	if *duration == "" {
-		// Explicitly no expiry
-		return nil
+		return nil, nil
 	}
 	dur, ok := durationMap[*duration]
 	if !ok {
-		// Invalid duration, fall back to 24h
-		t := time.Now().Add(24 * time.Hour)
-		return &t
+		return nil, errors.New("invalid duration, use: 1h, 8h, 24h, 7d, or empty string for no expiry")
 	}
 	t := time.Now().Add(dur)
-	return &t
+	return &t, nil
 }

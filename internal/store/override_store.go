@@ -100,6 +100,37 @@ func (s *OverrideStore) ListByUser(ctx context.Context, userID string) ([]model.
 	return overrides, rows.Err()
 }
 
+// ListByUserAndFlag returns all non-expired overrides for a specific user and flag.
+func (s *OverrideStore) ListByUserAndFlag(ctx context.Context, userID, flagID string) ([]model.FlagOverride, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT fo.id, fo.user_id, fo.flag_id, f.key, fo.environment_id, e.key, p.key, fo.value, fo.expires_at, fo.created_at
+		 FROM flag_overrides fo
+		 JOIN flags f ON f.id = fo.flag_id
+		 JOIN environments e ON e.id = fo.environment_id
+		 JOIN projects p ON p.id = f.project_id
+		 WHERE fo.user_id = $1 AND fo.flag_id = $2 AND (fo.expires_at IS NULL OR fo.expires_at > NOW())
+		 ORDER BY fo.created_at DESC`,
+		userID, flagID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing overrides by user and flag: %w", err)
+	}
+	defer rows.Close()
+
+	var overrides []model.FlagOverride
+	for rows.Next() {
+		var o model.FlagOverride
+		if err := rows.Scan(&o.ID, &o.UserID, &o.FlagID, &o.FlagKey, &o.EnvironmentID, &o.EnvironmentKey, &o.ProjectKey, &o.Value, &o.ExpiresAt, &o.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scanning override: %w", err)
+		}
+		overrides = append(overrides, o)
+	}
+	if overrides == nil {
+		overrides = []model.FlagOverride{}
+	}
+	return overrides, rows.Err()
+}
+
 // ListByProjectEnv returns all non-expired overrides for a project+environment.
 func (s *OverrideStore) ListByProjectEnv(ctx context.Context, projectKey, envKey string) ([]model.FlagOverride, error) {
 	rows, err := s.pool.Query(ctx,

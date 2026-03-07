@@ -29,7 +29,7 @@ func (s *AppIdentityStore) Set(ctx context.Context, userID, projectID, appUserID
 	).Scan(&identity.UserID, &identity.ProjectID, &identity.AppUserID, &identity.CreatedAt, &identity.UpdatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate key") {
-			return nil, fmt.Errorf("app user ID already claimed by another user")
+			return nil, ErrDuplicateAppUserID
 		}
 		return nil, fmt.Errorf("setting app identity: %w", err)
 	}
