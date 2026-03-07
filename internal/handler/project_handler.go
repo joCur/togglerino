@@ -75,10 +75,11 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 // List handles GET /api/v1/projects
 func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	user := auth.UserFromContext(r.Context())
+	limit, offset := parsePagination(r)
 
 	// Admins always see all projects
 	if user != nil && user.Role == model.RoleAdmin {
-		projects, err := h.projects.List(r.Context())
+		projects, totalCount, err := h.projects.List(r.Context(), limit, offset)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to list projects")
 			return
@@ -86,14 +87,14 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 		if projects == nil {
 			projects = []model.Project{}
 		}
-		writeJSON(w, http.StatusOK, projects)
+		writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, TotalCount: totalCount, Limit: limit, Offset: offset})
 		return
 	}
 
 	// Check base project role — if not "none", everyone can see all projects
 	baseRole, _ := h.orgSettings.GetBaseProjectRole(r.Context())
 	if baseRole != "" && baseRole != "none" {
-		projects, err := h.projects.List(r.Context())
+		projects, totalCount, err := h.projects.List(r.Context(), limit, offset)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to list projects")
 			return
@@ -101,13 +102,13 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 		if projects == nil {
 			projects = []model.Project{}
 		}
-		writeJSON(w, http.StatusOK, projects)
+		writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, TotalCount: totalCount, Limit: limit, Offset: offset})
 		return
 	}
 
 	// Base role is "none" — only show explicitly assigned projects
 	if user == nil {
-		writeJSON(w, http.StatusOK, []model.Project{})
+		writeJSON(w, http.StatusOK, PaginatedResponse{Data: []model.Project{}, TotalCount: 0, Limit: limit, Offset: offset})
 		return
 	}
 	projectIDs, err := h.members.ListAccessibleProjectIDs(r.Context(), user.ID)
@@ -116,11 +117,11 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(projectIDs) == 0 {
-		writeJSON(w, http.StatusOK, []model.Project{})
+		writeJSON(w, http.StatusOK, PaginatedResponse{Data: []model.Project{}, TotalCount: 0, Limit: limit, Offset: offset})
 		return
 	}
 
-	projects, err := h.projects.ListByIDs(r.Context(), projectIDs)
+	projects, totalCount, err := h.projects.ListByIDs(r.Context(), projectIDs, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list projects")
 		return
@@ -128,7 +129,7 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	if projects == nil {
 		projects = []model.Project{}
 	}
-	writeJSON(w, http.StatusOK, projects)
+	writeJSON(w, http.StatusOK, PaginatedResponse{Data: projects, TotalCount: totalCount, Limit: limit, Offset: offset})
 }
 
 // Get handles GET /api/v1/projects/{key}

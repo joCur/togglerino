@@ -85,14 +85,19 @@ func requestWithUser(t *testing.T, method, path string, user *model.User) *http.
 	return req
 }
 
-// decodeProjects parses the JSON response body into a slice of projects.
+// decodeProjects parses the paginated JSON response body into a slice of projects.
 func decodeProjects(t *testing.T, rr *httptest.ResponseRecorder) []model.Project {
 	t.Helper()
-	var projects []model.Project
-	if err := json.NewDecoder(rr.Body).Decode(&projects); err != nil {
+	var resp struct {
+		Data       []model.Project `json:"data"`
+		TotalCount int             `json:"total_count"`
+		Limit      int             `json:"limit"`
+		Offset     int             `json:"offset"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("decoding projects response: %v", err)
 	}
-	return projects
+	return resp.Data
 }
 
 // TestProjectList_AdminSeesAll verifies that an org admin sees all projects

@@ -30,52 +30,57 @@ func (s *ProjectStore) Create(ctx context.Context, key, name, description string
 	return &p, nil
 }
 
-// List returns all projects.
-func (s *ProjectStore) List(ctx context.Context) ([]model.Project, error) {
+// List returns projects with pagination.
+// Returns the projects, total count (before pagination), and any error.
+func (s *ProjectStore) List(ctx context.Context, limit, offset int) ([]model.Project, int, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, key, name, description, created_at, updated_at FROM projects ORDER BY created_at DESC`)
+		`SELECT id, key, name, description, created_at, updated_at, COUNT(*) OVER() AS total_count FROM projects ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+		limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("listing projects: %w", err)
+		return nil, 0, fmt.Errorf("listing projects: %w", err)
 	}
 	defer rows.Close()
 
 	var projects []model.Project
+	totalCount := 0
 	for rows.Next() {
 		var p model.Project
-		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scanning project: %w", err)
+		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt, &totalCount); err != nil {
+			return nil, 0, fmt.Errorf("scanning project: %w", err)
 		}
 		projects = append(projects, p)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating projects: %w", err)
+		return nil, 0, fmt.Errorf("iterating projects: %w", err)
 	}
-	return projects, nil
+	return projects, totalCount, nil
 }
 
-// ListByIDs returns projects matching the given IDs.
-func (s *ProjectStore) ListByIDs(ctx context.Context, ids []string) ([]model.Project, error) {
+// ListByIDs returns projects matching the given IDs with pagination.
+// Returns the projects, total count (before pagination), and any error.
+func (s *ProjectStore) ListByIDs(ctx context.Context, ids []string, limit, offset int) ([]model.Project, int, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, key, name, description, created_at, updated_at FROM projects WHERE id = ANY($1) ORDER BY created_at DESC`,
-		ids,
+		`SELECT id, key, name, description, created_at, updated_at, COUNT(*) OVER() AS total_count FROM projects WHERE id = ANY($1) ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		ids, limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("listing projects by IDs: %w", err)
+		return nil, 0, fmt.Errorf("listing projects by IDs: %w", err)
 	}
 	defer rows.Close()
 
 	var projects []model.Project
+	totalCount := 0
 	for rows.Next() {
 		var p model.Project
-		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scanning project: %w", err)
+		if err := rows.Scan(&p.ID, &p.Key, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt, &totalCount); err != nil {
+			return nil, 0, fmt.Errorf("scanning project: %w", err)
 		}
 		projects = append(projects, p)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating projects: %w", err)
+		return nil, 0, fmt.Errorf("iterating projects: %w", err)
 	}
-	return projects, nil
+	return projects, totalCount, nil
 }
 
 // FindByKey returns a project by its key.
