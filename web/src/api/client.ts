@@ -1,4 +1,4 @@
-import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User } from './types'
+import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User, AppIdentity, FlagOverrideEntry } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -157,6 +157,41 @@ export const api = {
       const qs = search.toString()
       return request<PaginatedResponse<AuditEntry>>(`/projects/${projectKey}/audit-log${qs ? `?${qs}` : ''}`)
     },
+  },
+
+  appIdentity: {
+    get: (projectKey: string) =>
+      request<AppIdentity>(`/projects/${projectKey}/app-identity`),
+    set: (projectKey: string, appUserID: string) =>
+      request<AppIdentity>(`/projects/${projectKey}/app-identity`, {
+        method: 'PUT',
+        body: JSON.stringify({ app_user_id: appUserID }),
+      }),
+    delete: (projectKey: string) =>
+      request<void>(`/projects/${projectKey}/app-identity`, { method: 'DELETE' }),
+  },
+
+  overrides: {
+    listMine: () => request<FlagOverrideEntry[]>('/overrides/me'),
+    getForFlag: (projectKey: string, flagKey: string) =>
+      request<FlagOverrideEntry[]>(`/projects/${projectKey}/flags/${flagKey}/overrides/me`),
+    set: (projectKey: string, flagKey: string, envKey: string, value: unknown, duration?: string | null) =>
+      request<FlagOverrideEntry>(
+        `/projects/${projectKey}/flags/${flagKey}/environments/${envKey}/override`,
+        { method: 'PUT', body: JSON.stringify({ value, duration }) },
+      ),
+    delete: (projectKey: string, flagKey: string, envKey: string) =>
+      request<void>(
+        `/projects/${projectKey}/flags/${flagKey}/environments/${envKey}/override`,
+        { method: 'DELETE' },
+      ),
+    setAll: (projectKey: string, flagKey: string, value: unknown, duration?: string | null) =>
+      request<void>(`/projects/${projectKey}/flags/${flagKey}/override`, {
+        method: 'PUT',
+        body: JSON.stringify({ value, duration }),
+      }),
+    deleteAll: (projectKey: string, flagKey: string) =>
+      request<void>(`/projects/${projectKey}/flags/${flagKey}/override`, { method: 'DELETE' }),
   },
 
   templates: {
