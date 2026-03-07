@@ -67,9 +67,9 @@ export const api = {
         body: JSON.stringify({ environment_ids: environmentIds }),
       }),
     promote: (projectKey: string, flagKey: string, sourceEnvKey: string, targetEnvKey: string) =>
-      request<FlagEnvironmentConfig>(`/projects/${projectKey}/flags/${flagKey}/environments/${sourceEnvKey}/promote`, {
+      request<FlagEnvironmentConfig>(`/projects/${projectKey}/flags/${flagKey}/environments/${targetEnvKey}/promote`, {
         method: 'POST',
-        body: JSON.stringify({ target_environment: targetEnvKey }),
+        body: JSON.stringify({ source_environment_key: sourceEnvKey }),
       }),
   },
 
