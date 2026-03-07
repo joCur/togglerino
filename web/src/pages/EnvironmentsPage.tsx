@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useCanWrite } from '@/hooks/usePermissions'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 
 export default function EnvironmentsPage() {
   const { key } = useParams<{ key: string }>()
@@ -34,6 +35,30 @@ export default function EnvironmentsPage() {
       setEnvName('')
     },
   })
+
+  const reorderMutation = useMutation({
+    mutationFn: (environmentIds: string[]) =>
+      api.environments.reorder(key!, environmentIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'environments'] })
+    },
+  })
+
+  const sortedEnvironments = environments ? [...environments].sort((a, b) => a.sort_order - b.sort_order) : undefined
+
+  const handleMoveUp = (index: number) => {
+    if (!sortedEnvironments || index <= 0) return
+    const reordered = [...sortedEnvironments]
+    ;[reordered[index - 1], reordered[index]] = [reordered[index], reordered[index - 1]]
+    reorderMutation.mutate(reordered.map((e) => e.id))
+  }
+
+  const handleMoveDown = (index: number) => {
+    if (!sortedEnvironments || index >= sortedEnvironments.length - 1) return
+    const reordered = [...sortedEnvironments]
+    ;[reordered[index], reordered[index + 1]] = [reordered[index + 1], reordered[index]]
+    reorderMutation.mutate(reordered.map((e) => e.id))
+  }
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,7 +150,15 @@ export default function EnvironmentsPage() {
         </Alert>
       )}
 
-      {(!environments || environments.length === 0) ? (
+      {reorderMutation.error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>
+            {reorderMutation.error instanceof Error ? reorderMutation.error.message : 'Failed to reorder environments'}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {(!sortedEnvironments || sortedEnvironments.length === 0) ? (
         <div className="text-center py-12">
           <div className="text-[15px] font-medium text-foreground mb-1.5">No environments yet</div>
           <div className="text-[13px] text-muted-foreground/60">
@@ -137,6 +170,9 @@ export default function EnvironmentsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                {canWrite && (
+                  <TableHead className="font-mono text-[11px] uppercase tracking-wider w-[80px]">Order</TableHead>
+                )}
                 <TableHead className="font-mono text-[11px] uppercase tracking-wider">Key</TableHead>
                 <TableHead className="font-mono text-[11px] uppercase tracking-wider">Name</TableHead>
                 <TableHead className="font-mono text-[11px] uppercase tracking-wider">Created</TableHead>
@@ -144,8 +180,32 @@ export default function EnvironmentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {environments.map((env) => (
+              {sortedEnvironments.map((env, index) => (
                 <TableRow key={env.id} className="transition-colors hover:bg-[#d4956a]/8">
+                  {canWrite && (
+                    <TableCell>
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          disabled={index === 0 || reorderMutation.isPending}
+                          onClick={() => handleMoveUp(index)}
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          disabled={index === sortedEnvironments.length - 1 || reorderMutation.isPending}
+                          onClick={() => handleMoveDown(index)}
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <span className="font-mono text-xs text-[#d4956a] tracking-wide">{env.key}</span>
                   </TableCell>
