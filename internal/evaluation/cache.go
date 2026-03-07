@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/model"
+	"github.com/togglerino/togglerino/internal/store"
 )
 
 // FlagData holds everything needed to evaluate a flag.
@@ -22,16 +23,6 @@ type FlagData struct {
 type OverrideEntry struct {
 	Value     json.RawMessage
 	ExpiresAt *time.Time
-}
-
-// OverrideCacheEntryData is the data needed to populate the override cache.
-type OverrideCacheEntryData struct {
-	ProjectKey     string
-	EnvironmentKey string
-	FlagKey        string
-	AppUserID      string
-	Value          json.RawMessage
-	ExpiresAt      *time.Time
 }
 
 // Cache holds all flag data in memory for fast evaluation.
@@ -385,7 +376,7 @@ func (c *Cache) DeleteOverridesForUser(projectKey, envKey, appUserID string) {
 }
 
 // LoadOverrides bulk-loads override entries into the cache.
-func (c *Cache) LoadOverrides(entries []OverrideCacheEntryData) {
+func (c *Cache) LoadOverrides(entries []store.OverrideCacheEntry) {
 	newOverrides := make(map[string]map[string]OverrideEntry)
 	for _, e := range entries {
 		key := cacheKey(e.ProjectKey, e.EnvironmentKey)

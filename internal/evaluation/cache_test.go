@@ -9,6 +9,7 @@ import (
 
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/model"
+	"github.com/togglerino/togglerino/internal/store"
 )
 
 func TestCache_SetAndGetFlags(t *testing.T) {
@@ -236,7 +237,7 @@ func TestCache_DeleteOverridesForUser(t *testing.T) {
 func TestCache_LoadOverrides(t *testing.T) {
 	c := evaluation.NewCache()
 
-	entries := []evaluation.OverrideCacheEntryData{
+	entries := []store.OverrideCacheEntry{
 		{ProjectKey: "proj", EnvironmentKey: "dev", FlagKey: "flag-a", AppUserID: "user-1", Value: json.RawMessage(`true`)},
 		{ProjectKey: "proj", EnvironmentKey: "prod", FlagKey: "flag-b", AppUserID: "user-2", Value: json.RawMessage(`42`)},
 	}

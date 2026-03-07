@@ -114,18 +114,7 @@ func main() {
 	if err != nil {
 		slog.Warn("failed to load overrides into cache", "error", err)
 	} else {
-		cacheEntries := make([]evaluation.OverrideCacheEntryData, len(overrideEntries))
-		for i, e := range overrideEntries {
-			cacheEntries[i] = evaluation.OverrideCacheEntryData{
-				ProjectKey:     e.ProjectKey,
-				EnvironmentKey: e.EnvironmentKey,
-				FlagKey:        e.FlagKey,
-				AppUserID:      e.AppUserID,
-				Value:          e.Value,
-				ExpiresAt:      e.ExpiresAt,
-			}
-		}
-		cache.LoadOverrides(cacheEntries)
+		cache.LoadOverrides(overrideEntries)
 	}
 
 	if err := templateStore.SeedSystemTemplates(ctx); err != nil {
