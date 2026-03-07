@@ -62,27 +62,29 @@ func (s *UserStore) Count(ctx context.Context) (int, error) {
 	return count, nil
 }
 
-func (s *UserStore) List(ctx context.Context) ([]model.User, error) {
+func (s *UserStore) List(ctx context.Context, limit, offset int) ([]model.User, int, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, email, display_name, password_hash, role, created_at, updated_at FROM users ORDER BY created_at`,
+		`SELECT id, email, display_name, password_hash, role, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users ORDER BY created_at LIMIT $1 OFFSET $2`,
+		limit, offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("listing users: %w", err)
+		return nil, 0, fmt.Errorf("listing users: %w", err)
 	}
 	defer rows.Close()
 
 	var users []model.User
+	totalCount := 0
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scanning user: %w", err)
+		if err := rows.Scan(&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt, &totalCount); err != nil {
+			return nil, 0, fmt.Errorf("scanning user: %w", err)
 		}
 		users = append(users, u)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterating users: %w", err)
+		return nil, 0, fmt.Errorf("iterating users: %w", err)
 	}
-	return users, nil
+	return users, totalCount, nil
 }
 
 // Search returns users whose email or display name match the query string (case-insensitive prefix/substring).

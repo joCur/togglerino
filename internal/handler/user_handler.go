@@ -26,14 +26,23 @@ func NewUserHandler(users *store.UserStore, invites *store.InviteStore, members 
 	return &UserHandler{users: users, invites: invites, members: members, pool: pool, audit: audit}
 }
 
-// GET /api/v1/management/users — returns all users (password_hash stripped via json:"-")
+// GET /api/v1/management/users — returns users with pagination (password_hash stripped via json:"-")
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
-	users, err := h.users.List(r.Context())
+	limit, offset := parsePagination(r)
+	users, totalCount, err := h.users.List(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list users")
 		return
 	}
-	writeJSON(w, http.StatusOK, users)
+	if users == nil {
+		users = []model.User{}
+	}
+	writeJSON(w, http.StatusOK, PaginatedResponse{
+		Data:       users,
+		TotalCount: totalCount,
+		Limit:      limit,
+		Offset:     offset,
+	})
 }
 
 // POST /api/v1/management/users/invite — create an invite
