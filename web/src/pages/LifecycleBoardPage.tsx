@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { api } from '../api/client'
 import { Card, CardContent } from '@/components/ui/card'
@@ -66,15 +66,30 @@ export default function LifecycleBoardPage() {
     enabled: !!key,
   })
 
-  const { data: flagsResponse, isLoading: flagsLoading, error: flagsError } = useQuery({
+  const PAGE_SIZE = 50
+  const {
+    data: flagsData,
+    isLoading: flagsLoading,
+    error: flagsError,
+    hasNextPage: flagsHasNextPage,
+    isFetchingNextPage: flagsFetchingNext,
+    fetchNextPage: fetchNextFlags,
+  } = useInfiniteQuery({
     queryKey: ['projects', key, 'lifecycle-flags', statusFilter, typeFilter],
-    queryFn: () => api.flags.list(key!, {
+    queryFn: ({ pageParam = 0 }) => api.flags.list(key!, {
       lifecycle_status: statusFilter,
       flag_type: typeFilter !== 'all' ? typeFilter : undefined,
+      limit: PAGE_SIZE,
+      offset: pageParam,
     }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: !!key,
   })
-  const flags = flagsResponse?.data
+  const flags = flagsData?.pages.flatMap((page) => page.data)
 
   const sortedFlags = [...(flags || [])].sort((a, b) =>
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -349,6 +364,13 @@ export default function LifecycleBoardPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {flagsHasNextPage && (
+            <div className="text-center mt-4">
+              <Button variant="outline" onClick={() => fetchNextFlags()} disabled={flagsFetchingNext}>
+                {flagsFetchingNext ? 'Loading...' : 'Load More'}
+              </Button>
             </div>
           )}
         </CardContent>
