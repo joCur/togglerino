@@ -79,7 +79,6 @@ export function FlagOverrideControl({ projectKey, flagKey, envKey, valueType, ov
     } else {
       setOverrideValue('')
       setDuration('24h')
-      setValueError(null)
       setShowSetDialog(true)
     }
   }
