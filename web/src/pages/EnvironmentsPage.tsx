@@ -8,13 +8,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useEnvironmentsWrite } from '@/hooks/usePermissions'
+import { useEnvironmentsWrite, useSdkKeysManage } from '@/hooks/usePermissions'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 
 export default function EnvironmentsPage() {
   const { key } = useParams<{ key: string }>()
   const queryClient = useQueryClient()
   const canWrite = useEnvironmentsWrite(key)
+  const canManageKeys = useSdkKeysManage(key)
   const [showForm, setShowForm] = useState(false)
   const [envKey, setEnvKey] = useState('')
   const [envName, setEnvName] = useState('')
@@ -176,7 +177,7 @@ export default function EnvironmentsPage() {
                 <TableHead className="font-mono text-[11px] uppercase tracking-wider">Key</TableHead>
                 <TableHead className="font-mono text-[11px] uppercase tracking-wider">Name</TableHead>
                 <TableHead className="font-mono text-[11px] uppercase tracking-wider">Created</TableHead>
-                <TableHead className="font-mono text-[11px] uppercase tracking-wider">SDK Keys</TableHead>
+                {canManageKeys && <TableHead className="font-mono text-[11px] uppercase tracking-wider">SDK Keys</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -211,14 +212,16 @@ export default function EnvironmentsPage() {
                   </TableCell>
                   <TableCell className="text-[13px] text-foreground">{env.name}</TableCell>
                   <TableCell className="text-[13px] text-muted-foreground">{new Date(env.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/projects/${key}/environments/${env.key}/sdk-keys`}
-                      className="text-[#d4956a] hover:text-[#e0a97e] text-[13px] transition-colors"
-                    >
-                      Manage SDK Keys
-                    </Link>
-                  </TableCell>
+                  {canManageKeys && (
+                    <TableCell>
+                      <Link
+                        to={`/projects/${key}/environments/${env.key}/sdk-keys`}
+                        className="text-[#d4956a] hover:text-[#e0a97e] text-[13px] transition-colors"
+                      >
+                        Manage SDK Keys
+                      </Link>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
