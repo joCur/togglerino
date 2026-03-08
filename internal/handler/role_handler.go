@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
@@ -22,10 +25,11 @@ type RoleCacheRefresher interface {
 type RoleHandler struct {
 	roles     *store.RoleStore
 	refresher RoleCacheRefresher
+	audit     *store.AuditStore
 }
 
-func NewRoleHandler(roles *store.RoleStore, refresher RoleCacheRefresher) *RoleHandler {
-	return &RoleHandler{roles: roles, refresher: refresher}
+func NewRoleHandler(roles *store.RoleStore, refresher RoleCacheRefresher, audit *store.AuditStore) *RoleHandler {
+	return &RoleHandler{roles: roles, refresher: refresher, audit: audit}
 }
 
 // List returns all roles.
@@ -101,6 +105,20 @@ func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		newVal, _ := json.Marshal(role)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			UserID:     &user.ID,
+			Action:     "create",
+			EntityType: "role",
+			EntityID:   role.Name,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
+
 	h.refresh()
 	writeJSON(w, http.StatusCreated, role)
 }
@@ -134,12 +152,30 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	role, err := h.roles.Update(r.Context(), name, req.Description, req.Permissions)
 	if err != nil {
-		if store.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, "role not found or is built-in")
+		if errors.Is(err, store.ErrBuiltInRole) {
+			writeError(w, http.StatusForbidden, "cannot modify built-in role")
+			return
+		}
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "role not found")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to update role")
 		return
+	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		newVal, _ := json.Marshal(role)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			UserID:     &user.ID,
+			Action:     "update",
+			EntityType: "role",
+			EntityID:   role.Name,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
 	}
 
 	h.refresh()
@@ -167,6 +203,18 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to delete role")
 		return
+	}
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			UserID:     &user.ID,
+			Action:     "delete",
+			EntityType: "role",
+			EntityID:   name,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
 	}
 
 	h.refresh()

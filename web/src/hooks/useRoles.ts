@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 
+export interface PermissionInfo {
+  key: string
+  label: string
+}
+
 export interface RoleDefinition {
   id: string
   name: string
@@ -9,6 +14,14 @@ export interface RoleDefinition {
   is_built_in: boolean
   created_at: string
   updated_at: string
+}
+
+export function useProjectPermissions() {
+  return useQuery({
+    queryKey: ['permissions'],
+    queryFn: () => api.get<PermissionInfo[]>('/permissions'),
+    staleTime: Infinity,
+  })
 }
 
 export function useRoles() {

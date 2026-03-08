@@ -156,7 +156,7 @@ func main() {
 	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
 	templateHandler := handler.NewTemplateHandler(templateStore, projectStore, auditStore)
 	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, roleStore, auditStore)
-	roleHandler := handler.NewRoleHandler(roleStore, &roleCacheRefresher{store: roleStore, cache: roleCache})
+	roleHandler := handler.NewRoleHandler(roleStore, &roleCacheRefresher{store: roleStore, cache: roleCache}, auditStore)
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
 	userSearchHandler := handler.NewUserSearchHandler(userStore)
 	lifecycleHandler := handler.NewLifecycleHandler(flagStore, lifecycleSnapshotStore, projectStore)
@@ -345,9 +345,12 @@ func main() {
 	// Roles (admin-only)
 	mux.Handle("GET /api/v1/roles", wrap(roleHandler.List, sessionAuth))
 	mux.Handle("POST /api/v1/roles", wrap(roleHandler.Create, sessionAuth, requireOrgUsersManage))
-	mux.Handle("GET /api/v1/roles/{name}", wrap(roleHandler.Get, sessionAuth, requireOrgUsersManage))
+	mux.Handle("GET /api/v1/roles/{name}", wrap(roleHandler.Get, sessionAuth))
 	mux.Handle("PUT /api/v1/roles/{name}", wrap(roleHandler.Update, sessionAuth, requireOrgUsersManage))
 	mux.Handle("DELETE /api/v1/roles/{name}", wrap(roleHandler.Delete, sessionAuth, requireOrgUsersManage))
+
+	// Permissions (canonical list)
+	mux.Handle("GET /api/v1/permissions", wrap(handler.ListPermissions, sessionAuth))
 
 	// --- SDK-authed routes (client API) ---
 	mux.Handle("POST /api/v1/evaluate", wrap(evaluateHandler.EvaluateAll, sdkAuth))
@@ -483,7 +486,9 @@ type roleCacheRefresher struct {
 }
 
 func (r *roleCacheRefresher) Refresh() {
-	roles, err := r.store.List(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	roles, err := r.store.List(ctx)
 	if err != nil {
 		slog.Error("failed to refresh role cache", "error", err)
 		return

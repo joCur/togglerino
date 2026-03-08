@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/togglerino/togglerino/internal/store"
 )
 
@@ -106,8 +105,8 @@ func TestRoleStore_Update(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error updating built-in role")
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		t.Errorf("expected pgx.ErrNoRows, got: %v", err)
+	if !errors.Is(err, store.ErrBuiltInRole) {
+		t.Errorf("expected ErrBuiltInRole, got: %v", err)
 	}
 }
 

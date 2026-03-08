@@ -76,18 +76,40 @@ func (s *RoleStore) Create(ctx context.Context, name, description string, permis
 
 // Update modifies an existing custom role. Built-in roles cannot be updated.
 func (s *RoleStore) Update(ctx context.Context, name, description string, permissions []string) (*model.RoleDefinition, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var isBuiltIn bool
+	err = tx.QueryRow(ctx,
+		`SELECT is_built_in FROM roles WHERE name = $1 FOR UPDATE`,
+		name,
+	).Scan(&isBuiltIn)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("updating role: %w", ErrNotFound)
+		}
+		return nil, fmt.Errorf("updating role: %w", err)
+	}
+	if isBuiltIn {
+		return nil, fmt.Errorf("updating role: %w", ErrBuiltInRole)
+	}
+
 	var r model.RoleDefinition
-	err := s.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`UPDATE roles SET description = $2, permissions = $3, updated_at = NOW()
-		 WHERE name = $1 AND is_built_in = false
+		 WHERE name = $1
 		 RETURNING id, name, description, permissions, is_built_in, created_at, updated_at`,
 		name, description, permissions,
 	).Scan(&r.ID, &r.Name, &r.Description, &r.Permissions, &r.IsBuiltIn, &r.CreatedAt, &r.UpdatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("updating role: role not found or is built-in: %w", err)
-		}
 		return nil, fmt.Errorf("updating role: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
 	}
 	return &r, nil
 }

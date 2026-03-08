@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from '@/hooks/useRoles'
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole, useProjectPermissions } from '@/hooks/useRoles'
 import type { RoleDefinition } from '@/hooks/useRoles'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
@@ -21,19 +21,6 @@ import {
 import { useIsOrgAdmin } from '@/hooks/usePermissions'
 import { Navigate } from 'react-router-dom'
 
-const permissionLabels: Record<string, string> = {
-  'flags:read': 'View flags',
-  'flags:write': 'Create & edit flags',
-  'environments:read': 'View environments',
-  'environments:write': 'Create environments',
-  'sdk_keys:manage': 'Manage SDK keys',
-  'segments:write': 'Create & edit segments',
-  'templates:manage': 'Manage templates',
-  'project:settings': 'Project settings',
-}
-
-const allPermissions = Object.keys(permissionLabels)
-
 interface RoleFormState {
   name: string
   description: string
@@ -51,9 +38,15 @@ export default function RolesPage() {
   const [deleteError, setDeleteError] = useState('')
 
   const { data: roles, isLoading } = useRoles()
+  const { data: permissionsList } = useProjectPermissions()
   const createRole = useCreateRole()
   const updateRole = useUpdateRole()
   const deleteRole = useDeleteRole()
+
+  const allPermissions = permissionsList?.map((p) => p.key) ?? []
+  const permissionLabels: Record<string, string> = Object.fromEntries(
+    permissionsList?.map((p) => [p.key, p.label]) ?? [],
+  )
 
   const openCreate = () => {
     setEditingRole(null)

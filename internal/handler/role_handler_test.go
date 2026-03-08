@@ -39,8 +39,9 @@ func setupRoleHandler(t *testing.T) (*handler.RoleHandler, *countingRefresher, f
 	t.Helper()
 	pool := testPool(t)
 	rs := store.NewRoleStore(pool)
+	as := store.NewAuditStore(pool)
 	cr := &countingRefresher{}
-	h := handler.NewRoleHandler(rs, cr)
+	h := handler.NewRoleHandler(rs, cr, as)
 
 	cleanup := func() {
 		pool.Exec(context.Background(), `DELETE FROM roles WHERE name LIKE 'test-handler-%'`)
@@ -184,10 +185,8 @@ func TestRoleHandler_Update_BuiltIn(t *testing.T) {
 	req := httptest.NewRequest("PUT", "/roles/admin", jsonBody(t, body))
 	mux.ServeHTTP(rec, req)
 
-	// Built-in roles return no rows from the UPDATE WHERE is_built_in=false,
-	// so this is a 404 ("role not found or is built-in").
-	if rec.Code != 404 {
-		t.Errorf("status = %d, want 404; body: %s", rec.Code, rec.Body.String())
+	if rec.Code != 403 {
+		t.Errorf("status = %d, want 403; body: %s", rec.Code, rec.Body.String())
 	}
 }
 
