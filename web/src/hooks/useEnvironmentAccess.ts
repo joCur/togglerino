@@ -26,8 +26,8 @@ export function useEnvironmentWriteAccess(projectKey: string | undefined) {
     // Org admins bypass everything
     if (isOrgAdmin) return true
 
-    // No data yet or no role — assume allowed (optimistic)
-    if (!data || !role) return true
+    // No data yet or no role — assume restricted (avoids flash of edit controls)
+    if (!data || !role) return false
 
     // Find restrictions for the user's role
     const restriction = data.restrictions.find(r => r.role_name === role)

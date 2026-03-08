@@ -97,6 +97,8 @@ func (h *EnvironmentAccessHandler) Update(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// nil/empty restrictions = remove all restrictions (unrestricted access for all roles)
+
 	// Validate role names exist
 	for _, restriction := range req.Restrictions {
 		exists, err := h.roles.Exists(r.Context(), restriction.RoleName)

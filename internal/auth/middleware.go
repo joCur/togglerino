@@ -97,7 +97,8 @@ func RequireProjectPermission(perm model.Permission, resolve RoleResolver, roleC
 
 			// Org admins have full access to all projects.
 			if user.Role == model.RoleAdmin {
-				next.ServeHTTP(w, r)
+				ctx := context.WithValue(r.Context(), resolvedRoleContextKey, string(model.RoleAdmin))
+				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
 
