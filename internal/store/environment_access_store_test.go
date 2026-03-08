@@ -317,3 +317,135 @@ func TestEnvironmentAccessStore_HasAccessByEnvKey(t *testing.T) {
 		t.Error("expected true for unrestricted viewer")
 	}
 }
+
+func TestEnvironmentAccessStore_HasAccessByEnvKey_Integration(t *testing.T) {
+	pool := testPool(t)
+	s := store.NewEnvironmentAccessStore(pool)
+	ctx := context.Background()
+
+	// Setup: project with three environments
+	email := uniqueEmail("ea-integ")
+	var projectID string
+	err := pool.QueryRow(ctx,
+		`INSERT INTO projects (key, name, description) VALUES ($1, $2, '') RETURNING id`,
+		"ea-integ-"+strings.ReplaceAll(email, "@", "-"), "EA Integration Test",
+	).Scan(&projectID)
+	if err != nil {
+		t.Fatalf("creating test project: %v", err)
+	}
+
+	var devEnvID, stagingEnvID, prodEnvID string
+	err = pool.QueryRow(ctx,
+		`INSERT INTO environments (project_id, key, name, sort_order) VALUES ($1, 'development', 'Development', 0) RETURNING id`,
+		projectID,
+	).Scan(&devEnvID)
+	if err != nil {
+		t.Fatalf("creating dev env: %v", err)
+	}
+	err = pool.QueryRow(ctx,
+		`INSERT INTO environments (project_id, key, name, sort_order) VALUES ($1, 'staging', 'Staging', 1) RETURNING id`,
+		projectID,
+	).Scan(&stagingEnvID)
+	if err != nil {
+		t.Fatalf("creating staging env: %v", err)
+	}
+	err = pool.QueryRow(ctx,
+		`INSERT INTO environments (project_id, key, name, sort_order) VALUES ($1, 'production', 'Production', 2) RETURNING id`,
+		projectID,
+	).Scan(&prodEnvID)
+	if err != nil {
+		t.Fatalf("creating production env: %v", err)
+	}
+
+	// 1. Unrestricted: editor can access any environment
+	t.Run("unrestricted editor can access all envs", func(t *testing.T) {
+		for _, envKey := range []string{"development", "staging", "production"} {
+			ok, err := s.HasAccessByEnvKey(ctx, projectID, "editor", envKey)
+			if err != nil {
+				t.Fatalf("HasAccessByEnvKey(%s): %v", envKey, err)
+			}
+			if !ok {
+				t.Errorf("expected access to %s when unrestricted", envKey)
+			}
+		}
+	})
+
+	// 2. Add restrictions: editor can only access development and staging
+	restrictions := []store.EnvironmentAccessRestriction{
+		{RoleName: "editor", EnvironmentIDs: []string{devEnvID, stagingEnvID}},
+	}
+	err = s.ReplaceForProject(ctx, projectID, restrictions)
+	if err != nil {
+		t.Fatalf("ReplaceForProject: %v", err)
+	}
+
+	t.Run("restricted editor can access allowed envs", func(t *testing.T) {
+		ok, err := s.HasAccessByEnvKey(ctx, projectID, "editor", "development")
+		if err != nil {
+			t.Fatalf("HasAccessByEnvKey(development): %v", err)
+		}
+		if !ok {
+			t.Error("expected access to development")
+		}
+
+		ok, err = s.HasAccessByEnvKey(ctx, projectID, "editor", "staging")
+		if err != nil {
+			t.Fatalf("HasAccessByEnvKey(staging): %v", err)
+		}
+		if !ok {
+			t.Error("expected access to staging")
+		}
+	})
+
+	t.Run("restricted editor blocked from disallowed env", func(t *testing.T) {
+		ok, err := s.HasAccessByEnvKey(ctx, projectID, "editor", "production")
+		if err != nil {
+			t.Fatalf("HasAccessByEnvKey(production): %v", err)
+		}
+		if ok {
+			t.Error("expected NO access to production")
+		}
+	})
+
+	// 3. Admin role has no restrictions — unrestricted access to all envs
+	t.Run("admin role unrestricted even when editor is restricted", func(t *testing.T) {
+		for _, envKey := range []string{"development", "staging", "production"} {
+			ok, err := s.HasAccessByEnvKey(ctx, projectID, "admin", envKey)
+			if err != nil {
+				t.Fatalf("HasAccessByEnvKey(admin, %s): %v", envKey, err)
+			}
+			if !ok {
+				t.Errorf("expected admin to have access to %s", envKey)
+			}
+		}
+	})
+
+	// 4. Viewer role also unrestricted (no restrictions configured for viewer)
+	t.Run("viewer role unrestricted when only editor has restrictions", func(t *testing.T) {
+		ok, err := s.HasAccessByEnvKey(ctx, projectID, "viewer", "production")
+		if err != nil {
+			t.Fatalf("HasAccessByEnvKey(viewer, production): %v", err)
+		}
+		if !ok {
+			t.Error("expected viewer to have access to production")
+		}
+	})
+
+	// 5. Remove all restrictions — editor can access everything again
+	err = s.ReplaceForProject(ctx, projectID, nil)
+	if err != nil {
+		t.Fatalf("ReplaceForProject (clear): %v", err)
+	}
+
+	t.Run("editor can access all envs after removing restrictions", func(t *testing.T) {
+		for _, envKey := range []string{"development", "staging", "production"} {
+			ok, err := s.HasAccessByEnvKey(ctx, projectID, "editor", envKey)
+			if err != nil {
+				t.Fatalf("HasAccessByEnvKey(%s): %v", envKey, err)
+			}
+			if !ok {
+				t.Errorf("expected access to %s after removing restrictions", envKey)
+			}
+		}
+	})
+}
