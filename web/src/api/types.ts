@@ -68,6 +68,7 @@ export interface Flag {
   updated_at: string
   owner_id?: string
   owner?: FlagOwner
+  environment_configs?: FlagEnvironmentConfig[]
 }
 
 export interface ProjectFlagSettings {

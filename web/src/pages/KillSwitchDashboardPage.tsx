@@ -19,11 +19,6 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Zap } from 'lucide-react'
 
-interface FlagDetailResponse {
-  flag: Flag
-  environment_configs: FlagEnvironmentConfig[]
-}
-
 interface ToggleTarget {
   flag: Flag
   envKey: string
@@ -68,13 +63,14 @@ export default function KillSwitchDashboardPage() {
     fetchNextPage: fetchNextFlags,
   } = useInfiniteQuery({
     queryKey: ['projects', key, 'flags', { flag_type: 'kill-switch' }],
-    queryFn: ({ pageParam = 0 }) => api.flags.list(key!, { flag_type: 'kill-switch', limit: PAGE_SIZE, offset: pageParam }),
+    queryFn: ({ pageParam = 0 }) => api.flags.list(key!, { flag_type: 'kill-switch', include: 'environment_configs', limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
       lastPage.offset + lastPage.limit < lastPage.total
         ? lastPage.offset + lastPage.limit
         : undefined,
     enabled: !!key,
+    refetchInterval: 30_000,
   })
   const flags = flagsData?.pages.flatMap((page) => page.data)
 
@@ -89,30 +85,19 @@ export default function KillSwitchDashboardPage() {
     [flags],
   )
 
-  const activeFlagKeys = useMemo(() => activeFlags.map((f) => f.key), [activeFlags])
-
-  const { data: configsMap } = useQuery({
-    queryKey: ['projects', key, 'kill-switch-configs', activeFlagKeys],
-    queryFn: async () => {
-      const results = await Promise.allSettled(
-        activeFlags.map((flag) =>
-          api.get<FlagDetailResponse>(`/projects/${key}/flags/${flag.key}`),
-        ),
-      )
-      const map: Record<string, Record<string, FlagEnvironmentConfig>> = {}
-      for (const result of results) {
-        if (result.status !== 'fulfilled') continue
-        const flagConfigs: Record<string, FlagEnvironmentConfig> = {}
-        for (const config of result.value.environment_configs) {
-          flagConfigs[config.environment_id] = config
-        }
-        map[result.value.flag.key] = flagConfigs
+  const configsMap = useMemo(() => {
+    if (!activeFlags.length) return undefined
+    const map: Record<string, Record<string, FlagEnvironmentConfig>> = {}
+    for (const flag of activeFlags) {
+      if (!flag.environment_configs) continue
+      const flagConfigs: Record<string, FlagEnvironmentConfig> = {}
+      for (const config of flag.environment_configs) {
+        flagConfigs[config.environment_id] = config
       }
-      return map
-    },
-    enabled: !!key && activeFlags.length > 0,
-    refetchInterval: 30_000,
-  })
+      map[flag.key] = flagConfigs
+    }
+    return map
+  }, [activeFlags])
 
   const toggleMutation = useMutation({
     mutationFn: ({ flagKey, envKey, config }: { flagKey: string; envKey: string; config: FlagEnvironmentConfig }) => {
@@ -128,7 +113,6 @@ export default function KillSwitchDashboardPage() {
       setPendingToggle(null)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', key, 'kill-switch-configs'] })
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
       setToggleError(null)
       setToggleTarget(null)
