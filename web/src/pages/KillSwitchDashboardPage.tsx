@@ -62,7 +62,7 @@ export default function KillSwitchDashboardPage() {
     isFetchingNextPage: flagsFetchingNext,
     fetchNextPage: fetchNextFlags,
   } = useInfiniteQuery({
-    queryKey: ['projects', key, 'flags', { flag_type: 'kill-switch' }],
+    queryKey: ['projects', key, 'flags', { flag_type: 'kill-switch', include: 'environment_configs' }],
     queryFn: ({ pageParam = 0 }) => api.flags.list(key!, { flag_type: 'kill-switch', include: 'environment_configs', limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
