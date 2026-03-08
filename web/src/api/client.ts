@@ -1,4 +1,4 @@
-import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User, AppIdentity, FlagOverrideEntry } from './types'
+import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User, AppIdentity, FlagOverrideEntry, EnvironmentAccessResponse, EnvironmentAccessRestriction } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -70,6 +70,16 @@ export const api = {
       request<FlagEnvironmentConfig>(`/projects/${projectKey}/flags/${flagKey}/environments/${targetEnvKey}/promote`, {
         method: 'POST',
         body: JSON.stringify({ source_environment_key: sourceEnvKey }),
+      }),
+  },
+
+  environmentAccess: {
+    get: (projectKey: string) =>
+      request<EnvironmentAccessResponse>(`/projects/${projectKey}/environment-access`),
+    update: (projectKey: string, restrictions: EnvironmentAccessRestriction[]) =>
+      request<{ status: string }>(`/projects/${projectKey}/environment-access`, {
+        method: 'PUT',
+        body: JSON.stringify({ restrictions }),
       }),
   },
 

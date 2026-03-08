@@ -324,3 +324,19 @@ export interface FlagOverrideEntry {
   expires_at: string | null
   created_at: string
 }
+
+export interface EnvironmentAccessRestriction {
+  role_name: string
+  environment_ids: string[]
+}
+
+export interface EnvironmentSummary {
+  id: string
+  key: string
+  name: string
+}
+
+export interface EnvironmentAccessResponse {
+  restrictions: EnvironmentAccessRestriction[]
+  environments: EnvironmentSummary[]
+}
