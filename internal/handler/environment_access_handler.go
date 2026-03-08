@@ -146,9 +146,10 @@ func (h *EnvironmentAccessHandler) Update(w http.ResponseWriter, r *http.Request
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
+			UserEmail:  &user.Email,
 			Action:     "update",
 			EntityType: "environment_access",
-			EntityID:   project.ID,
+			EntityID:   project.Key,
 			OldValue:   oldVal,
 			NewValue:   newVal,
 		}); err != nil {
