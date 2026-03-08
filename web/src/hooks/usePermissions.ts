@@ -48,14 +48,19 @@ export function useBaseProjectRole() {
   })
 }
 
-// Resolve the user's effective project role via server-side endpoint
-export function useProjectRole(projectKey: string | undefined): ProjectRole | null {
-  const { data } = useQuery({
+// Shared query for the user's effective project role and permissions.
+function useProjectRoleQuery(projectKey: string | undefined) {
+  return useQuery({
     queryKey: ['my-project-role', projectKey],
     queryFn: () => api.get<ProjectRoleResponse>(`/auth/me/project-role/${projectKey}`),
     enabled: !!projectKey,
     staleTime: 5 * 60 * 1000,
   })
+}
+
+// Resolve the user's effective project role via server-side endpoint
+export function useProjectRole(projectKey: string | undefined): ProjectRole | null {
+  const { data } = useProjectRoleQuery(projectKey)
 
   if (!data) return null
   if (data.role === 'none') return null
@@ -64,12 +69,7 @@ export function useProjectRole(projectKey: string | undefined): ProjectRole | nu
 
 // Hook to get the current user's permissions for a project
 export function useProjectPermissions(projectKey: string | undefined): string[] {
-  const { data } = useQuery({
-    queryKey: ['my-project-role', projectKey],
-    queryFn: () => api.get<ProjectRoleResponse>(`/auth/me/project-role/${projectKey}`),
-    enabled: !!projectKey,
-    staleTime: 5 * 60 * 1000,
-  })
+  const { data } = useProjectRoleQuery(projectKey)
 
   return data?.permissions ?? []
 }

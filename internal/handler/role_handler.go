@@ -81,6 +81,10 @@ func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name must be 2-50 lowercase alphanumeric characters or hyphens")
 		return
 	}
+	if len(req.Description) > 200 {
+		writeError(w, http.StatusBadRequest, "description must be 200 characters or fewer")
+		return
+	}
 	if len(req.Permissions) == 0 {
 		writeError(w, http.StatusBadRequest, "at least one permission is required")
 		return
@@ -137,6 +141,10 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Description) > 200 {
+		writeError(w, http.StatusBadRequest, "description must be 200 characters or fewer")
+		return
+	}
 	if len(req.Permissions) == 0 {
 		writeError(w, http.StatusBadRequest, "at least one permission is required")
 		return
@@ -149,6 +157,9 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Permissions = dedupeStrings(req.Permissions)
+
+	// Fetch old state for audit logging before the transactional update.
+	oldRole, _ := h.roles.GetByName(r.Context(), name)
 
 	role, err := h.roles.Update(r.Context(), name, req.Description, req.Permissions)
 	if err != nil {
@@ -167,11 +178,16 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Best-effort audit logging
 	if user := auth.UserFromContext(r.Context()); user != nil {
 		newVal, _ := json.Marshal(role)
+		var oldVal json.RawMessage
+		if oldRole != nil {
+			oldVal, _ = json.Marshal(oldRole)
+		}
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			UserID:     &user.ID,
 			Action:     "update",
 			EntityType: "role",
 			EntityID:   role.Name,
+			OldValue:   oldVal,
 			NewValue:   newVal,
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
@@ -186,6 +202,9 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/v1/roles/{name}
 func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
+
+	// Fetch old state for audit logging before deletion.
+	oldRole, _ := h.roles.GetByName(r.Context(), name)
 
 	err := h.roles.Delete(r.Context(), name)
 	if err != nil {
@@ -207,11 +226,16 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	// Best-effort audit logging
 	if user := auth.UserFromContext(r.Context()); user != nil {
+		var oldVal json.RawMessage
+		if oldRole != nil {
+			oldVal, _ = json.Marshal(oldRole)
+		}
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			UserID:     &user.ID,
 			Action:     "delete",
 			EntityType: "role",
 			EntityID:   name,
+			OldValue:   oldVal,
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
