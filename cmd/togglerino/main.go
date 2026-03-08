@@ -72,6 +72,7 @@ func main() {
 	templateStore := store.NewTemplateStore(pool)
 	orgSettingsStore := store.NewOrgSettingsStore(pool)
 	projectMemberStore := store.NewProjectMemberStore(pool)
+	roleStore := store.NewRoleStore(pool)
 	lifecycleSnapshotStore := store.NewLifecycleSnapshotStore(pool)
 	appIdentityStore := store.NewAppIdentityStore(pool)
 	overrideStore := store.NewOverrideStore(pool)
@@ -117,6 +118,14 @@ func main() {
 		cache.LoadOverrides(overrideEntries)
 	}
 
+	// Load role definitions into cache
+	roleCache := auth.NewRoleCache()
+	allRoles, err := roleStore.List(ctx)
+	if err != nil {
+		log.Fatalf("failed to load roles: %v", err)
+	}
+	roleCache.Load(allRoles)
+
 	if err := templateStore.SeedSystemTemplates(ctx); err != nil {
 		log.Fatalf("failed to seed system templates: %v", err)
 	}
@@ -128,7 +137,7 @@ func main() {
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
-	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore, pool, auditStore)
+	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore, roleStore, pool, auditStore)
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore, orgSettingsStore, projectMemberStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
@@ -146,7 +155,8 @@ func main() {
 	streamHandler := handler.NewStreamHandler(hub)
 	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
 	templateHandler := handler.NewTemplateHandler(templateStore, projectStore, auditStore)
-	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, auditStore)
+	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, roleStore, auditStore)
+	roleHandler := handler.NewRoleHandler(roleStore, &roleCacheRefresher{store: roleStore, cache: roleCache})
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
 	userSearchHandler := handler.NewUserSearchHandler(userStore)
 	lifecycleHandler := handler.NewLifecycleHandler(flagStore, lifecycleSnapshotStore, projectStore)
@@ -177,14 +187,14 @@ func main() {
 	requireOrgProjectsCreate := auth.RequireOrgPermission(model.PermOrgProjectsCreate)
 	requireOrgProjectsDelete := auth.RequireOrgPermission(model.PermOrgProjectsDelete)
 
-	requireFlagsRead := auth.RequireProjectPermission(model.PermFlagsRead, roleResolver, projectStore)
-	requireFlagsWrite := auth.RequireProjectPermission(model.PermFlagsWrite, roleResolver, projectStore)
-	requireEnvsRead := auth.RequireProjectPermission(model.PermEnvironmentsRead, roleResolver, projectStore)
-	requireEnvsWrite := auth.RequireProjectPermission(model.PermEnvironmentsWrite, roleResolver, projectStore)
-	requireSDKKeysManage := auth.RequireProjectPermission(model.PermSDKKeysManage, roleResolver, projectStore)
-	requireSegmentsWrite := auth.RequireProjectPermission(model.PermSegmentsWrite, roleResolver, projectStore)
-	requireTemplatesManage := auth.RequireProjectPermission(model.PermTemplatesManage, roleResolver, projectStore)
-	requireProjectSettings := auth.RequireProjectPermission(model.PermProjectSettings, roleResolver, projectStore)
+	requireFlagsRead := auth.RequireProjectPermission(model.PermFlagsRead, roleResolver, roleCache, projectStore)
+	requireFlagsWrite := auth.RequireProjectPermission(model.PermFlagsWrite, roleResolver, roleCache, projectStore)
+	requireEnvsRead := auth.RequireProjectPermission(model.PermEnvironmentsRead, roleResolver, roleCache, projectStore)
+	requireEnvsWrite := auth.RequireProjectPermission(model.PermEnvironmentsWrite, roleResolver, roleCache, projectStore)
+	requireSDKKeysManage := auth.RequireProjectPermission(model.PermSDKKeysManage, roleResolver, roleCache, projectStore)
+	requireSegmentsWrite := auth.RequireProjectPermission(model.PermSegmentsWrite, roleResolver, roleCache, projectStore)
+	requireTemplatesManage := auth.RequireProjectPermission(model.PermTemplatesManage, roleResolver, roleCache, projectStore)
+	requireProjectSettings := auth.RequireProjectPermission(model.PermProjectSettings, roleResolver, roleCache, projectStore)
 
 	// --- Public routes (no auth) ---
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -332,6 +342,13 @@ func main() {
 	mux.Handle("GET /api/v1/settings/base-project-role", wrap(orgSettingsHandler.GetBaseProjectRole, sessionAuth, requireOrgUsersManage))
 	mux.Handle("PUT /api/v1/settings/base-project-role", wrap(orgSettingsHandler.SetBaseProjectRole, sessionAuth, requireOrgUsersManage))
 
+	// Roles (admin-only)
+	mux.Handle("GET /api/v1/roles", wrap(roleHandler.List, sessionAuth, requireOrgUsersManage))
+	mux.Handle("POST /api/v1/roles", wrap(roleHandler.Create, sessionAuth, requireOrgUsersManage))
+	mux.Handle("GET /api/v1/roles/{name}", wrap(roleHandler.Get, sessionAuth, requireOrgUsersManage))
+	mux.Handle("PUT /api/v1/roles/{name}", wrap(roleHandler.Update, sessionAuth, requireOrgUsersManage))
+	mux.Handle("DELETE /api/v1/roles/{name}", wrap(roleHandler.Delete, sessionAuth, requireOrgUsersManage))
+
 	// --- SDK-authed routes (client API) ---
 	mux.Handle("POST /api/v1/evaluate", wrap(evaluateHandler.EvaluateAll, sdkAuth))
 	mux.Handle("POST /api/v1/evaluate/{flag}", wrap(evaluateHandler.EvaluateSingle, sdkAuth))
@@ -458,6 +475,20 @@ func (b scheduleEventBroadcaster) Broadcast(projectKey, envKey string, flagKey s
 		Value:   enabled,
 		Variant: defaultVariant,
 	})
+}
+
+type roleCacheRefresher struct {
+	store *store.RoleStore
+	cache *auth.RoleCache
+}
+
+func (r *roleCacheRefresher) Refresh() {
+	roles, err := r.store.List(context.Background())
+	if err != nil {
+		slog.Error("failed to refresh role cache", "error", err)
+		return
+	}
+	r.cache.Load(roles)
 }
 
 // corsMiddleware adds CORS headers based on the configured allowed origins.
