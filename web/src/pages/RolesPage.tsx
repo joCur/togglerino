@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useRoles, useCreateRole, useUpdateRole, useDeleteRole, useProjectPermissions } from '@/hooks/useRoles'
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole, usePermissionDefinitions } from '@/hooks/useRoles'
 import type { RoleDefinition } from '@/hooks/useRoles'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/button'
@@ -38,7 +38,7 @@ export default function RolesPage() {
   const [deleteError, setDeleteError] = useState('')
 
   const { data: roles, isLoading } = useRoles()
-  const { data: permissionsList } = useProjectPermissions()
+  const { data: permissionsList } = usePermissionDefinitions()
   const createRole = useCreateRole()
   const updateRole = useUpdateRole()
   const deleteRole = useDeleteRole()

@@ -16,7 +16,7 @@ export interface RoleDefinition {
   updated_at: string
 }
 
-export function useProjectPermissions() {
+export function usePermissionDefinitions() {
   return useQuery({
     queryKey: ['permissions'],
     queryFn: () => api.get<PermissionInfo[]>('/permissions'),

@@ -342,7 +342,7 @@ func main() {
 	mux.Handle("GET /api/v1/settings/base-project-role", wrap(orgSettingsHandler.GetBaseProjectRole, sessionAuth, requireOrgUsersManage))
 	mux.Handle("PUT /api/v1/settings/base-project-role", wrap(orgSettingsHandler.SetBaseProjectRole, sessionAuth, requireOrgUsersManage))
 
-	// Roles (admin-only)
+	// Role list/detail are session-only (not admin-only) so project admins can populate role selectors in member assignment.
 	mux.Handle("GET /api/v1/roles", wrap(roleHandler.List, sessionAuth))
 	mux.Handle("POST /api/v1/roles", wrap(roleHandler.Create, sessionAuth, requireOrgUsersManage))
 	mux.Handle("GET /api/v1/roles/{name}", wrap(roleHandler.Get, sessionAuth))
