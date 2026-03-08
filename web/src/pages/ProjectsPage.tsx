@@ -32,7 +32,7 @@ export default function ProjectsPage() {
       api.projects.list({ limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
-      lastPage.offset + lastPage.limit < lastPage.total
+      lastPage && lastPage.offset + lastPage.limit < lastPage.total
         ? lastPage.offset + lastPage.limit
         : undefined,
   })
