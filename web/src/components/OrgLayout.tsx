@@ -22,6 +22,9 @@ function SidebarNav({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin?
       {isAdmin && (
         <NavLink to="/settings" end className={navLinkClass} onClick={onNavigate}>Settings</NavLink>
       )}
+      {isAdmin && (
+        <NavLink to="/settings/roles" className={navLinkClass} onClick={onNavigate}>Roles</NavLink>
+      )}
     </>
   )
 }
