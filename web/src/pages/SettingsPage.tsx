@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { useBaseProjectRole } from '@/hooks/usePermissions'
+import { useRoles } from '@/hooks/useRoles'
 import { api } from '@/api/client'
 import OIDCSettingsTab from './settings/OIDCSettingsTab'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,16 +17,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-const baseRoleOptions = [
-  { value: 'admin', label: 'Admin', description: 'Full access to all projects' },
-  { value: 'editor', label: 'Editor', description: 'Can edit flags and settings in all projects' },
-  { value: 'viewer', label: 'Viewer', description: 'Read-only access to all projects' },
-  { value: 'none', label: 'None', description: 'No access unless explicitly assigned' },
-]
+const noneOption = { value: 'none', label: 'None', description: 'No access unless explicitly assigned' }
 
 function BaseProjectRoleCard() {
   const queryClient = useQueryClient()
   const { data, isLoading } = useBaseProjectRole()
+  const { data: roles } = useRoles()
+  const baseRoleOptions = [
+    ...(roles ?? []).map(r => ({ value: r.name, label: r.name, description: r.description })),
+    noneOption,
+  ]
   const [overrideRole, setOverrideRole] = useState<string | null>(null)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
