@@ -2,7 +2,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 
-export type ProjectRole = 'admin' | 'editor' | 'viewer'
+export type ProjectRole = string
 
 export interface ProjectMember {
   project_id: string
@@ -19,6 +19,11 @@ export interface UserProjectAssignment {
   project_key: string
   project_name: string
   role: ProjectRole
+}
+
+interface ProjectRoleResponse {
+  role: string
+  permissions: string[]
 }
 
 export function useIsOrgAdmin(): boolean {
@@ -47,24 +52,36 @@ export function useBaseProjectRole() {
 export function useProjectRole(projectKey: string | undefined): ProjectRole | null {
   const { data } = useQuery({
     queryKey: ['my-project-role', projectKey],
-    queryFn: () => api.get<{ role: string }>(`/auth/me/project-role/${projectKey}`),
+    queryFn: () => api.get<ProjectRoleResponse>(`/auth/me/project-role/${projectKey}`),
     enabled: !!projectKey,
     staleTime: 5 * 60 * 1000,
   })
 
   if (!data) return null
   if (data.role === 'none') return null
-  return data.role as ProjectRole
+  return data.role
 }
 
-// Check if the user has write access (admin or editor) for a project
+// Hook to get the current user's permissions for a project
+export function useProjectPermissions(projectKey: string | undefined): string[] {
+  const { data } = useQuery({
+    queryKey: ['my-project-role', projectKey],
+    queryFn: () => api.get<ProjectRoleResponse>(`/auth/me/project-role/${projectKey}`),
+    enabled: !!projectKey,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  return data?.permissions ?? []
+}
+
+// Check if the user has write access for a project
 export function useCanWrite(projectKey: string | undefined): boolean {
-  const role = useProjectRole(projectKey)
-  return role === 'admin' || role === 'editor'
+  const perms = useProjectPermissions(projectKey)
+  return perms.includes('flags:write')
 }
 
 // Check if the user has project admin access
 export function useIsProjectAdmin(projectKey: string | undefined): boolean {
-  const role = useProjectRole(projectKey)
-  return role === 'admin'
+  const perms = useProjectPermissions(projectKey)
+  return perms.includes('project:settings')
 }

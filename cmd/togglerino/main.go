@@ -165,7 +165,7 @@ func main() {
 
 	// Permission middleware
 	roleResolver := auth.BuildRoleResolver(projectMemberStore, projectStore, orgSettingsStore)
-	myRoleHandler := handler.NewMyRoleHandler(roleResolver)
+	myRoleHandler := handler.NewMyRoleHandler(roleResolver, roleCache)
 
 	// 7b. Initialize OIDC provider (non-blocking, logs errors)
 	callbackURL := ""

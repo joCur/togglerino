@@ -43,3 +43,18 @@ func (c *RoleCache) HasPermission(roleName string, perm model.Permission) bool {
 	}
 	return perms[perm]
 }
+
+// Permissions returns the list of permissions granted by the named role.
+func (c *RoleCache) Permissions(roleName string) []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	perms, ok := c.perms[roleName]
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(perms))
+	for p := range perms {
+		result = append(result, string(p))
+	}
+	return result
+}
