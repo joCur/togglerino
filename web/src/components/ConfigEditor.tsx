@@ -101,11 +101,15 @@ export default function ConfigEditor({
       </div>
 
       {readOnly && (
-        <div className="text-xs text-muted-foreground/60 mb-4 italic">
-          View only — you do not have permission to edit this configuration.
+        <div className="flex items-center gap-2 text-xs text-amber-400/80 mb-4 px-3 py-2 rounded-md bg-amber-500/5 border border-amber-500/10">
+          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          You do not have write access to this environment.
         </div>
       )}
-      <div className={readOnly ? 'pointer-events-none opacity-60' : ''}>
+      <div className={readOnly ? 'pointer-events-none opacity-50' : ''}>
       {/* Default Variant */}
       <div className="mb-6">
         <div className="text-[13px] font-medium text-foreground mb-1">Default Variant</div>
