@@ -11,6 +11,25 @@ import (
 	"github.com/togglerino/togglerino/internal/model"
 )
 
+// testRoleCache returns a RoleCache pre-loaded with the built-in roles.
+func testRoleCache() *auth.RoleCache {
+	rc := auth.NewRoleCache()
+	rc.Load([]model.RoleDefinition{
+		{Name: "admin", Permissions: []string{
+			"flags:read", "flags:write", "environments:read", "environments:write",
+			"sdk_keys:manage", "segments:write", "templates:manage", "project:settings",
+		}},
+		{Name: "editor", Permissions: []string{
+			"flags:read", "flags:write", "environments:read", "environments:write",
+			"sdk_keys:manage", "segments:write", "templates:manage",
+		}},
+		{Name: "viewer", Permissions: []string{
+			"flags:read", "environments:read",
+		}},
+	})
+	return rc
+}
+
 func TestRequireOrgPermission_AdminAllowed(t *testing.T) {
 	user := &model.User{ID: "u1", Email: "admin@test.com", Role: model.RoleAdmin}
 
@@ -56,7 +75,7 @@ func TestRequireProjectPermission_AdminBypasses(t *testing.T) {
 		return model.ProjectRoleViewer, nil
 	}
 
-	handler := auth.RequireProjectPermission(model.PermFlagsWrite, resolver)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireProjectPermission(model.PermFlagsWrite, resolver, testRoleCache())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -82,7 +101,7 @@ func TestRequireProjectPermission_EditorAllowedWrite(t *testing.T) {
 		return model.ProjectRoleEditor, nil
 	}
 
-	handler := auth.RequireProjectPermission(model.PermFlagsWrite, resolver)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireProjectPermission(model.PermFlagsWrite, resolver, testRoleCache())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -105,7 +124,7 @@ func TestRequireProjectPermission_ViewerDeniedWrite(t *testing.T) {
 		return model.ProjectRoleViewer, nil
 	}
 
-	handler := auth.RequireProjectPermission(model.PermFlagsWrite, resolver)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireProjectPermission(model.PermFlagsWrite, resolver, testRoleCache())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -128,7 +147,7 @@ func TestRequireProjectPermission_NoAccess(t *testing.T) {
 		return "", fmt.Errorf("no access to project %q", projectKey)
 	}
 
-	handler := auth.RequireProjectPermission(model.PermFlagsRead, resolver)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.RequireProjectPermission(model.PermFlagsRead, resolver, testRoleCache())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

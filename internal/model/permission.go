@@ -32,51 +32,6 @@ const (
 	ProjectRoleViewer ProjectRole = "viewer"
 )
 
-// ValidProjectRole returns true if s is a valid project role.
-func ValidProjectRole(s string) bool {
-	switch ProjectRole(s) {
-	case ProjectRoleAdmin, ProjectRoleEditor, ProjectRoleViewer:
-		return true
-	}
-	return false
-}
-
-// projectRolePermissions maps each project role to its allowed permissions.
-var projectRolePermissions = map[ProjectRole]map[Permission]bool{
-	ProjectRoleAdmin: {
-		PermFlagsRead:         true,
-		PermFlagsWrite:        true,
-		PermEnvironmentsRead:  true,
-		PermEnvironmentsWrite: true,
-		PermSDKKeysManage:     true,
-		PermSegmentsWrite:     true,
-		PermTemplatesManage:   true,
-		PermProjectSettings:   true,
-	},
-	ProjectRoleEditor: {
-		PermFlagsRead:         true,
-		PermFlagsWrite:        true,
-		PermEnvironmentsRead:  true,
-		PermEnvironmentsWrite: true,
-		PermSDKKeysManage:     true,
-		PermSegmentsWrite:     true,
-		PermTemplatesManage:   true,
-	},
-	ProjectRoleViewer: {
-		PermFlagsRead:        true,
-		PermEnvironmentsRead: true,
-	},
-}
-
-// HasPermission returns true if the project role grants the given permission.
-func (r ProjectRole) HasPermission(p Permission) bool {
-	perms, ok := projectRolePermissions[r]
-	if !ok {
-		return false
-	}
-	return perms[p]
-}
-
 // orgRolePermissions maps each organization role to its allowed permissions.
 var orgRolePermissions = map[Role]map[Permission]bool{
 	RoleAdmin: {
