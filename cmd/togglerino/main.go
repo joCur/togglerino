@@ -343,7 +343,7 @@ func main() {
 	mux.Handle("PUT /api/v1/settings/base-project-role", wrap(orgSettingsHandler.SetBaseProjectRole, sessionAuth, requireOrgUsersManage))
 
 	// Roles (admin-only)
-	mux.Handle("GET /api/v1/roles", wrap(roleHandler.List, sessionAuth, requireOrgUsersManage))
+	mux.Handle("GET /api/v1/roles", wrap(roleHandler.List, sessionAuth))
 	mux.Handle("POST /api/v1/roles", wrap(roleHandler.Create, sessionAuth, requireOrgUsersManage))
 	mux.Handle("GET /api/v1/roles/{name}", wrap(roleHandler.Get, sessionAuth, requireOrgUsersManage))
 	mux.Handle("PUT /api/v1/roles/{name}", wrap(roleHandler.Update, sessionAuth, requireOrgUsersManage))

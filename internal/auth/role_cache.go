@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/togglerino/togglerino/internal/model"
@@ -56,5 +57,6 @@ func (c *RoleCache) Permissions(roleName string) []string {
 	for p := range perms {
 		result = append(result, string(p))
 	}
+	sort.Strings(result)
 	return result
 }

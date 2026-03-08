@@ -18,6 +18,9 @@ var ErrDuplicateAppUserID = errors.New("app user ID already claimed by another u
 // ErrRoleInUse is returned when a role cannot be deleted because it is still referenced.
 var ErrRoleInUse = errors.New("role is in use")
 
+// ErrBuiltInRole is returned when an operation attempts to modify a built-in role.
+var ErrBuiltInRole = errors.New("cannot modify built-in role")
+
 // IsNotFound reports whether an error represents a "not found" condition,
 // either from ErrNotFound or a wrapped pgx.ErrNoRows.
 func IsNotFound(err error) bool {

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"regexp"
 	"strings"
@@ -82,6 +83,8 @@ func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	req.Permissions = dedupeStrings(req.Permissions)
+
 	role, err := h.roles.Create(r.Context(), req.Name, req.Description, req.Permissions)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
@@ -131,6 +134,8 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	req.Permissions = dedupeStrings(req.Permissions)
+
 	role, err := h.roles.Update(r.Context(), name, req.Description, req.Permissions)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update role")
@@ -148,11 +153,11 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	err := h.roles.Delete(r.Context(), name)
 	if err != nil {
-		if strings.Contains(err.Error(), "built-in") {
+		if errors.Is(err, store.ErrBuiltInRole) {
 			writeError(w, http.StatusForbidden, "cannot delete built-in role")
 			return
 		}
-		if err == store.ErrRoleInUse {
+		if errors.Is(err, store.ErrRoleInUse) {
 			writeError(w, http.StatusConflict, "role is in use and cannot be deleted")
 			return
 		}
@@ -162,6 +167,18 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	h.refresh()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func dedupeStrings(s []string) []string {
+	seen := make(map[string]bool, len(s))
+	result := make([]string, 0, len(s))
+	for _, v := range s {
+		if !seen[v] {
+			seen[v] = true
+			result = append(result, v)
+		}
+	}
+	return result
 }
 
 func (h *RoleHandler) refresh() {

@@ -113,7 +113,7 @@ func (s *RoleStore) Delete(ctx context.Context, name string) error {
 		return fmt.Errorf("deleting role: %w", err)
 	}
 	if isBuiltIn {
-		return fmt.Errorf("deleting role: cannot delete built-in role")
+		return fmt.Errorf("deleting role: %w", ErrBuiltInRole)
 	}
 
 	// Check if any project members use this role.
