@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.14.0](https://github.com/joCur/togglerino/compare/v0.13.0...v0.14.0) (2026-03-08)
+
+
+### Features
+
+* batch endpoint for kill switch dashboard config loading ([#92](https://github.com/joCur/togglerino/issues/92)) ([#103](https://github.com/joCur/togglerino/issues/103)) ([60939b5](https://github.com/joCur/togglerino/commit/60939b56b3d0923850c41ff6b374ebe8c94f8006))
+* custom role creation and management ([#83](https://github.com/joCur/togglerino/issues/83)) ([#100](https://github.com/joCur/togglerino/issues/100)) ([7ced8da](https://github.com/joCur/togglerino/commit/7ced8daa9c76a5cf743a968d53ec4509a6680960))
+* environment promotion workflow ([#47](https://github.com/joCur/togglerino/issues/47)) ([#95](https://github.com/joCur/togglerino/issues/95)) ([f931182](https://github.com/joCur/togglerino/commit/f93118268b68630d7226d552e631b57f874654e5))
+* environment-scoped permissions for flag config updates ([#99](https://github.com/joCur/togglerino/issues/99)) ([#102](https://github.com/joCur/togglerino/issues/102)) ([7845238](https://github.com/joCur/togglerino/commit/78452382f31d9260cf0120629361ceebd83a16b0))
+* kill switch dashboard for incident response ([#52](https://github.com/joCur/togglerino/issues/52)) ([#91](https://github.com/joCur/togglerino/issues/91)) ([66becb7](https://github.com/joCur/togglerino/commit/66becb7e78264e9ad7b59d0ffeb32090da02a0d6))
+* offset-based pagination for management API endpoints ([#94](https://github.com/joCur/togglerino/issues/94)) ([002f879](https://github.com/joCur/togglerino/commit/002f8792ccd750a55a7e3991ec66d73ce14bd25e))
+* personal flag overrides ([#48](https://github.com/joCur/togglerino/issues/48)) ([#97](https://github.com/joCur/togglerino/issues/97)) ([348e0ed](https://github.com/joCur/togglerino/commit/348e0ed031433ddcada011676e12dec85343a015))
+
 ## [0.13.0](https://github.com/joCur/togglerino/compare/v0.12.0...v0.13.0) (2026-03-06)
 
 
