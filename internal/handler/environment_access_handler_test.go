@@ -204,6 +204,89 @@ func TestEnvironmentAccess_GetAfterPut(t *testing.T) {
 	}
 }
 
+func TestEnvironmentAccess_PutInvalidRoleName(t *testing.T) {
+	pool := testPool(t)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	admin := createTestUser(t, pool, "ea-badrl-"+suffix+"@test.dev", model.RoleAdmin)
+	projectID := createTestProject(t, pool, "ea-badrl-"+suffix, "EA BadRole")
+
+	envStore := store.NewEnvironmentStore(pool)
+	envStore.CreateDefaultEnvironments(t.Context(), projectID)
+
+	projectStore := store.NewProjectStore(pool)
+	project, err := projectStore.FindByKey(t.Context(), "ea-badrl-"+suffix)
+	if err != nil {
+		t.Fatalf("finding project: %v", err)
+	}
+
+	h := handler.NewEnvironmentAccessHandler(
+		store.NewEnvironmentAccessStore(pool),
+		envStore,
+		projectStore,
+		store.NewRoleStore(pool),
+		store.NewAuditStore(pool),
+	)
+
+	body, _ := json.Marshal(map[string]any{
+		"restrictions": []map[string]any{
+			{"role_name": "nonexistent-role", "environment_ids": []string{"00000000-0000-0000-0000-000000000000"}},
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+project.Key+"/environment-access", bytes.NewReader(body))
+	req = req.WithContext(auth.ContextWithUser(req.Context(), admin))
+	req = req.WithContext(auth.ContextWithProject(req.Context(), project))
+	rr := httptest.NewRecorder()
+	h.Update(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestEnvironmentAccess_PutEnvNotInProject(t *testing.T) {
+	pool := testPool(t)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	admin := createTestUser(t, pool, "ea-badenv-"+suffix+"@test.dev", model.RoleAdmin)
+	projectID := createTestProject(t, pool, "ea-badenv-"+suffix, "EA BadEnv")
+
+	envStore := store.NewEnvironmentStore(pool)
+	envStore.CreateDefaultEnvironments(t.Context(), projectID)
+
+	projectStore := store.NewProjectStore(pool)
+	project, err := projectStore.FindByKey(t.Context(), "ea-badenv-"+suffix)
+	if err != nil {
+		t.Fatalf("finding project: %v", err)
+	}
+
+	h := handler.NewEnvironmentAccessHandler(
+		store.NewEnvironmentAccessStore(pool),
+		envStore,
+		projectStore,
+		store.NewRoleStore(pool),
+		store.NewAuditStore(pool),
+	)
+
+	// Use a valid role but a fabricated environment ID that doesn't belong to this project
+	body, _ := json.Marshal(map[string]any{
+		"restrictions": []map[string]any{
+			{"role_name": "editor", "environment_ids": []string{"00000000-0000-0000-0000-000000000000"}},
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+project.Key+"/environment-access", bytes.NewReader(body))
+	req = req.WithContext(auth.ContextWithUser(req.Context(), admin))
+	req = req.WithContext(auth.ContextWithProject(req.Context(), project))
+	rr := httptest.NewRecorder()
+	h.Update(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestEnvironmentAccess_PutEmptyClearsRestrictions(t *testing.T) {
 	pool := testPool(t)
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
