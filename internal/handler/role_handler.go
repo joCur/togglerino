@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
@@ -47,7 +48,11 @@ func (h *RoleHandler) Get(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	role, err := h.roles.GetByName(r.Context(), name)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "role not found")
+		if store.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "role not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to get role")
 		return
 	}
 	writeJSON(w, http.StatusOK, role)
@@ -87,7 +92,8 @@ func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	role, err := h.roles.Create(r.Context(), req.Name, req.Description, req.Permissions)
 	if err != nil {
-		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			writeError(w, http.StatusConflict, "role name already exists")
 			return
 		}
@@ -113,16 +119,6 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, err := h.roles.GetByName(r.Context(), name)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "role not found")
-		return
-	}
-	if existing.IsBuiltIn {
-		writeError(w, http.StatusForbidden, "cannot modify built-in role")
-		return
-	}
-
 	if len(req.Permissions) == 0 {
 		writeError(w, http.StatusBadRequest, "at least one permission is required")
 		return
@@ -138,6 +134,10 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	role, err := h.roles.Update(r.Context(), name, req.Description, req.Permissions)
 	if err != nil {
+		if store.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "role not found or is built-in")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to update role")
 		return
 	}
@@ -161,7 +161,11 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "role is in use and cannot be deleted")
 			return
 		}
-		writeError(w, http.StatusNotFound, "role not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "role not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to delete role")
 		return
 	}
 

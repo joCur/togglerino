@@ -42,7 +42,7 @@ func (s *OrgSettingsStore) SetBaseProjectRole(ctx context.Context, role string) 
 			return fmt.Errorf("checking role: %w", err)
 		}
 		if !exists {
-			return fmt.Errorf("invalid base project role: %q", role)
+			return fmt.Errorf("invalid base project role %q: %w", role, ErrInvalidRole)
 		}
 	}
 

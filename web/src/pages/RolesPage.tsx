@@ -90,6 +90,10 @@ export default function RolesPage() {
       setError('Name is required')
       return
     }
+    if (form.permissions.length === 0) {
+      setError('At least one permission is required')
+      return
+    }
 
     const payload = {
       name: form.name.trim(),
@@ -248,7 +252,13 @@ export default function RolesPage() {
                         {role.description || '\u2014'}
                       </TableCell>
                       <TableCell className="text-[13px] text-muted-foreground">
-                        {role.permissions.length}
+                        <div className="flex flex-wrap gap-1">
+                          {role.permissions.map((perm) => (
+                            <Badge key={perm} variant="outline" className="font-mono text-[10px]">
+                              {permissionLabels[perm] ?? perm}
+                            </Badge>
+                          ))}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {!role.is_built_in && (

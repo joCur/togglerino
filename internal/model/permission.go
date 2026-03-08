@@ -24,6 +24,8 @@ const (
 )
 
 // ProjectRole represents a user's role within a specific project.
+// These constants match the three built-in roles seeded by migration 016.
+// Custom roles are stored in the roles table and resolved at runtime via RoleCache.
 type ProjectRole string
 
 const (

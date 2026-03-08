@@ -21,6 +21,9 @@ var ErrRoleInUse = errors.New("role is in use")
 // ErrBuiltInRole is returned when an operation attempts to modify a built-in role.
 var ErrBuiltInRole = errors.New("cannot modify built-in role")
 
+// ErrInvalidRole is returned when a role name does not match any known role.
+var ErrInvalidRole = errors.New("invalid role")
+
 // IsNotFound reports whether an error represents a "not found" condition,
 // either from ErrNotFound or a wrapped pgx.ErrNoRows.
 func IsNotFound(err error) bool {
