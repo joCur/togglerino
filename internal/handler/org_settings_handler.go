@@ -38,11 +38,8 @@ func (h *OrgSettingsHandler) SetBaseProjectRole(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	switch req.BaseProjectRole {
-	case "admin", "editor", "viewer", "none":
-		// valid
-	default:
-		writeError(w, http.StatusBadRequest, "base_project_role must be admin, editor, viewer, or none")
+	if req.BaseProjectRole == "" {
+		writeError(w, http.StatusBadRequest, "base_project_role is required")
 		return
 	}
 

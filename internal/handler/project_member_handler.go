@@ -17,12 +17,13 @@ type ProjectMemberHandler struct {
 	members  *store.ProjectMemberStore
 	projects *store.ProjectStore
 	users    *store.UserStore
+	roles    *store.RoleStore
 	audit    *store.AuditStore
 }
 
 // NewProjectMemberHandler creates a new ProjectMemberHandler.
-func NewProjectMemberHandler(members *store.ProjectMemberStore, projects *store.ProjectStore, users *store.UserStore, audit *store.AuditStore) *ProjectMemberHandler {
-	return &ProjectMemberHandler{members: members, projects: projects, users: users, audit: audit}
+func NewProjectMemberHandler(members *store.ProjectMemberStore, projects *store.ProjectStore, users *store.UserStore, roles *store.RoleStore, audit *store.AuditStore) *ProjectMemberHandler {
+	return &ProjectMemberHandler{members: members, projects: projects, users: users, roles: roles, audit: audit}
 }
 
 // List returns all members of a project.
@@ -80,8 +81,9 @@ func (h *ProjectMemberHandler) Add(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "role is required")
 		return
 	}
-	if !model.ValidProjectRole(req.Role) {
-		writeError(w, http.StatusBadRequest, "role must be admin, editor, or viewer")
+	exists, err := h.roles.Exists(r.Context(), req.Role)
+	if err != nil || !exists {
+		writeError(w, http.StatusBadRequest, "invalid role")
 		return
 	}
 
@@ -139,14 +141,14 @@ func (h *ProjectMemberHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if !model.ValidProjectRole(req.Role) {
-		writeError(w, http.StatusBadRequest, "role must be admin, editor, or viewer")
+	exists, err := h.roles.Exists(r.Context(), req.Role)
+	if err != nil || !exists {
+		writeError(w, http.StatusBadRequest, "invalid role")
 		return
 	}
 
 	project := auth.ProjectFromContext(r.Context())
 	if project == nil {
-		var err error
 		project, err = h.projects.FindByKey(r.Context(), r.PathValue("key"))
 		if err != nil {
 			writeError(w, http.StatusNotFound, "project not found")

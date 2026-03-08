@@ -18,12 +18,13 @@ type UserHandler struct {
 	users   *store.UserStore
 	invites *store.InviteStore
 	members *store.ProjectMemberStore
+	roles   *store.RoleStore
 	pool    *pgxpool.Pool
 	audit   *store.AuditStore
 }
 
-func NewUserHandler(users *store.UserStore, invites *store.InviteStore, members *store.ProjectMemberStore, pool *pgxpool.Pool, audit *store.AuditStore) *UserHandler {
-	return &UserHandler{users: users, invites: invites, members: members, pool: pool, audit: audit}
+func NewUserHandler(users *store.UserStore, invites *store.InviteStore, members *store.ProjectMemberStore, roles *store.RoleStore, pool *pgxpool.Pool, audit *store.AuditStore) *UserHandler {
+	return &UserHandler{users: users, invites: invites, members: members, roles: roles, pool: pool, audit: audit}
 }
 
 // GET /api/v1/management/users — returns users with pagination (password_hash stripped via json:"-")
@@ -227,7 +228,8 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 			writeError(w, http.StatusBadRequest, "project_id is required for each assignment")
 			return
 		}
-		if !model.ValidProjectRole(a.Role) {
+		exists, err := h.roles.Exists(r.Context(), a.Role)
+		if err != nil || !exists {
 			writeError(w, http.StatusBadRequest, "invalid role: "+a.Role)
 			return
 		}
