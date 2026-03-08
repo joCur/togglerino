@@ -5,7 +5,7 @@ import { api, ApiError } from '../api/client.ts'
 import type { Project } from '../api/types.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useIsMobile } from '../hooks/useIsMobile.ts'
-import { useCanWrite, useIsProjectAdmin } from '../hooks/usePermissions.ts'
+import { useIsProjectAdmin, useTemplatesManage } from '../hooks/usePermissions.ts'
 import Topbar from './Topbar.tsx'
 import ProjectSwitcher from './ProjectSwitcher.tsx'
 import NotFoundState from './NotFoundState.tsx'
@@ -22,8 +22,8 @@ export default function ProjectLayout() {
   const navigate = useNavigate()
   const closeDrawer = () => setDrawerOpen(false)
 
-  const canWrite = useCanWrite(key)
   const isProjectAdmin = useIsProjectAdmin(key)
+  const canManageTemplates = useTemplatesManage(key)
 
   const { error: projectError, isLoading: projectLoading } = useQuery({
     queryKey: ['projects', key],
@@ -68,7 +68,7 @@ export default function ProjectLayout() {
       <NavLink to={`/projects/${key}/environments`} className={navLinkClass} onClick={onNavigate}>Environments</NavLink>
       <NavLink to={`/projects/${key}/segments`} className={navLinkClass} onClick={onNavigate}>Segments</NavLink>
       <NavLink to={`/projects/${key}/playground`} className={navLinkClass} onClick={onNavigate}>Playground</NavLink>
-      {canWrite && <NavLink to={`/projects/${key}/templates`} className={navLinkClass} onClick={onNavigate}>Templates</NavLink>}
+      {canManageTemplates && <NavLink to={`/projects/${key}/templates`} className={navLinkClass} onClick={onNavigate}>Templates</NavLink>}
       <NavLink to={`/projects/${key}/audit-log`} className={navLinkClass} onClick={onNavigate}>Audit Log</NavLink>
       {isProjectAdmin && <NavLink to={`/projects/${key}/settings`} className={navLinkClass} onClick={onNavigate}>Settings</NavLink>}
     </>

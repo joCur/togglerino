@@ -57,7 +57,7 @@ func RequireOrgPermission(perm model.Permission) func(http.Handler) http.Handler
 // authenticated user has the given permission for the project identified by the
 // "key" path value. Org admins bypass the check entirely. The resolved project
 // is stored in the request context and can be retrieved via ProjectFromContext.
-func RequireProjectPermission(perm model.Permission, resolve RoleResolver, projects ...*store.ProjectStore) func(http.Handler) http.Handler {
+func RequireProjectPermission(perm model.Permission, resolve RoleResolver, roleCache *RoleCache, projects ...*store.ProjectStore) func(http.Handler) http.Handler {
 	var projectStore *store.ProjectStore
 	if len(projects) > 0 {
 		projectStore = projects[0]
@@ -96,7 +96,7 @@ func RequireProjectPermission(perm model.Permission, resolve RoleResolver, proje
 				return
 			}
 
-			if !role.HasPermission(perm) {
+			if !roleCache.HasPermission(string(role), perm) {
 				http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
 				return
 			}

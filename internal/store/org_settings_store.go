@@ -30,14 +30,20 @@ func (s *OrgSettingsStore) GetBaseProjectRole(ctx context.Context) (string, erro
 	return value, nil
 }
 
-// SetBaseProjectRole updates the default project role. Valid values are
-// "admin", "editor", "viewer", and "none".
+// SetBaseProjectRole updates the default project role. The role must exist in
+// the roles table, or be "none" to require explicit project membership.
 func (s *OrgSettingsStore) SetBaseProjectRole(ctx context.Context, role string) error {
-	switch role {
-	case "admin", "editor", "viewer", "none":
-		// valid
-	default:
-		return fmt.Errorf("invalid base project role: %q", role)
+	if role != "none" {
+		var exists bool
+		err := s.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM roles WHERE name = $1)`, role,
+		).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("checking role: %w", err)
+		}
+		if !exists {
+			return fmt.Errorf("invalid base project role %q: %w", role, ErrInvalidRole)
+		}
 	}
 
 	_, err := s.pool.Exec(ctx,

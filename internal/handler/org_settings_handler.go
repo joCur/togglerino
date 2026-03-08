@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/store"
@@ -38,15 +39,16 @@ func (h *OrgSettingsHandler) SetBaseProjectRole(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	switch req.BaseProjectRole {
-	case "admin", "editor", "viewer", "none":
-		// valid
-	default:
-		writeError(w, http.StatusBadRequest, "base_project_role must be admin, editor, viewer, or none")
+	if req.BaseProjectRole == "" {
+		writeError(w, http.StatusBadRequest, "base_project_role is required")
 		return
 	}
 
 	if err := h.orgSettings.SetBaseProjectRole(r.Context(), req.BaseProjectRole); err != nil {
+		if errors.Is(err, store.ErrInvalidRole) {
+			writeError(w, http.StatusBadRequest, "invalid role")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to set base project role")
 		return
 	}

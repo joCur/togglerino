@@ -3,6 +3,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { useAuth } from '../hooks/useAuth.ts'
 import { api } from '../api/client.ts'
 import type { UserProjectAssignment, ProjectRole } from '@/hooks/usePermissions'
+import { useRoles } from '@/hooks/useRoles'
 import type { Project, PaginatedResponse } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -51,14 +52,14 @@ interface InviteResponse {
 
 const PAGE_SIZE = 50
 
-const projectRoleOptions: ProjectRole[] = ['admin', 'editor', 'viewer']
-
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
 }
 
 function UserProjectAssignments({ userId }: { userId: string }) {
   const queryClient = useQueryClient()
+  const { data: roles } = useRoles()
+  const projectRoleOptions = (roles ?? []).map(r => r.name)
   const [addOpen, setAddOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState('')
   const [selectedRole, setSelectedRole] = useState<ProjectRole>('editor')

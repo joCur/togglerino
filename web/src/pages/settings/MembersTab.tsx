@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { useProjectMembers, type ProjectRole } from '@/hooks/usePermissions'
+import { useRoles } from '@/hooks/useRoles'
 import { api } from '@/api/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -63,8 +64,6 @@ function useUserSearch(query: string) {
   })
 }
 
-const roleOptions: ProjectRole[] = ['admin', 'editor', 'viewer']
-
 function roleBadgeVariant(role: string): 'secondary' | 'outline' | 'default' {
   if (role === 'admin') return 'secondary'
   return 'outline'
@@ -75,6 +74,8 @@ export default function MembersTab() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const { data: members, isLoading } = useProjectMembers(key)
+  const { data: roles } = useRoles()
+  const roleOptions = (roles ?? []).map(r => r.name)
 
   const [addOpen, setAddOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null)

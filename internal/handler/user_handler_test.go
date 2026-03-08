@@ -25,6 +25,7 @@ func newUserHandler(t *testing.T) (*handler.UserHandler, *store.ProjectMemberSto
 		store.NewUserStore(pool),
 		store.NewInviteStore(pool),
 		members,
+		store.NewRoleStore(pool),
 		pool,
 		store.NewAuditStore(pool),
 	)

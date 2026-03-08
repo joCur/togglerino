@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useIsOrgAdmin } from '@/hooks/usePermissions'
 import { Plus } from 'lucide-react'
 
 export default function ProjectsPage() {
   const navigate = useNavigate()
   const [modalOpen, setModalOpen] = useState(false)
   const isMobile = useIsMobile()
+  const isAdmin = useIsOrgAdmin()
 
   const PAGE_SIZE = 50
 
@@ -61,7 +63,7 @@ export default function ProjectsPage() {
     <div className="animate-[fadeIn_300ms_ease]">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
         <h1 className="text-[22px] font-semibold text-foreground tracking-tight">Projects</h1>
-        {!isMobile && <Button onClick={() => setModalOpen(true)}>Create Project</Button>}
+        {!isMobile && isAdmin && <Button onClick={() => setModalOpen(true)}>Create Project</Button>}
       </div>
 
       {(!projects || projects.length === 0) ? (
@@ -107,7 +109,7 @@ export default function ProjectsPage() {
 
       <CreateProjectModal open={modalOpen} onClose={() => setModalOpen(false)} />
 
-      {isMobile && (
+      {isMobile && isAdmin && (
         <button
           onClick={() => setModalOpen(true)}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#d4956a] text-white shadow-lg flex items-center justify-center hover:bg-[#e0a87a] active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-[#d4956a] focus-visible:ring-offset-2"
