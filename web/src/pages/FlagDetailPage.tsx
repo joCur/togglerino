@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gravatarUrl } from '@/lib/gravatar'
 import { useCanWrite } from '@/hooks/usePermissions'
 import PromoteDialog from '../components/PromoteDialog.tsx'
+import { FlagOverrideControl } from '../components/FlagOverrideControl.tsx'
 import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play, ArrowRightFromLine } from 'lucide-react'
 
 interface FlagDetailResponse {
@@ -73,6 +74,12 @@ export default function FlagDetailPage() {
     queryFn: () => api.get<PaginatedResponse<User>>('/management/users'),
   })
   const users = usersResponse?.data
+
+  const { data: overridesData } = useQuery({
+    queryKey: ['flag-overrides', key, flagKey],
+    queryFn: () => api.overrides.getForFlag(key!, flagKey!),
+    enabled: !!key && !!flagKey,
+  })
 
   const archiveMutation = useMutation({
     mutationFn: (archived: boolean) =>
@@ -432,8 +439,15 @@ export default function FlagDetailPage() {
 
                         <CollapsibleContent>
                           <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                            <div className="mb-4 mt-3">
+                            <div className="flex items-center justify-between mb-4 mt-3">
                               <EvaluationFlow config={config} />
+                              <FlagOverrideControl
+                                projectKey={key!}
+                                flagKey={flagKey!}
+                                envKey={env.key}
+                                valueType={flag.value_type}
+                                override={overridesData?.find((o) => o.environment_key === env.key)}
+                              />
                             </div>
                             <PendingSchedules
                               projectKey={key!}

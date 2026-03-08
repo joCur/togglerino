@@ -20,6 +20,7 @@ import (
 	"github.com/togglerino/togglerino/internal/handler"
 	"github.com/togglerino/togglerino/internal/lifecycle"
 	"github.com/togglerino/togglerino/internal/logging"
+	"github.com/togglerino/togglerino/internal/override"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/ratelimit"
 	"github.com/togglerino/togglerino/internal/schedule"
@@ -72,6 +73,8 @@ func main() {
 	orgSettingsStore := store.NewOrgSettingsStore(pool)
 	projectMemberStore := store.NewProjectMemberStore(pool)
 	lifecycleSnapshotStore := store.NewLifecycleSnapshotStore(pool)
+	appIdentityStore := store.NewAppIdentityStore(pool)
+	overrideStore := store.NewOverrideStore(pool)
 
 	// 4b. Ensure session secret exists (for OIDC cookie signing)
 	sessionSecret := cfg.SessionSecret
@@ -106,12 +109,22 @@ func main() {
 	if err := cache.LoadAll(ctx, pool); err != nil {
 		log.Fatalf("failed to load flags into cache: %v", err)
 	}
+	// Load overrides into cache
+	overrideEntries, err := overrideStore.ListAllOverrides(ctx)
+	if err != nil {
+		slog.Warn("failed to load overrides into cache", "error", err)
+	} else {
+		cache.LoadOverrides(overrideEntries)
+	}
+
 	if err := templateStore.SeedSystemTemplates(ctx); err != nil {
 		log.Fatalf("failed to seed system templates: %v", err)
 	}
+	overrideCleaner := override.NewCleaner(overrideStore, cache, 15*time.Minute)
 	go stalenessChecker.Run(ctx)
 	go snapshotRecorder.Run(ctx)
 	go scheduleChecker.Run(ctx)
+	go overrideCleaner.Run(ctx)
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
@@ -137,6 +150,7 @@ func main() {
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
 	userSearchHandler := handler.NewUserSearchHandler(userStore)
 	lifecycleHandler := handler.NewLifecycleHandler(flagStore, lifecycleSnapshotStore, projectStore)
+	overrideHandler := handler.NewOverrideHandler(overrideStore, appIdentityStore, projectStore, flagStore, environmentStore, cache, pool, auditStore)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
 
 	// Permission middleware
@@ -281,6 +295,20 @@ func main() {
 	mux.Handle("PUT /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Update, sessionAuth, requireSegmentsWrite))
 	mux.Handle("DELETE /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Delete, sessionAuth, requireSegmentsWrite))
 	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}/usage", wrap(segmentHandler.Usage, sessionAuth, requireFlagsRead))
+
+	// App identity
+	mux.Handle("PUT /api/v1/projects/{key}/app-identity", wrap(overrideHandler.SetAppIdentity, sessionAuth, requireFlagsRead))
+	mux.Handle("GET /api/v1/projects/{key}/app-identity", wrap(overrideHandler.GetAppIdentity, sessionAuth, requireFlagsRead))
+	mux.Handle("DELETE /api/v1/projects/{key}/app-identity", wrap(overrideHandler.DeleteAppIdentity, sessionAuth, requireFlagsRead))
+	mux.Handle("GET /api/v1/app-identities/me", wrap(overrideHandler.ListAppIdentities, sessionAuth))
+
+	// Personal overrides
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}/override", wrap(overrideHandler.SetOverride, sessionAuth, requireFlagsRead))
+	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/override", wrap(overrideHandler.DeleteOverride, sessionAuth, requireFlagsRead))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/override", wrap(overrideHandler.SetOverrideAllEnvs, sessionAuth, requireFlagsRead))
+	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}/override", wrap(overrideHandler.DeleteOverrideAllEnvs, sessionAuth, requireFlagsRead))
+	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/overrides/me", wrap(overrideHandler.GetFlagOverrides, sessionAuth, requireFlagsRead))
+	mux.Handle("GET /api/v1/overrides/me", wrap(overrideHandler.ListMyOverrides, sessionAuth))
 
 	// Templates (global)
 	mux.Handle("GET /api/v1/templates", wrap(templateHandler.ListGlobal, sessionAuth))

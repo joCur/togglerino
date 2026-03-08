@@ -302,3 +302,25 @@ export interface LifecycleSnapshot {
   stale: number
   archived: number
 }
+
+export interface AppIdentity {
+  user_id: string
+  project_id: string
+  project_key?: string
+  app_user_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface FlagOverrideEntry {
+  id: string
+  user_id: string
+  flag_id: string
+  flag_key?: string
+  environment_id: string
+  environment_key?: string
+  project_key?: string
+  value: unknown
+  expires_at: string | null
+  created_at: string
+}
