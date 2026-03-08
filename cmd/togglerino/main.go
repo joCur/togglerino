@@ -159,6 +159,7 @@ func main() {
 	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, roleStore, auditStore)
 	roleHandler := handler.NewRoleHandler(roleStore, &roleCacheRefresher{store: roleStore, cache: roleCache}, auditStore)
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
+	environmentAccessHandler := handler.NewEnvironmentAccessHandler(environmentAccessStore, environmentStore, projectStore, roleStore, auditStore)
 	userSearchHandler := handler.NewUserSearchHandler(userStore)
 	lifecycleHandler := handler.NewLifecycleHandler(flagStore, lifecycleSnapshotStore, projectStore)
 	overrideHandler := handler.NewOverrideHandler(overrideStore, appIdentityStore, projectStore, flagStore, environmentStore, cache, pool, auditStore)
@@ -339,6 +340,10 @@ func main() {
 	mux.Handle("POST /api/v1/projects/{key}/members", wrap(projectMemberHandler.Add, sessionAuth, requireProjectSettings))
 	mux.Handle("PUT /api/v1/projects/{key}/members/{userId}", wrap(projectMemberHandler.Update, sessionAuth, requireProjectSettings))
 	mux.Handle("DELETE /api/v1/projects/{key}/members/{userId}", wrap(projectMemberHandler.Remove, sessionAuth, requireProjectSettings))
+
+	// Environment access
+	mux.Handle("GET /api/v1/projects/{key}/environment-access", wrap(environmentAccessHandler.Get, sessionAuth, requireProjectSettings))
+	mux.Handle("PUT /api/v1/projects/{key}/environment-access", wrap(environmentAccessHandler.Update, sessionAuth, requireProjectSettings))
 
 	// Org settings
 	mux.Handle("GET /api/v1/settings/base-project-role", wrap(orgSettingsHandler.GetBaseProjectRole, sessionAuth, requireOrgUsersManage))
