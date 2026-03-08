@@ -342,7 +342,7 @@ func main() {
 	mux.Handle("DELETE /api/v1/projects/{key}/members/{userId}", wrap(projectMemberHandler.Remove, sessionAuth, requireProjectSettings))
 
 	// Environment access
-	mux.Handle("GET /api/v1/projects/{key}/environment-access", wrap(environmentAccessHandler.Get, sessionAuth, requireProjectSettings))
+	mux.Handle("GET /api/v1/projects/{key}/environment-access", wrap(environmentAccessHandler.Get, sessionAuth, requireFlagsRead))
 	mux.Handle("PUT /api/v1/projects/{key}/environment-access", wrap(environmentAccessHandler.Update, sessionAuth, requireProjectSettings))
 
 	// Org settings
