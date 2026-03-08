@@ -190,6 +190,27 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 	if flags == nil {
 		flags = []model.Flag{}
 	}
+
+	// Check for include=environment_configs
+	if include := r.URL.Query().Get("include"); include == "environment_configs" {
+		flagIDs := make([]string, len(flags))
+		for i, f := range flags {
+			flagIDs[i] = f.ID
+		}
+		configsMap, err := h.flags.GetEnvironmentConfigsByFlagIDs(r.Context(), flagIDs)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to get environment configs")
+			return
+		}
+		for i := range flags {
+			configs := configsMap[flags[i].ID]
+			if configs == nil {
+				configs = []model.FlagEnvironmentConfig{}
+			}
+			flags[i].EnvironmentConfigs = configs
+		}
+	}
+
 	writeJSON(w, http.StatusOK, PaginatedResponse{
 		Data:       flags,
 		Total: totalCount,

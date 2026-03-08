@@ -386,6 +386,58 @@ func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string)
 	return configs, nil
 }
 
+// GetEnvironmentConfigsByFlagIDs returns environment configs for multiple flags in a single query.
+// The returned map is keyed by flag ID.
+func (s *FlagStore) GetEnvironmentConfigsByFlagIDs(ctx context.Context, flagIDs []string) (map[string][]model.FlagEnvironmentConfig, error) {
+	result := make(map[string][]model.FlagEnvironmentConfig)
+	if len(flagIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := s.pool.Query(ctx,
+		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
+		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
+		        u.id, u.email, u.display_name
+		 FROM flag_environment_configs fec
+		 LEFT JOIN users u ON fec.updated_by = u.id
+		 WHERE fec.flag_id = ANY($1)
+		 ORDER BY fec.flag_id, fec.updated_at`,
+		flagIDs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying environment configs by flag IDs: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cfg model.FlagEnvironmentConfig
+		var variantsJSON, rulesJSON json.RawMessage
+		var updatedByUserID, updatedByEmail *string
+		var updatedByDisplayName *string
+		if err := rows.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
+			&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+			&updatedByUserID, &updatedByEmail, &updatedByDisplayName); err != nil {
+			return nil, fmt.Errorf("scanning environment config: %w", err)
+		}
+		json.Unmarshal(variantsJSON, &cfg.Variants)
+		json.Unmarshal(rulesJSON, &cfg.TargetingRules)
+		if cfg.Variants == nil {
+			cfg.Variants = []model.Variant{}
+		}
+		if cfg.TargetingRules == nil {
+			cfg.TargetingRules = []model.TargetingRule{}
+		}
+		if updatedByUserID != nil {
+			cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
+		}
+		result[cfg.FlagID] = append(result[cfg.FlagID], cfg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating environment configs: %w", err)
+	}
+	return result, nil
+}
+
 // UpdateEnvironmentConfig updates the flag config for a specific environment.
 // This includes enabled, default_variant, variants (JSON), and targeting_rules (JSON).
 // updatedBy optionally records which user made the change.

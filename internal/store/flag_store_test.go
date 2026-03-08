@@ -910,3 +910,67 @@ func TestFlagStore_UpdateOwner(t *testing.T) {
 		t.Errorf("expected nil OwnerID, got %v", updated.OwnerID)
 	}
 }
+
+func TestFlagStore_GetEnvironmentConfigsByFlagIDs(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("batchcfg")
+	project, err := ps.Create(ctx, projKey, "Batch Config Project", "test")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+
+	env1, err := es.Create(ctx, project.ID, "development", "Development")
+	if err != nil {
+		t.Fatalf("creating env1: %v", err)
+	}
+	env2, err := es.Create(ctx, project.ID, "production", "Production")
+	if err != nil {
+		t.Fatalf("creating env2: %v", err)
+	}
+
+	flag1, err := fs.Create(ctx, project.ID, "ks-one", "KS One", "first", model.ValueTypeBoolean, model.FlagTypeKillSwitch, json.RawMessage(`false`), []string{}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("creating flag1: %v", err)
+	}
+	flag2, err := fs.Create(ctx, project.ID, "ks-two", "KS Two", "second", model.ValueTypeBoolean, model.FlagTypeKillSwitch, json.RawMessage(`false`), []string{}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("creating flag2: %v", err)
+	}
+
+	// Fetch configs for both flags in one call
+	configsMap, err := fs.GetEnvironmentConfigsByFlagIDs(ctx, []string{flag1.ID, flag2.ID})
+	if err != nil {
+		t.Fatalf("GetEnvironmentConfigsByFlagIDs: %v", err)
+	}
+
+	// Each flag should have 2 environment configs
+	if len(configsMap[flag1.ID]) != 2 {
+		t.Errorf("flag1 configs: got %d, want 2", len(configsMap[flag1.ID]))
+	}
+	if len(configsMap[flag2.ID]) != 2 {
+		t.Errorf("flag2 configs: got %d, want 2", len(configsMap[flag2.ID]))
+	}
+
+	// Verify environment IDs are present
+	envIDs := map[string]bool{}
+	for _, cfg := range configsMap[flag1.ID] {
+		envIDs[cfg.EnvironmentID] = true
+	}
+	if !envIDs[env1.ID] || !envIDs[env2.ID] {
+		t.Errorf("expected configs for both environments, got envIDs: %v", envIDs)
+	}
+
+	// Empty input should return empty map, no error
+	emptyMap, err := fs.GetEnvironmentConfigsByFlagIDs(ctx, []string{})
+	if err != nil {
+		t.Fatalf("empty input: %v", err)
+	}
+	if len(emptyMap) != 0 {
+		t.Errorf("expected empty map for empty input, got %d entries", len(emptyMap))
+	}
+}
