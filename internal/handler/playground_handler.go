@@ -63,6 +63,21 @@ func (h *PlaygroundHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Check personal override
+		if req.Context.UserID != "" && fd.Flag.LifecycleStatus != model.LifecycleArchived {
+			if overrideVal, ok := h.cache.GetOverride(projectKey, req.EnvironmentKey, req.Context.UserID, req.FlagKey); ok {
+				trace := &model.EvaluationTrace{
+					FlagKey: req.FlagKey,
+					Value:   rawToAny(overrideVal),
+					Variant: "override",
+					Reason:  "override",
+					Steps:   []model.TraceStep{},
+				}
+				writeJSON(w, http.StatusOK, playgroundResponse{Results: []*model.EvaluationTrace{trace}})
+				return
+			}
+		}
+
 		trace := h.engine.EvaluateWithTrace(&fd.Flag, &fd.Config, req.Context, segments)
 		writeJSON(w, http.StatusOK, playgroundResponse{Results: []*model.EvaluationTrace{trace}})
 		return
@@ -72,6 +87,19 @@ func (h *PlaygroundHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 	flags := h.cache.GetFlags(projectKey, req.EnvironmentKey)
 	results := make([]*model.EvaluationTrace, 0, len(flags))
 	for _, fd := range flags {
+		// Check personal override
+		if req.Context.UserID != "" && fd.Flag.LifecycleStatus != model.LifecycleArchived {
+			if overrideVal, ok := h.cache.GetOverride(projectKey, req.EnvironmentKey, req.Context.UserID, fd.Flag.Key); ok {
+				results = append(results, &model.EvaluationTrace{
+					FlagKey: fd.Flag.Key,
+					Value:   rawToAny(overrideVal),
+					Variant: "override",
+					Reason:  "override",
+					Steps:   []model.TraceStep{},
+				})
+				continue
+			}
+		}
 		trace := h.engine.EvaluateWithTrace(&fd.Flag, &fd.Config, req.Context, segments)
 		results = append(results, trace)
 	}
