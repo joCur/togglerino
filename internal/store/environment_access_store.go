@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -110,17 +111,23 @@ func (s *EnvironmentAccessStore) ReplaceForProject(ctx context.Context, projectI
 		return fmt.Errorf("clearing environment access: %w", err)
 	}
 
-	// Insert new restrictions
+	// Insert new restrictions using a single multi-value INSERT
+	var args []any
+	var valueClauses []string
+	argIdx := 1
 	for _, r := range restrictions {
 		for _, envID := range r.EnvironmentIDs {
-			_, err = tx.Exec(ctx,
-				`INSERT INTO project_environment_access (project_id, role_name, environment_id)
-				 VALUES ($1, $2, $3)`,
-				projectID, r.RoleName, envID,
-			)
-			if err != nil {
-				return fmt.Errorf("inserting environment access for role %q: %w", r.RoleName, err)
-			}
+			valueClauses = append(valueClauses, fmt.Sprintf("($%d, $%d, $%d)", argIdx, argIdx+1, argIdx+2))
+			args = append(args, projectID, r.RoleName, envID)
+			argIdx += 3
+		}
+	}
+	if len(valueClauses) > 0 {
+		query := "INSERT INTO project_environment_access (project_id, role_name, environment_id) VALUES " +
+			strings.Join(valueClauses, ", ")
+		_, err = tx.Exec(ctx, query, args...)
+		if err != nil {
+			return fmt.Errorf("inserting environment access: %w", err)
 		}
 	}
 
@@ -130,67 +137,21 @@ func (s *EnvironmentAccessStore) ReplaceForProject(ctx context.Context, projectI
 	return nil
 }
 
-// HasAccess checks whether a role has access to a specific environment (by ID)
-// within a project. If no restrictions exist for the role, it is considered
-// unrestricted and returns true.
-func (s *EnvironmentAccessStore) HasAccess(ctx context.Context, projectID, roleName, environmentID string) (bool, error) {
-	var restrictionCount int
-	err := s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM project_environment_access
-		 WHERE project_id = $1 AND role_name = $2`,
-		projectID, roleName,
-	).Scan(&restrictionCount)
-	if err != nil {
-		return false, fmt.Errorf("counting environment restrictions: %w", err)
-	}
-
-	// No restrictions means unrestricted access
-	if restrictionCount == 0 {
-		return true, nil
-	}
-
-	var matchCount int
-	err = s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM project_environment_access
-		 WHERE project_id = $1 AND role_name = $2 AND environment_id = $3`,
-		projectID, roleName, environmentID,
-	).Scan(&matchCount)
-	if err != nil {
-		return false, fmt.Errorf("checking environment access: %w", err)
-	}
-
-	return matchCount > 0, nil
-}
-
 // HasAccessByEnvKey checks whether a role has access to a specific environment
 // (resolved by key) within a project. If no restrictions exist for the role,
 // it is considered unrestricted and returns true.
 func (s *EnvironmentAccessStore) HasAccessByEnvKey(ctx context.Context, projectID, roleName, envKey string) (bool, error) {
-	var restrictionCount int
+	var allowed bool
 	err := s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM project_environment_access
-		 WHERE project_id = $1 AND role_name = $2`,
-		projectID, roleName,
-	).Scan(&restrictionCount)
-	if err != nil {
-		return false, fmt.Errorf("counting environment restrictions: %w", err)
-	}
-
-	// No restrictions means unrestricted access
-	if restrictionCount == 0 {
-		return true, nil
-	}
-
-	var matchCount int
-	err = s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM project_environment_access pea
-		 JOIN environments e ON e.id = pea.environment_id
-		 WHERE pea.project_id = $1 AND pea.role_name = $2 AND e.key = $3 AND e.project_id = $1`,
+		`SELECT CASE
+			WHEN NOT EXISTS (SELECT 1 FROM project_environment_access WHERE project_id = $1 AND role_name = $2) THEN true
+			WHEN EXISTS (SELECT 1 FROM project_environment_access pea JOIN environments e ON e.id = pea.environment_id WHERE pea.project_id = $1 AND pea.role_name = $2 AND e.key = $3 AND e.project_id = $1) THEN true
+			ELSE false
+		END`,
 		projectID, roleName, envKey,
-	).Scan(&matchCount)
+	).Scan(&allowed)
 	if err != nil {
 		return false, fmt.Errorf("checking environment access by key: %w", err)
 	}
-
-	return matchCount > 0, nil
+	return allowed, nil
 }

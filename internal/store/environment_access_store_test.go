@@ -229,7 +229,7 @@ func TestEnvironmentAccessStore_HasAccessByEnvKey(t *testing.T) {
 		t.Fatalf("creating test project: %v", err)
 	}
 
-	var envID1, envID2 string
+	var envID1 string
 	err = pool.QueryRow(ctx,
 		`INSERT INTO environments (project_id, key, name, sort_order) VALUES ($1, 'dev', 'Development', 0) RETURNING id`,
 		projectID,
@@ -237,10 +237,10 @@ func TestEnvironmentAccessStore_HasAccessByEnvKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creating env1: %v", err)
 	}
-	err = pool.QueryRow(ctx,
-		`INSERT INTO environments (project_id, key, name, sort_order) VALUES ($1, 'prod', 'Production', 1) RETURNING id`,
+	_, err = pool.Exec(ctx,
+		`INSERT INTO environments (project_id, key, name, sort_order) VALUES ($1, 'prod', 'Production', 1)`,
 		projectID,
-	).Scan(&envID2)
+	)
 	if err != nil {
 		t.Fatalf("creating env2: %v", err)
 	}
@@ -248,19 +248,18 @@ func TestEnvironmentAccessStore_HasAccessByEnvKey(t *testing.T) {
 	// No restrictions — unrestricted access
 	hasAccess, err := s.HasAccessByEnvKey(ctx, projectID, "editor", "dev")
 	if err != nil {
-		t.Fatalf("HasAccessByEnvKey (unrestricted): %v", err)
+		t.Fatalf("HasAccessByEnvKey (unrestricted dev): %v", err)
 	}
 	if !hasAccess {
-		t.Error("expected true for unrestricted role")
+		t.Error("expected true for unrestricted role (dev)")
 	}
 
-	// Also test HasAccess by ID when unrestricted
-	hasAccessID, err := s.HasAccess(ctx, projectID, "editor", envID1)
+	hasAccess, err = s.HasAccessByEnvKey(ctx, projectID, "editor", "prod")
 	if err != nil {
-		t.Fatalf("HasAccess (unrestricted): %v", err)
+		t.Fatalf("HasAccessByEnvKey (unrestricted prod): %v", err)
 	}
-	if !hasAccessID {
-		t.Error("expected true for unrestricted role (by ID)")
+	if !hasAccess {
+		t.Error("expected true for unrestricted role (prod)")
 	}
 
 	// Add restriction: editor can only access dev
@@ -288,24 +287,6 @@ func TestEnvironmentAccessStore_HasAccessByEnvKey(t *testing.T) {
 	}
 	if hasAccess {
 		t.Error("expected false for denied env")
-	}
-
-	// HasAccess by ID: editor + envID1 → true
-	hasAccessID, err = s.HasAccess(ctx, projectID, "editor", envID1)
-	if err != nil {
-		t.Fatalf("HasAccess (allowed by ID): %v", err)
-	}
-	if !hasAccessID {
-		t.Error("expected true for allowed env by ID")
-	}
-
-	// HasAccess by ID: editor + envID2 → false
-	hasAccessID, err = s.HasAccess(ctx, projectID, "editor", envID2)
-	if err != nil {
-		t.Fatalf("HasAccess (denied by ID): %v", err)
-	}
-	if hasAccessID {
-		t.Error("expected false for denied env by ID")
 	}
 
 	// viewer is unrestricted (no rows for viewer)

@@ -6,7 +6,7 @@ import { useProjectRole, useIsOrgAdmin } from '@/hooks/usePermissions'
  * Hook that returns a function to check whether the current user can write
  * flag configs to a specific environment within a project.
  *
- * Returns `canWriteEnv(envKey)` which accounts for:
+ * Returns `canWriteEnv(envId)` which accounts for:
  * - Org admins bypass all restrictions
  * - No restrictions for user's role = unrestricted (all envs writable)
  * - Restrictions exist = only listed environments are writable

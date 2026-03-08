@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/model"
@@ -204,6 +205,12 @@ func CheckEnvironmentAccess(hasAccess AccessChecker) func(http.Handler) http.Han
 
 			allowed, err := hasAccess(r.Context(), project.ID, roleName, envKey)
 			if err != nil {
+				slog.Error("environment access check failed",
+					"error", err,
+					"project_id", project.ID,
+					"role", roleName,
+					"env_key", envKey,
+				)
 				http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 				return
 			}

@@ -23,6 +23,7 @@ function EnvironmentAccessGrid({ data, writableRoles }: { data: EnvironmentAcces
   // Use React state seeded from server data; re-mount via key resets it
   const [accessMap, setAccessMap] = useState<Record<string, string[] | null>>(initialMap)
   const [isDirty, setIsDirty] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -36,6 +37,9 @@ function EnvironmentAccessGrid({ data, writableRoles }: { data: EnvironmentAcces
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'environment-access'] })
+      setIsDirty(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
     },
   })
 
@@ -114,7 +118,17 @@ function EnvironmentAccessGrid({ data, writableRoles }: { data: EnvironmentAcces
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {saved && (
+          <span className="text-[13px] text-emerald-400 animate-[fadeIn_200ms_ease]">
+            Saved
+          </span>
+        )}
+        {saveMutation.error && (
+          <span className="text-[13px] text-destructive">
+            Failed to save: {saveMutation.error instanceof Error ? saveMutation.error.message : 'Unknown error'}
+          </span>
+        )}
         <Button
           onClick={() => saveMutation.mutate()}
           disabled={!isDirty || saveMutation.isPending}

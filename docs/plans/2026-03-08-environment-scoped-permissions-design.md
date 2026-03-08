@@ -41,7 +41,7 @@ Project-level admins are subject to restrictions if explicitly configured; by de
 
 **Endpoint:** `GET /PUT /api/v1/projects/{key}/environment-access`
 
-**Permission:** `project:settings`
+**Permission:** GET requires `flags:read` (so non-admin users can fetch their own restrictions); PUT requires `project:settings`
 
 **GET response:**
 ```json
