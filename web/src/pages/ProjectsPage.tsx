@@ -27,12 +27,12 @@ export default function ProjectsPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', 'list'],
     queryFn: ({ pageParam }) =>
       api.projects.list({ limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
-      lastPage.offset + lastPage.limit < lastPage.total
+      lastPage && lastPage.offset + lastPage.limit < lastPage.total
         ? lastPage.offset + lastPage.limit
         : undefined,
   })

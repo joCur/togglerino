@@ -76,6 +76,7 @@ func main() {
 	lifecycleSnapshotStore := store.NewLifecycleSnapshotStore(pool)
 	appIdentityStore := store.NewAppIdentityStore(pool)
 	overrideStore := store.NewOverrideStore(pool)
+	environmentAccessStore := store.NewEnvironmentAccessStore(pool)
 
 	// 4b. Ensure session secret exists (for OIDC cookie signing)
 	sessionSecret := cfg.SessionSecret
@@ -158,6 +159,7 @@ func main() {
 	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, roleStore, auditStore)
 	roleHandler := handler.NewRoleHandler(roleStore, &roleCacheRefresher{store: roleStore, cache: roleCache}, auditStore)
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
+	environmentAccessHandler := handler.NewEnvironmentAccessHandler(environmentAccessStore, environmentStore, projectStore, roleStore, auditStore)
 	userSearchHandler := handler.NewUserSearchHandler(userStore)
 	lifecycleHandler := handler.NewLifecycleHandler(flagStore, lifecycleSnapshotStore, projectStore)
 	overrideHandler := handler.NewOverrideHandler(overrideStore, appIdentityStore, projectStore, flagStore, environmentStore, cache, pool, auditStore)
@@ -195,6 +197,7 @@ func main() {
 	requireSegmentsWrite := auth.RequireProjectPermission(model.PermSegmentsWrite, roleResolver, roleCache, projectStore)
 	requireTemplatesManage := auth.RequireProjectPermission(model.PermTemplatesManage, roleResolver, roleCache, projectStore)
 	requireProjectSettings := auth.RequireProjectPermission(model.PermProjectSettings, roleResolver, roleCache, projectStore)
+	checkEnvAccess := auth.CheckEnvironmentAccess(environmentAccessStore.HasAccessByEnvKey)
 
 	// --- Public routes (no auth) ---
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -260,14 +263,14 @@ func main() {
 	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}", wrap(flagHandler.Delete, sessionAuth, requireFlagsWrite))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/archive", wrap(flagHandler.Archive, sessionAuth, requireFlagsWrite))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/staleness", wrap(flagHandler.SetStaleness, sessionAuth, requireFlagsWrite))
-	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth, requireFlagsWrite))
-	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/promote", wrap(flagHandler.PromoteEnvironmentConfig, sessionAuth, requireFlagsWrite))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth, requireFlagsWrite, checkEnvAccess))
+	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/promote", wrap(flagHandler.PromoteEnvironmentConfig, sessionAuth, requireFlagsWrite, checkEnvAccess))
 
 	// Scheduled flag changes
 	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.List, sessionAuth, requireFlagsRead))
-	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.Create, sessionAuth, requireFlagsWrite))
-	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Update, sessionAuth, requireFlagsWrite))
-	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Cancel, sessionAuth, requireFlagsWrite))
+	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.Create, sessionAuth, requireFlagsWrite, checkEnvAccess))
+	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Update, sessionAuth, requireFlagsWrite, checkEnvAccess))
+	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules/{id}", wrap(scheduleHandler.Cancel, sessionAuth, requireFlagsWrite, checkEnvAccess))
 
 	// Flag history
 	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/history", wrap(historyHandler.List, sessionAuth, requireFlagsRead))
@@ -337,6 +340,10 @@ func main() {
 	mux.Handle("POST /api/v1/projects/{key}/members", wrap(projectMemberHandler.Add, sessionAuth, requireProjectSettings))
 	mux.Handle("PUT /api/v1/projects/{key}/members/{userId}", wrap(projectMemberHandler.Update, sessionAuth, requireProjectSettings))
 	mux.Handle("DELETE /api/v1/projects/{key}/members/{userId}", wrap(projectMemberHandler.Remove, sessionAuth, requireProjectSettings))
+
+	// Environment access
+	mux.Handle("GET /api/v1/projects/{key}/environment-access", wrap(environmentAccessHandler.Get, sessionAuth, requireFlagsRead))
+	mux.Handle("PUT /api/v1/projects/{key}/environment-access", wrap(environmentAccessHandler.Update, sessionAuth, requireProjectSettings))
 
 	// Org settings
 	mux.Handle("GET /api/v1/settings/base-project-role", wrap(orgSettingsHandler.GetBaseProjectRole, sessionAuth, requireOrgUsersManage))

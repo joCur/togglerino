@@ -37,9 +37,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gravatarUrl } from '@/lib/gravatar'
 import { useCanWrite } from '@/hooks/usePermissions'
+import { useEnvironmentWriteAccess } from '@/hooks/useEnvironmentAccess'
 import PromoteDialog from '../components/PromoteDialog.tsx'
 import { FlagOverrideControl } from '../components/FlagOverrideControl.tsx'
-import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play, ArrowRightFromLine } from 'lucide-react'
+import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play, ArrowRightFromLine, Lock } from 'lucide-react'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -52,6 +53,7 @@ export default function FlagDetailPage() {
   const queryClient = useQueryClient()
 
   const canWrite = useCanWrite(key)
+  const { canWriteEnv } = useEnvironmentWriteAccess(key)
   const [expandedEnvs, setExpandedEnvs] = useState<Set<string> | null>(null)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -377,7 +379,8 @@ export default function FlagDetailPage() {
                   const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
                   const enabled = config?.enabled ?? false
                   const isExpanded = effectiveExpandedEnvs.has(env.key)
-                  const promoteTargets = sortedEnvironments!.filter((e) => e.sort_order > env.sort_order)
+                  const envWritable = canWrite && canWriteEnv(env.id)
+                  const promoteTargets = sortedEnvironments!.filter((e) => e.sort_order > env.sort_order && canWriteEnv(e.id))
 
                   return (
                     <Collapsible
@@ -397,11 +400,17 @@ export default function FlagDetailPage() {
                           <span className="text-[14px] font-medium text-foreground mr-3">
                             {env.name}
                           </span>
+                          {canWrite && !envWritable && (
+                            <span className="flex items-center gap-1 text-[11px] text-muted-foreground/50 mr-2" title="You don't have write access to this environment">
+                              <Lock className="w-3 h-3" />
+                              <span className="hidden sm:inline">Restricted</span>
+                            </span>
+                          )}
                           <div
                             className="flex items-center gap-2 ml-auto"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {canWrite && promoteTargets.length > 0 && (
+                            {envWritable && promoteTargets.length > 0 && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground">
@@ -429,7 +438,7 @@ export default function FlagDetailPage() {
                             </span>
                             <Switch
                               checked={enabled}
-                              disabled={!canWrite || !config || toggleMutation.isPending}
+                              disabled={!envWritable || !config || toggleMutation.isPending}
                               onCheckedChange={() => {
                                 if (config) toggleMutation.mutate({ envKey: env.key, config })
                               }}
@@ -465,7 +474,7 @@ export default function FlagDetailPage() {
                               flagKey={flagKey!}
                               allConfigs={data.environment_configs}
                               environments={environments}
-                              readOnly={!canWrite}
+                              readOnly={!envWritable}
                             />
                           </div>
                         </CollapsibleContent>

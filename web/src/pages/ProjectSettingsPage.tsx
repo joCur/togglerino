@@ -8,6 +8,7 @@ const allSettingsTabs = [
   { to: 'lifetimes', label: 'Flag Lifetimes', adminOnly: true },
   { to: 'environments', label: 'Environments', adminOnly: true },
   { to: 'members', label: 'Members', adminOnly: true },
+  { to: 'environment-access', label: 'Environment Access', adminOnly: true },
 ]
 
 export default function ProjectSettingsPage() {

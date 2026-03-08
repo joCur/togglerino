@@ -1,0 +1,157 @@
+package store
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// EnvironmentAccessRestriction represents the set of environments a role
+// is allowed to access within a project. An empty slice (no rows) means
+// the role is unrestricted.
+type EnvironmentAccessRestriction struct {
+	RoleName       string   `json:"role_name"`
+	EnvironmentIDs []string `json:"environment_ids"`
+}
+
+// EnvironmentAccessStore manages per-project, per-role environment access restrictions.
+type EnvironmentAccessStore struct {
+	pool *pgxpool.Pool
+}
+
+// NewEnvironmentAccessStore creates a new EnvironmentAccessStore.
+func NewEnvironmentAccessStore(pool *pgxpool.Pool) *EnvironmentAccessStore {
+	return &EnvironmentAccessStore{pool: pool}
+}
+
+// ListByProjectAndRole returns the environment IDs that a role is restricted to
+// within a project. An empty slice means the role is unrestricted.
+func (s *EnvironmentAccessStore) ListByProjectAndRole(ctx context.Context, projectID, roleName string) ([]string, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT environment_id FROM project_environment_access
+		 WHERE project_id = $1 AND role_name = $2`,
+		projectID, roleName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing environment access: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scanning environment access: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating environment access: %w", err)
+	}
+	return ids, nil
+}
+
+// ListByProject returns all environment access restrictions for a project,
+// grouped by role name.
+func (s *EnvironmentAccessStore) ListByProject(ctx context.Context, projectID string) ([]EnvironmentAccessRestriction, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT role_name, environment_id FROM project_environment_access
+		 WHERE project_id = $1
+		 ORDER BY role_name, environment_id`,
+		projectID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing project environment access: %w", err)
+	}
+	defer rows.Close()
+
+	byRole := make(map[string][]string)
+	var roleOrder []string
+	for rows.Next() {
+		var roleName, envID string
+		if err := rows.Scan(&roleName, &envID); err != nil {
+			return nil, fmt.Errorf("scanning project environment access: %w", err)
+		}
+		if _, exists := byRole[roleName]; !exists {
+			roleOrder = append(roleOrder, roleName)
+		}
+		byRole[roleName] = append(byRole[roleName], envID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating project environment access: %w", err)
+	}
+
+	restrictions := make([]EnvironmentAccessRestriction, 0, len(byRole))
+	for _, role := range roleOrder {
+		restrictions = append(restrictions, EnvironmentAccessRestriction{
+			RoleName:       role,
+			EnvironmentIDs: byRole[role],
+		})
+	}
+	return restrictions, nil
+}
+
+// ReplaceForProject atomically replaces all environment access restrictions
+// for a project. Deletes existing rows and inserts new ones in a transaction.
+func (s *EnvironmentAccessStore) ReplaceForProject(ctx context.Context, projectID string, restrictions []EnvironmentAccessRestriction) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Delete all existing restrictions for the project
+	_, err = tx.Exec(ctx,
+		`DELETE FROM project_environment_access WHERE project_id = $1`,
+		projectID,
+	)
+	if err != nil {
+		return fmt.Errorf("clearing environment access: %w", err)
+	}
+
+	// Insert new restrictions using a single multi-value INSERT
+	var args []any
+	var valueClauses []string
+	argIdx := 1
+	for _, r := range restrictions {
+		for _, envID := range r.EnvironmentIDs {
+			valueClauses = append(valueClauses, fmt.Sprintf("($%d, $%d, $%d)", argIdx, argIdx+1, argIdx+2))
+			args = append(args, projectID, r.RoleName, envID)
+			argIdx += 3
+		}
+	}
+	if len(valueClauses) > 0 {
+		query := "INSERT INTO project_environment_access (project_id, role_name, environment_id) VALUES " +
+			strings.Join(valueClauses, ", ")
+		_, err = tx.Exec(ctx, query, args...)
+		if err != nil {
+			return fmt.Errorf("inserting environment access: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("committing environment access: %w", err)
+	}
+	return nil
+}
+
+// HasAccessByEnvKey checks whether a role has access to a specific environment
+// (resolved by key) within a project. If no restrictions exist for the role,
+// it is considered unrestricted and returns true.
+func (s *EnvironmentAccessStore) HasAccessByEnvKey(ctx context.Context, projectID, roleName, envKey string) (bool, error) {
+	var allowed bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT CASE
+			WHEN NOT EXISTS (SELECT 1 FROM project_environment_access WHERE project_id = $1 AND role_name = $2) THEN true
+			WHEN EXISTS (SELECT 1 FROM project_environment_access pea JOIN environments e ON e.id = pea.environment_id WHERE pea.project_id = $1 AND pea.role_name = $2 AND e.key = $3 AND e.project_id = $1) THEN true
+			ELSE false
+		END`,
+		projectID, roleName, envKey,
+	).Scan(&allowed)
+	if err != nil {
+		return false, fmt.Errorf("checking environment access by key: %w", err)
+	}
+	return allowed, nil
+}

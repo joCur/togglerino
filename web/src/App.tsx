@@ -28,6 +28,7 @@ import GeneralSettingsTab from './pages/settings/GeneralSettingsTab.tsx'
 import FlagLifetimesTab from './pages/settings/FlagLifetimesTab.tsx'
 import EnvironmentDefaultsTab from './pages/settings/EnvironmentDefaultsTab.tsx'
 import MembersTab from './pages/settings/MembersTab.tsx'
+import EnvironmentAccessTab from './pages/settings/EnvironmentAccessTab.tsx'
 import ProjectTemplatesPage from './pages/ProjectTemplatesPage.tsx'
 import TemplatesPage from './pages/TemplatesPage.tsx'
 import PlaygroundPage from './pages/PlaygroundPage.tsx'
@@ -113,6 +114,7 @@ function AuthRouter() {
           <Route path="lifetimes" element={<FlagLifetimesTab />} />
           <Route path="environments" element={<EnvironmentDefaultsTab />} />
           <Route path="members" element={<MembersTab />} />
+          <Route path="environment-access" element={<EnvironmentAccessTab />} />
         </Route>
         <Route path="segments" element={<SegmentsPage />} />
         <Route path="playground" element={<PlaygroundPage />} />
