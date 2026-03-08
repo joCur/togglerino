@@ -18,6 +18,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { useIsOrgAdmin } from '@/hooks/usePermissions'
+import { Navigate } from 'react-router-dom'
 
 const permissionLabels: Record<string, string> = {
   'flags:read': 'View flags',
@@ -41,6 +43,7 @@ interface RoleFormState {
 const emptyForm: RoleFormState = { name: '', description: '', permissions: [] }
 
 export default function RolesPage() {
+  const isAdmin = useIsOrgAdmin()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingRole, setEditingRole] = useState<RoleDefinition | null>(null)
   const [form, setForm] = useState<RoleFormState>(emptyForm)
@@ -125,8 +128,10 @@ export default function RolesPage() {
 
   const isSaving = createRole.isPending || updateRole.isPending
 
+  if (!isAdmin) return <Navigate to="/projects" replace />
+
   return (
-    <div className="max-w-4xl animate-[fadeIn_300ms_ease]">
+    <div className="animate-[fadeIn_300ms_ease]">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg font-semibold">Roles</h1>

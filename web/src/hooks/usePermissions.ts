@@ -85,3 +85,26 @@ export function useIsProjectAdmin(projectKey: string | undefined): boolean {
   const perms = useProjectPermissions(projectKey)
   return perms.includes('project:settings')
 }
+
+// Generic permission check hook
+export function useHasPermission(projectKey: string | undefined, permission: string): boolean {
+  const perms = useProjectPermissions(projectKey)
+  return perms.includes(permission)
+}
+
+// Convenience hooks for specific permissions
+export function useEnvironmentsWrite(projectKey: string | undefined): boolean {
+  return useHasPermission(projectKey, 'environments:write')
+}
+
+export function useSdkKeysManage(projectKey: string | undefined): boolean {
+  return useHasPermission(projectKey, 'sdk_keys:manage')
+}
+
+export function useSegmentsWrite(projectKey: string | undefined): boolean {
+  return useHasPermission(projectKey, 'segments:write')
+}
+
+export function useTemplatesManage(projectKey: string | undefined): boolean {
+  return useHasPermission(projectKey, 'templates:manage')
+}

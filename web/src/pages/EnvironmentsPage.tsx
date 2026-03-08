@@ -8,13 +8,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useCanWrite } from '@/hooks/usePermissions'
+import { useEnvironmentsWrite } from '@/hooks/usePermissions'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 
 export default function EnvironmentsPage() {
   const { key } = useParams<{ key: string }>()
   const queryClient = useQueryClient()
-  const canWrite = useCanWrite(key)
+  const canWrite = useEnvironmentsWrite(key)
   const [showForm, setShowForm] = useState(false)
   const [envKey, setEnvKey] = useState('')
   const [envName, setEnvName] = useState('')

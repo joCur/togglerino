@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useCanWrite } from '@/hooks/usePermissions'
+import { useSegmentsWrite } from '@/hooks/usePermissions'
 
 const PAGE_SIZE = 50
 
@@ -471,7 +471,7 @@ function EditSegmentDialog({ open, onOpenChange, segment, projectKey, autocomple
 
 export default function SegmentsPage() {
   const { key } = useParams<{ key: string }>()
-  const canWrite = useCanWrite(key)
+  const canWrite = useSegmentsWrite(key)
   const [createOpen, setCreateOpen] = useState(false)
   const [editSegment, setEditSegment] = useState<Segment | null>(null)
   const autocompleteEnabled = useFlag('context-attribute-autocomplete', false)

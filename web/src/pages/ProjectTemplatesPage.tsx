@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TemplateFormDialog } from '@/components/TemplateFormDialog'
+import { useTemplatesManage } from '@/hooks/usePermissions'
 
 function formatDefaultValue(value: unknown, valueType: ValueType): string {
   if (valueType === 'boolean') return String(value)
@@ -18,6 +19,7 @@ function formatDefaultValue(value: unknown, valueType: ValueType): string {
 export default function ProjectTemplatesPage() {
   const { key: projectKey } = useParams<{ key: string }>()
   const queryClient = useQueryClient()
+  const canManage = useTemplatesManage(projectKey)
   const [createOpen, setCreateOpen] = useState(false)
   const [editTemplate, setEditTemplate] = useState<FlagTemplate | null>(null)
 
@@ -81,9 +83,11 @@ export default function ProjectTemplatesPage() {
             Templates specific to this project for quickly creating flags with pre-filled settings.
           </div>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          Create Template
-        </Button>
+        {canManage && (
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            Create Template
+          </Button>
+        )}
       </div>
 
       {templates.length === 0 ? (
@@ -109,8 +113,8 @@ export default function ProjectTemplatesPage() {
               {templates.map((template) => (
                 <TableRow
                   key={template.id}
-                  className="transition-colors hover:bg-[#d4956a]/8 cursor-pointer"
-                  onClick={() => setEditTemplate(template)}
+                  className={`transition-colors hover:bg-[#d4956a]/8${canManage ? ' cursor-pointer' : ''}`}
+                  onClick={() => canManage && setEditTemplate(template)}
                 >
                   <TableCell>
                     <span className="font-mono text-xs text-[#d4956a] tracking-wide">{template.key}</span>
