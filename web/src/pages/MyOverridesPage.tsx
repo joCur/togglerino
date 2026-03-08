@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import type { AppIdentity } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -16,40 +15,19 @@ function AppIdentitySection() {
   const [editValue, setEditValue] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
-  const projectsQuery = useQuery({
-    queryKey: ['projects-list-all'],
-    queryFn: () => api.projects.list({ limit: 100 }),
+  const identityQuery = useQuery({
+    queryKey: ['app-identities-mine'],
+    queryFn: () => api.appIdentity.listMine(),
   })
 
-  const projects = projectsQuery.data?.data ?? []
-
-  const identityQueries = useQuery({
-    queryKey: ['app-identities', projects.map((p) => p.key)],
-    queryFn: async () => {
-      const results: Record<string, AppIdentity> = {}
-      await Promise.all(
-        projects.map(async (p) => {
-          try {
-            const identity = await api.appIdentity.get(p.key)
-            results[p.key] = identity
-          } catch {
-            // No identity for this project — skip
-          }
-        }),
-      )
-      return results
-    },
-    enabled: projects.length > 0,
-  })
-
-  const identities = identityQueries.data ?? {}
-  const hasIdentities = Object.keys(identities).length > 0
+  const identities = identityQuery.data ?? []
+  const hasIdentities = identities.length > 0
 
   const setMutation = useMutation({
     mutationFn: ({ projectKey, appUserID }: { projectKey: string; appUserID: string }) =>
       api.appIdentity.set(projectKey, appUserID),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-identities'] })
+      queryClient.invalidateQueries({ queryKey: ['app-identities-mine'] })
       setEditingProject(null)
     },
   })
@@ -57,7 +35,7 @@ function AppIdentitySection() {
   const deleteMutation = useMutation({
     mutationFn: (projectKey: string) => api.appIdentity.delete(projectKey),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-identities'] })
+      queryClient.invalidateQueries({ queryKey: ['app-identities-mine'] })
       queryClient.invalidateQueries({ queryKey: ['my-overrides'] })
       setConfirmDelete(null)
     },
@@ -68,12 +46,12 @@ function AppIdentitySection() {
     setEditingProject(projectKey)
   }
 
-  if (!hasIdentities && !projectsQuery.isLoading) return null
+  if (!hasIdentities && !identityQuery.isLoading) return null
 
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">App Identities</h2>
-      {projectsQuery.isLoading || identityQueries.isLoading ? (
+      {identityQuery.isLoading ? (
         <p className="text-muted-foreground/60 text-[13px] animate-pulse">Loading identities...</p>
       ) : (
         <Table>
@@ -85,19 +63,19 @@ function AppIdentitySection() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {Object.entries(identities).map(([projectKey, identity]) => (
-              <TableRow key={projectKey}>
+            {identities.map((identity) => (
+              <TableRow key={identity.project_key ?? identity.project_id}>
                 <TableCell>
-                  <Link to={`/projects/${projectKey}`} className="text-[#d4956a] hover:underline">
-                    {projectKey}
+                  <Link to={`/projects/${identity.project_key}`} className="text-[#d4956a] hover:underline">
+                    {identity.project_key}
                   </Link>
                 </TableCell>
                 <TableCell className="font-mono text-sm">{identity.app_user_id}</TableCell>
                 <TableCell className="text-right space-x-1">
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(projectKey, identity.app_user_id)}>
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(identity.project_key!, identity.app_user_id)}>
                     Edit
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(projectKey)}>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(identity.project_key!)}>
                     Remove
                   </Button>
                 </TableCell>

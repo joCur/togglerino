@@ -164,7 +164,7 @@ func (s *OverrideStore) ListByProjectEnv(ctx context.Context, projectKey, envKey
 
 // ListAllOverrides loads all non-expired overrides with app_user_id resolved.
 // Used for cache LoadAll at startup.
-func (s *OverrideStore) ListAllOverrides(ctx context.Context) ([]OverrideCacheEntry, error) {
+func (s *OverrideStore) ListAllOverrides(ctx context.Context) ([]model.OverrideCacheEntry, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT p.key, e.key, f.key, uai.app_user_id, fo.value, fo.expires_at
 		 FROM flag_overrides fo
@@ -178,9 +178,9 @@ func (s *OverrideStore) ListAllOverrides(ctx context.Context) ([]OverrideCacheEn
 	}
 	defer rows.Close()
 
-	var entries []OverrideCacheEntry
+	var entries []model.OverrideCacheEntry
 	for rows.Next() {
-		var e OverrideCacheEntry
+		var e model.OverrideCacheEntry
 		if err := rows.Scan(&e.ProjectKey, &e.EnvironmentKey, &e.FlagKey, &e.AppUserID, &e.Value, &e.ExpiresAt); err != nil {
 			return nil, fmt.Errorf("scanning override cache entry: %w", err)
 		}
@@ -215,14 +215,4 @@ func (s *OverrideStore) DeleteAllByUser(ctx context.Context, userID string) erro
 		return fmt.Errorf("deleting all overrides for user: %w", err)
 	}
 	return nil
-}
-
-// OverrideCacheEntry is used for bulk-loading overrides into the cache.
-type OverrideCacheEntry struct {
-	ProjectKey     string
-	EnvironmentKey string
-	FlagKey        string
-	AppUserID      string
-	Value          json.RawMessage
-	ExpiresAt      *time.Time
 }

@@ -107,6 +107,12 @@ export function FlagOverrideControl({ projectKey, flagKey, envKey, valueType, ov
         )}
       </div>
 
+      {deleteOverrideMutation.error && (
+        <p className="text-sm text-destructive">
+          {deleteOverrideMutation.error instanceof Error ? deleteOverrideMutation.error.message : 'Failed to remove override'}
+        </p>
+      )}
+
       {/* Identity setup dialog */}
       <Dialog open={showIdentityDialog} onOpenChange={setShowIdentityDialog}>
         <DialogContent>

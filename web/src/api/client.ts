@@ -169,6 +169,7 @@ export const api = {
       }),
     delete: (projectKey: string) =>
       request<void>(`/projects/${projectKey}/app-identity`, { method: 'DELETE' }),
+    listMine: () => request<AppIdentity[]>('/app-identities/me'),
   },
 
   overrides: {

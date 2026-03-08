@@ -19,11 +19,6 @@ func SDKKeyFromContext(ctx context.Context) *model.SDKKey {
 	return k
 }
 
-// ContextWithSDKKey injects an SDK key into the context. Used for testing.
-func ContextWithSDKKey(ctx context.Context, key *model.SDKKey) context.Context {
-	return context.WithValue(ctx, sdkKeyContextKey, key)
-}
-
 // SDKAuth middleware reads the Authorization: Bearer <sdk_key> header,
 // looks up the SDK key, and injects it into the context.
 func SDKAuth(sdkKeys *store.SDKKeyStore) func(http.Handler) http.Handler {

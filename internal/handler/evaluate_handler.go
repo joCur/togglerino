@@ -64,6 +64,7 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 	segments := h.cache.GetSegments(sdkKey.ProjectKey)
 	results := make(map[string]*model.EvaluationResult, len(flags))
 	for flagKey, fd := range flags {
+		// Personal overrides bypass disabled flags (by design) but respect archived flags.
 		if evalCtx.UserID != "" && fd.Flag.LifecycleStatus != model.LifecycleArchived {
 			if overrideVal, ok := h.cache.GetOverride(sdkKey.ProjectKey, sdkKey.EnvironmentKey, evalCtx.UserID, flagKey); ok {
 				results[flagKey] = &model.EvaluationResult{
@@ -101,6 +102,7 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Personal overrides bypass disabled flags (by design) but respect archived flags.
 	if evalCtx.UserID != "" && fd.Flag.LifecycleStatus != model.LifecycleArchived {
 		if overrideVal, ok := h.cache.GetOverride(sdkKey.ProjectKey, sdkKey.EnvironmentKey, evalCtx.UserID, flagKey); ok {
 			writeJSON(w, http.StatusOK, &model.EvaluationResult{
@@ -139,6 +141,9 @@ func (h *EvaluateHandler) parseContext(r *http.Request) *model.EvaluationContext
 
 // rawToAny converts a json.RawMessage to a native Go value.
 func rawToAny(raw json.RawMessage) any {
+	if raw == nil {
+		return nil
+	}
 	var v any
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return string(raw)

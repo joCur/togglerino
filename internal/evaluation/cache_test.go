@@ -9,7 +9,6 @@ import (
 
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/model"
-	"github.com/togglerino/togglerino/internal/store"
 )
 
 func TestCache_SetAndGetFlags(t *testing.T) {
@@ -237,7 +236,7 @@ func TestCache_DeleteOverridesForUser(t *testing.T) {
 func TestCache_LoadOverrides(t *testing.T) {
 	c := evaluation.NewCache()
 
-	entries := []store.OverrideCacheEntry{
+	entries := []model.OverrideCacheEntry{
 		{ProjectKey: "proj", EnvironmentKey: "dev", FlagKey: "flag-a", AppUserID: "user-1", Value: json.RawMessage(`true`)},
 		{ProjectKey: "proj", EnvironmentKey: "prod", FlagKey: "flag-b", AppUserID: "user-2", Value: json.RawMessage(`42`)},
 	}
@@ -257,5 +256,50 @@ func TestCache_LoadOverrides(t *testing.T) {
 	}
 	if string(val) != "42" {
 		t.Fatalf("expected 42, got %s", string(val))
+	}
+}
+
+func TestCache_PurgeExpiredOverrides(t *testing.T) {
+	c := evaluation.NewCache()
+
+	past := time.Now().Add(-1 * time.Hour)
+	future := time.Now().Add(1 * time.Hour)
+
+	// Expired override
+	c.SetOverride("proj", "dev", "user-1", "flag-expired", json.RawMessage(`true`), &past)
+	// Non-expired override
+	c.SetOverride("proj", "dev", "user-1", "flag-active", json.RawMessage(`false`), &future)
+	// Override with no expiry (permanent)
+	c.SetOverride("proj", "dev", "user-2", "flag-perm", json.RawMessage(`"on"`), nil)
+	// Expired override in different env
+	c.SetOverride("proj", "prod", "user-3", "flag-expired2", json.RawMessage(`true`), &past)
+
+	c.PurgeExpiredOverrides()
+
+	// Expired entries should be gone
+	_, ok := c.GetOverride("proj", "dev", "user-1", "flag-expired")
+	if ok {
+		t.Fatal("expected expired override to be purged")
+	}
+	_, ok = c.GetOverride("proj", "prod", "user-3", "flag-expired2")
+	if ok {
+		t.Fatal("expected expired override in prod to be purged")
+	}
+
+	// Non-expired and permanent entries should remain
+	val, ok := c.GetOverride("proj", "dev", "user-1", "flag-active")
+	if !ok {
+		t.Fatal("expected non-expired override to remain")
+	}
+	if string(val) != "false" {
+		t.Fatalf("expected false, got %s", string(val))
+	}
+
+	val, ok = c.GetOverride("proj", "dev", "user-2", "flag-perm")
+	if !ok {
+		t.Fatal("expected permanent override to remain")
+	}
+	if string(val) != `"on"` {
+		t.Fatalf("expected \"on\", got %s", string(val))
 	}
 }

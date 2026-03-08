@@ -1,14 +1,17 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/evaluation"
+	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
 
@@ -19,6 +22,8 @@ type OverrideHandler struct {
 	flags        *store.FlagStore
 	environments *store.EnvironmentStore
 	cache        *evaluation.Cache
+	pool         *pgxpool.Pool
+	audit        *store.AuditStore
 }
 
 func NewOverrideHandler(
@@ -28,6 +33,8 @@ func NewOverrideHandler(
 	flags *store.FlagStore,
 	environments *store.EnvironmentStore,
 	cache *evaluation.Cache,
+	pool *pgxpool.Pool,
+	audit *store.AuditStore,
 ) *OverrideHandler {
 	return &OverrideHandler{
 		overrides:    overrides,
@@ -36,6 +43,8 @@ func NewOverrideHandler(
 		flags:        flags,
 		environments: environments,
 		cache:        cache,
+		pool:         pool,
+		audit:        audit,
 	}
 }
 
@@ -112,13 +121,35 @@ func (h *OverrideHandler) DeleteAppIdentity(w http.ResponseWriter, r *http.Reque
 	// Look up identity before deleting so we can clean up the cache
 	identity, _ := h.identities.Get(r.Context(), user.ID, project.ID)
 
+	// Delete overrides and identity in a transaction to avoid inconsistent state
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		slog.Error("starting transaction", "error", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
 	// Delete overrides scoped to this project only
-	if err := h.overrides.DeleteByUserAndProject(r.Context(), user.ID, project.ID); err != nil {
+	_, err = tx.Exec(r.Context(),
+		`DELETE FROM flag_overrides WHERE user_id = $1 AND flag_id IN (SELECT id FROM flags WHERE project_id = $2)`,
+		user.ID, project.ID)
+	if err != nil {
 		slog.Error("deleting overrides on identity removal", "error", err)
 	}
 
-	if err := h.identities.Delete(r.Context(), user.ID, project.ID); err != nil {
+	// Delete identity
+	_, err = tx.Exec(r.Context(),
+		`DELETE FROM user_app_identities WHERE user_id = $1 AND project_id = $2`,
+		user.ID, project.ID)
+	if err != nil {
 		slog.Error("deleting app identity", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to delete app identity")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		slog.Error("committing app identity deletion", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete app identity")
 		return
 	}
@@ -204,6 +235,22 @@ func (h *OverrideHandler) SetOverride(w http.ResponseWriter, r *http.Request) {
 
 	h.cache.SetOverride(projectKey, envKey, identity.AppUserID, flagKey, req.Value, expiresAt)
 
+	go func() {
+		newVal, _ := json.Marshal(map[string]any{"value": req.Value, "environment": envKey, "expires_at": expiresAt})
+		if err := h.audit.Record(context.Background(), model.AuditEntry{
+			ProjectID:     &project.ID,
+			UserID:        &user.ID,
+			UserEmail:     &user.Email,
+			EnvironmentID: &env.ID,
+			Action:        "override.set",
+			EntityType:    "flag",
+			EntityID:      flag.ID,
+			NewValue:      newVal,
+		}); err != nil {
+			slog.Error("recording override audit", "error", err)
+		}
+	}()
+
 	writeJSON(w, http.StatusOK, override)
 }
 
@@ -242,6 +289,20 @@ func (h *OverrideHandler) DeleteOverride(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, "failed to delete override")
 		return
 	}
+
+	go func() {
+		if err := h.audit.Record(context.Background(), model.AuditEntry{
+			ProjectID:     &project.ID,
+			UserID:        &user.ID,
+			UserEmail:     &user.Email,
+			EnvironmentID: &env.ID,
+			Action:        "override.delete",
+			EntityType:    "flag",
+			EntityID:      flag.ID,
+		}); err != nil {
+			slog.Error("recording override audit", "error", err)
+		}
+	}()
 
 	if identity, err := h.identities.GetByProjectKey(r.Context(), user.ID, projectKey); err == nil {
 		h.cache.DeleteOverride(projectKey, envKey, identity.AppUserID, flagKey)
@@ -315,6 +376,21 @@ func (h *OverrideHandler) SetOverrideAllEnvs(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	go func() {
+		newVal, _ := json.Marshal(map[string]any{"value": req.Value, "all_environments": true, "expires_at": expiresAt})
+		if err := h.audit.Record(context.Background(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			Action:     "override.set",
+			EntityType: "flag",
+			EntityID:   flag.ID,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Error("recording override audit", "error", err)
+		}
+	}()
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -347,6 +423,19 @@ func (h *OverrideHandler) DeleteOverrideAllEnvs(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	go func() {
+		if err := h.audit.Record(context.Background(), model.AuditEntry{
+			ProjectID:  &project.ID,
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			Action:     "override.delete",
+			EntityType: "flag",
+			EntityID:   flag.ID,
+		}); err != nil {
+			slog.Error("recording override audit", "error", err)
+		}
+	}()
+
 	if identity, err := h.identities.GetByProjectKey(r.Context(), user.ID, projectKey); err == nil {
 		envs, err := h.environments.ListByProject(r.Context(), project.ID)
 		if err != nil {
@@ -358,6 +447,25 @@ func (h *OverrideHandler) DeleteOverrideAllEnvs(w http.ResponseWriter, r *http.R
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+
+// ListAppIdentities handles GET /api/v1/app-identities/me
+func (h *OverrideHandler) ListAppIdentities(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	identities, err := h.identities.ListByUser(r.Context(), user.ID)
+	if err != nil {
+		slog.Error("listing app identities", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to list identities")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, identities)
 }
 
 // ListMyOverrides handles GET /api/v1/overrides/me

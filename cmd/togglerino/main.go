@@ -120,7 +120,7 @@ func main() {
 	if err := templateStore.SeedSystemTemplates(ctx); err != nil {
 		log.Fatalf("failed to seed system templates: %v", err)
 	}
-	overrideCleaner := override.NewCleaner(overrideStore, 15*time.Minute)
+	overrideCleaner := override.NewCleaner(overrideStore, cache, 15*time.Minute)
 	go stalenessChecker.Run(ctx)
 	go snapshotRecorder.Run(ctx)
 	go scheduleChecker.Run(ctx)
@@ -150,7 +150,7 @@ func main() {
 	orgSettingsHandler := handler.NewOrgSettingsHandler(orgSettingsStore)
 	userSearchHandler := handler.NewUserSearchHandler(userStore)
 	lifecycleHandler := handler.NewLifecycleHandler(flagStore, lifecycleSnapshotStore, projectStore)
-	overrideHandler := handler.NewOverrideHandler(overrideStore, appIdentityStore, projectStore, flagStore, environmentStore, cache)
+	overrideHandler := handler.NewOverrideHandler(overrideStore, appIdentityStore, projectStore, flagStore, environmentStore, cache, pool, auditStore)
 	authHandler.SetOIDCChecker(oidcHandler.IsConfigured)
 
 	// Permission middleware
@@ -300,6 +300,7 @@ func main() {
 	mux.Handle("PUT /api/v1/projects/{key}/app-identity", wrap(overrideHandler.SetAppIdentity, sessionAuth, requireFlagsRead))
 	mux.Handle("GET /api/v1/projects/{key}/app-identity", wrap(overrideHandler.GetAppIdentity, sessionAuth, requireFlagsRead))
 	mux.Handle("DELETE /api/v1/projects/{key}/app-identity", wrap(overrideHandler.DeleteAppIdentity, sessionAuth, requireFlagsRead))
+	mux.Handle("GET /api/v1/app-identities/me", wrap(overrideHandler.ListAppIdentities, sessionAuth))
 
 	// Personal overrides
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}/override", wrap(overrideHandler.SetOverride, sessionAuth, requireFlagsRead))

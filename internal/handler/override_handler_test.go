@@ -63,6 +63,8 @@ func setupOverrideTest(t *testing.T) (
 		fs,
 		es,
 		cache,
+		pool,
+		store.NewAuditStore(pool),
 	)
 
 	return h, user, projectKey, flagKey, cache

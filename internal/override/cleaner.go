@@ -11,13 +11,19 @@ type ExpiredDeleter interface {
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 
+// OverridePurger is the interface for purging expired overrides from an in-memory cache.
+type OverridePurger interface {
+	PurgeExpiredOverrides()
+}
+
 type Cleaner struct {
 	overrides ExpiredDeleter
+	purger    OverridePurger
 	interval  time.Duration
 }
 
-func NewCleaner(overrides ExpiredDeleter, interval time.Duration) *Cleaner {
-	return &Cleaner{overrides: overrides, interval: interval}
+func NewCleaner(overrides ExpiredDeleter, purger OverridePurger, interval time.Duration) *Cleaner {
+	return &Cleaner{overrides: overrides, purger: purger, interval: interval}
 }
 
 func (c *Cleaner) Run(ctx context.Context) {
@@ -36,6 +42,9 @@ func (c *Cleaner) Run(ctx context.Context) {
 			}
 			if count > 0 {
 				slog.Info("cleaned expired overrides", "count", count)
+			}
+			if c.purger != nil {
+				c.purger.PurgeExpiredOverrides()
 			}
 		}
 	}

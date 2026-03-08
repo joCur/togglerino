@@ -306,6 +306,7 @@ export interface LifecycleSnapshot {
 export interface AppIdentity {
   user_id: string
   project_id: string
+  project_key?: string
   app_user_id: string
   created_at: string
   updated_at: string

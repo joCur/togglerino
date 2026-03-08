@@ -65,6 +65,34 @@ func (s *AppIdentityStore) GetByProjectKey(ctx context.Context, userID, projectK
 	return &identity, nil
 }
 
+func (s *AppIdentityStore) ListByUser(ctx context.Context, userID string) ([]model.AppIdentity, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT uai.user_id, uai.project_id, p.key, uai.app_user_id, uai.created_at, uai.updated_at
+		 FROM user_app_identities uai
+		 JOIN projects p ON p.id = uai.project_id
+		 WHERE uai.user_id = $1
+		 ORDER BY uai.created_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing app identities by user: %w", err)
+	}
+	defer rows.Close()
+
+	var identities []model.AppIdentity
+	for rows.Next() {
+		var identity model.AppIdentity
+		if err := rows.Scan(&identity.UserID, &identity.ProjectID, &identity.ProjectKey, &identity.AppUserID, &identity.CreatedAt, &identity.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning app identity: %w", err)
+		}
+		identities = append(identities, identity)
+	}
+	if identities == nil {
+		identities = []model.AppIdentity{}
+	}
+	return identities, rows.Err()
+}
+
 func (s *AppIdentityStore) Delete(ctx context.Context, userID, projectID string) error {
 	_, err := s.pool.Exec(ctx,
 		`DELETE FROM user_app_identities WHERE user_id = $1 AND project_id = $2`,
