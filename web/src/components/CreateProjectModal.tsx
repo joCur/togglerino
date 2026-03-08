@@ -26,7 +26,7 @@ export default function CreateProjectModal({ open, onClose }: Props) {
     mutationFn: (data: { key: string; name: string; description: string }) =>
       api.post<Project>('/projects', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['projects', 'list'] })
       resetAndClose()
     },
   })

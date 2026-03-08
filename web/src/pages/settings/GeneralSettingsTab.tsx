@@ -38,7 +38,7 @@ export default function GeneralSettingsTab() {
     mutationFn: (data: { name: string; description: string }) =>
       api.put<Project>(`/projects/${key}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['projects', 'list'] })
       queryClient.invalidateQueries({ queryKey: ['projects', key] })
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 2000)
@@ -57,7 +57,7 @@ export default function GeneralSettingsTab() {
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`/projects/${key}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['projects', 'list'] })
       navigate('/projects')
     },
   })
