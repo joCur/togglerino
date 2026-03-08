@@ -77,6 +77,7 @@ type Flag struct {
 	UpdatedAt                time.Time       `json:"updated_at"`
 	OwnerID                  *string         `json:"owner_id,omitempty"`
 	Owner                    *FlagOwner      `json:"owner,omitempty"`
+	EnvironmentConfigs       []FlagEnvironmentConfig `json:"environment_configs,omitempty"`
 }
 
 type FlagOwner struct {
