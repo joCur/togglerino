@@ -911,6 +911,102 @@ func TestFlagStore_UpdateOwner(t *testing.T) {
 	}
 }
 
+func TestFlagStore_EnvironmentConfigScannerRoundTrip(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("scannerrt")
+	project, err := ps.Create(ctx, projKey, "Scanner Roundtrip Project", "test")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+
+	env, err := es.Create(ctx, project.ID, "production", "Production")
+	if err != nil {
+		t.Fatalf("creating env: %v", err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, "rt-flag", "Roundtrip Flag", "test",
+		model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`),
+		[]string{}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Update with known variants and targeting rules
+	variants := json.RawMessage(`[{"key":"on","value":true},{"key":"off","value":false}]`)
+	rollout := 50
+	rules := json.RawMessage(`[{"conditions":[{"attribute":"country","operator":"equals","value":"US"}],"variant":"on","percentage_rollout":50}]`)
+
+	_, err = fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", variants, rules, nil)
+	if err != nil {
+		t.Fatalf("UpdateEnvironmentConfig: %v", err)
+	}
+
+	// Helper to verify a config has the expected parsed data
+	verifyConfig := func(t *testing.T, cfg model.FlagEnvironmentConfig, source string) {
+		t.Helper()
+		if len(cfg.Variants) != 2 {
+			t.Errorf("%s: Variants length: got %d, want 2", source, len(cfg.Variants))
+		} else if cfg.Variants[0].Key != "on" {
+			t.Errorf("%s: first variant key: got %q, want %q", source, cfg.Variants[0].Key, "on")
+		}
+		if len(cfg.TargetingRules) != 1 {
+			t.Errorf("%s: TargetingRules length: got %d, want 1", source, len(cfg.TargetingRules))
+		} else {
+			rule := cfg.TargetingRules[0]
+			if rule.Variant != "on" {
+				t.Errorf("%s: rule Variant: got %q, want %q", source, rule.Variant, "on")
+			}
+			if rule.PercentageRollout == nil || *rule.PercentageRollout != rollout {
+				t.Errorf("%s: rule PercentageRollout: got %v, want %d", source, rule.PercentageRollout, rollout)
+			}
+		}
+	}
+
+	// Read back via GetAllEnvironmentConfigs
+	allCfgs, err := fs.GetAllEnvironmentConfigs(ctx, flag.ID)
+	if err != nil {
+		t.Fatalf("GetAllEnvironmentConfigs: %v", err)
+	}
+	found := false
+	for _, c := range allCfgs {
+		if c.EnvironmentID == env.ID {
+			found = true
+			verifyConfig(t, c, "GetAllEnvironmentConfigs")
+		}
+	}
+	if !found {
+		t.Fatal("GetAllEnvironmentConfigs: config not found for environment")
+	}
+
+	// Read back via GetEnvironmentConfigsByFlagIDs
+	cfgMap, err := fs.GetEnvironmentConfigsByFlagIDs(ctx, []string{flag.ID})
+	if err != nil {
+		t.Fatalf("GetEnvironmentConfigsByFlagIDs: %v", err)
+	}
+	found = false
+	for _, c := range cfgMap[flag.ID] {
+		if c.EnvironmentID == env.ID {
+			found = true
+			verifyConfig(t, c, "GetEnvironmentConfigsByFlagIDs")
+		}
+	}
+	if !found {
+		t.Fatal("GetEnvironmentConfigsByFlagIDs: config not found for environment")
+	}
+
+	// Read back via GetEnvironmentConfig (single)
+	singleCfg, err := fs.GetEnvironmentConfig(ctx, flag.ID, env.ID)
+	if err != nil {
+		t.Fatalf("GetEnvironmentConfig: %v", err)
+	}
+	verifyConfig(t, *singleCfg, "GetEnvironmentConfig")
+}
+
 func TestFlagStore_GetEnvironmentConfigsByFlagIDs(t *testing.T) {
 	pool := testPool(t)
 	ps := store.NewProjectStore(pool)
