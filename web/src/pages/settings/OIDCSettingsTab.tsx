@@ -5,6 +5,14 @@ import type { OIDCProvider } from '@/api/types.ts'
 import { useAuth } from '@/hooks/useAuth.ts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -33,6 +41,7 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
   const [enabled, setEnabled] = useState(provider?.enabled ?? true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const saveMutation = useMutation({
     mutationFn: (data: {
@@ -62,6 +71,7 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oidc', 'config'] })
       queryClient.invalidateQueries({ queryKey: ['auth', 'status'] })
+      setShowDeleteDialog(false)
       setSuccess('OIDC configuration removed')
       setError('')
     },
@@ -178,7 +188,7 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => deleteMutation.mutate()}
+                  onClick={() => setShowDeleteDialog(true)}
                   disabled={deleteMutation.isPending}
                 >
                   {deleteMutation.isPending ? 'Removing...' : 'Remove OIDC'}
@@ -188,6 +198,29 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
           </form>
         </CardContent>
       </Card>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove OIDC Configuration</DialogTitle>
+            <DialogDescription>
+              This will remove the OIDC configuration. Users who signed in exclusively via SSO will lose access until OIDC is reconfigured.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Removing...' : 'Remove OIDC'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

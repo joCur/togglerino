@@ -18,9 +18,10 @@ type Provider struct {
 
 // Claims holds the claims extracted from an OIDC ID token.
 type Claims struct {
-	Subject string `json:"sub"`
-	Email   string `json:"email"`
-	Name    string `json:"name"`
+	Subject       string `json:"sub"`
+	Email         string `json:"email"`
+	Name          string `json:"name"`
+	EmailVerified bool   `json:"email_verified"`
 }
 
 // NewProvider creates a new OIDC provider from configuration.

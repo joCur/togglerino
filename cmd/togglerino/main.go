@@ -137,7 +137,7 @@ func main() {
 	go overrideCleaner.Run(ctx)
 
 	// 7. Initialize all handlers
-	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore)
+	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore, cfg.BaseURL)
 	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore, roleStore, pool, auditStore)
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore, orgSettingsStore, projectMemberStore)
 	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
@@ -154,7 +154,7 @@ func main() {
 	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool)
 	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
 	streamHandler := handler.NewStreamHandler(hub)
-	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL)
+	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL, auditStore)
 	templateHandler := handler.NewTemplateHandler(templateStore, projectStore, auditStore)
 	projectMemberHandler := handler.NewProjectMemberHandler(projectMemberStore, projectStore, userStore, roleStore, auditStore)
 	roleHandler := handler.NewRoleHandler(roleStore, &roleCacheRefresher{store: roleStore, cache: roleCache}, auditStore)
