@@ -75,7 +75,3 @@ If an upgrade causes issues:
 :::note
 Downgrade migrations (`.down.sql` files) exist in the source tree but are **not** run automatically. Restoring from a database backup is the recommended rollback approach.
 :::
-
-## Zero-Downtime Upgrades
-
-To minimize downtime, stop the old instance, start the new one, and verify it's healthy via `/healthz`. Migrations run automatically and complete within seconds.
