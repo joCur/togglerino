@@ -174,7 +174,7 @@ func main() {
 	if cfg.BaseURL != "" {
 		callbackURL = cfg.BaseURL + "/api/v1/auth/oidc/callback"
 	}
-	oidcHandler.InitProvider(ctx, callbackURL, cfg.OIDCIssuerURL, cfg.OIDCClientID, cfg.OIDCClientSecret, "", cfg.OIDCDefaultRole)
+	oidcHandler.InitProvider(ctx, callbackURL, cfg.OIDCIssuerURL, cfg.OIDCClientID, cfg.OIDCClientSecret, "", cfg.OIDCDefaultRole, cfg.OIDCSkipEmailVerification)
 
 	// 8. Set up HTTP router
 	mux := http.NewServeMux()
