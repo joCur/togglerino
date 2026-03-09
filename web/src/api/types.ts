@@ -200,6 +200,7 @@ export interface OIDCProvider {
   scopes: string
   default_role: 'admin' | 'member'
   enabled: boolean
+  skip_email_verification: boolean
   created_at: string
   updated_at: string
 }

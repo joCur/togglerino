@@ -51,7 +51,7 @@ func (h *OIDCHandler) secureCookies() bool {
 // InitProvider loads the OIDC provider from DB config on startup.
 // When env vars are set, they take priority and are synced to the DB so the
 // callback flow can look up the provider record.
-func (h *OIDCHandler) InitProvider(ctx context.Context, callbackURL string, envIssuer, envClientID, envClientSecret, envScopes, envDefaultRole string) {
+func (h *OIDCHandler) InitProvider(ctx context.Context, callbackURL string, envIssuer, envClientID, envClientSecret, envScopes, envDefaultRole string, envSkipEmailVerification bool) {
 	dbProvider, err := h.oidcStore.GetProvider(ctx)
 	if err != nil {
 		slog.Error("failed to load oidc provider from db", "error", err)
@@ -101,13 +101,14 @@ func (h *OIDCHandler) InitProvider(ctx context.Context, callbackURL string, envI
 			effectiveScopes = "openid email profile"
 		}
 		dbP := &model.OIDCProvider{
-			Name:         "Environment",
-			IssuerURL:    issuer,
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-			Scopes:       effectiveScopes,
-			DefaultRole:  role,
-			Enabled:      true,
+			Name:                  "Environment",
+			IssuerURL:             issuer,
+			ClientID:              clientID,
+			ClientSecret:          clientSecret,
+			Scopes:                effectiveScopes,
+			DefaultRole:           role,
+			Enabled:               true,
+			SkipEmailVerification: envSkipEmailVerification,
 		}
 		if err := h.oidcStore.UpsertProvider(ctx, dbP); err != nil {
 			slog.Error("failed to sync env oidc config to db", "error", err)
@@ -235,10 +236,13 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !claims.EmailVerified {
-		slog.Warn("oidc email not verified, rejecting login", "email", claims.Email, "subject", claims.Subject, "email_verified_present", claims.EmailVerifiedPresent)
-		http.Redirect(w, r, "/?error=oidc_email_not_verified", http.StatusFound)
-		return
+	if !bool(claims.EmailVerified) {
+		if !dbProvider.SkipEmailVerification {
+			slog.Warn("oidc email not verified, rejecting login", "email", claims.Email, "subject", claims.Subject, "email_verified_present", claims.EmailVerifiedPresent)
+			http.Redirect(w, r, "/?error=oidc_email_not_verified", http.StatusFound)
+			return
+		}
+		slog.Info("oidc email verification skipped", "email", claims.Email, "subject", claims.Subject)
 	}
 
 	_, err = h.userStore.FindByEmail(r.Context(), claims.Email)
@@ -390,13 +394,14 @@ func (h *OIDCHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 // UpdateConfig creates or updates the OIDC provider config (admin-only).
 func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name         string     `json:"name"`
-		IssuerURL    string     `json:"issuer_url"`
-		ClientID     string     `json:"client_id"`
-		ClientSecret string     `json:"client_secret"`
-		Scopes       string     `json:"scopes"`
-		DefaultRole  model.Role `json:"default_role"`
-		Enabled      bool       `json:"enabled"`
+		Name                  string     `json:"name"`
+		IssuerURL             string     `json:"issuer_url"`
+		ClientID              string     `json:"client_id"`
+		ClientSecret          string     `json:"client_secret"`
+		Scopes                string     `json:"scopes"`
+		DefaultRole           model.Role `json:"default_role"`
+		Enabled               bool       `json:"enabled"`
+		SkipEmailVerification bool       `json:"skip_email_verification"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -441,13 +446,14 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	provider := &model.OIDCProvider{
-		Name:         req.Name,
-		IssuerURL:    req.IssuerURL,
-		ClientID:     req.ClientID,
-		ClientSecret: req.ClientSecret,
-		Scopes:       req.Scopes,
-		DefaultRole:  req.DefaultRole,
-		Enabled:      req.Enabled,
+		Name:                  req.Name,
+		IssuerURL:             req.IssuerURL,
+		ClientID:              req.ClientID,
+		ClientSecret:          req.ClientSecret,
+		Scopes:                req.Scopes,
+		DefaultRole:           req.DefaultRole,
+		Enabled:               req.Enabled,
+		SkipEmailVerification: req.SkipEmailVerification,
 	}
 
 	if err := h.oidcStore.UpsertProvider(r.Context(), provider); err != nil {

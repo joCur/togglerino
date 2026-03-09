@@ -81,9 +81,19 @@ This prevents account linking to the wrong user when an identity provider return
 
 **Providers known to include `email_verified`:** Google Workspace, Okta, Auth0, Azure AD (Entra ID).
 
-**Providers that may omit the claim:** Some enterprise SAML-to-OIDC bridges and self-hosted identity providers may not include `email_verified` in the ID token. If users from your provider are blocked, check the server logs for `oidc email not verified` warnings — the `email_verified_present` field will indicate whether the claim was missing entirely or explicitly set to `false`.
+**Providers that may omit the claim:** Some enterprise SAML-to-OIDC bridges and self-hosted identity providers may not include `email_verified` in the ID token.
 
-If your provider does not emit the `email_verified` claim, ensure it is configured to include this claim in the ID token or userinfo response. Most providers support adding custom claims via scope or claim mapping configuration.
+### Skipping Email Verification
+
+If your provider does not emit the `email_verified` claim, you can enable the **Skip email verification** toggle in the OIDC settings. When enabled, Togglerino treats missing or unverified email addresses as verified.
+
+**Dashboard:** Go to **Settings → SSO/OIDC** and enable the **Skip email verification** toggle.
+
+**Environment variable:** Set `OIDC_SKIP_EMAIL_VERIFICATION=true`.
+
+:::caution
+Only enable this if you trust your identity provider to return accurate email addresses. Disabling email verification removes a layer of protection against account takeover via unverified email claims.
+:::
 
 ## Important: SESSION_SECRET
 
