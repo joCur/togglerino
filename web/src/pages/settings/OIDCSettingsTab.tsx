@@ -39,6 +39,7 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
   const [scopes, setScopes] = useState(provider?.scopes ?? 'openid email profile')
   const [defaultRole, setDefaultRole] = useState<'admin' | 'member'>(provider?.default_role ?? 'member')
   const [enabled, setEnabled] = useState(provider?.enabled ?? true)
+  const [skipEmailVerification, setSkipEmailVerification] = useState(provider?.skip_email_verification ?? false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -52,6 +53,7 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
       scopes: string
       default_role: string
       enabled: boolean
+      skip_email_verification: boolean
     }) => api.put<OIDCProvider>('/auth/oidc/config', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oidc', 'config'] })
@@ -99,6 +101,7 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
       scopes,
       default_role: defaultRole,
       enabled,
+      skip_email_verification: skipEmailVerification,
     })
   }
 
@@ -174,6 +177,16 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
             <div className="flex items-center gap-3">
               <Switch checked={enabled} onCheckedChange={setEnabled} />
               <Label className="text-sm">Enabled</Label>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-3">
+                <Switch checked={skipEmailVerification} onCheckedChange={setSkipEmailVerification} />
+                <Label className="text-sm">Skip email verification</Label>
+              </div>
+              <p className="text-[11px] text-muted-foreground/60">
+                When enabled, users can log in via SSO even if the identity provider does not return a verified email address. Only enable this if you trust your identity provider to return accurate email addresses.
+              </p>
             </div>
 
             {error && <div className="text-[13px] text-destructive">{error}</div>}
