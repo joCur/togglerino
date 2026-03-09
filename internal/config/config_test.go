@@ -1,13 +1,11 @@
 package config
 
 import (
-	"os"
 	"testing"
 )
 
 func TestLoad_OIDCSkipEmailVerification(t *testing.T) {
 	// Default: false
-	os.Unsetenv("OIDC_SKIP_EMAIL_VERIFICATION")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -17,8 +15,7 @@ func TestLoad_OIDCSkipEmailVerification(t *testing.T) {
 	}
 
 	// Explicit true
-	os.Setenv("OIDC_SKIP_EMAIL_VERIFICATION", "true")
-	defer os.Unsetenv("OIDC_SKIP_EMAIL_VERIFICATION")
+	t.Setenv("OIDC_SKIP_EMAIL_VERIFICATION", "true")
 	cfg, err = Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
