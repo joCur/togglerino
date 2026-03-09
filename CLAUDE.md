@@ -61,6 +61,7 @@ Multi-stage Dockerfile: `node:20-alpine` (frontend build) → `golang:1.25-alpin
 - `OIDC_CLIENT_ID` — OIDC client ID (env var override for DB config)
 - `OIDC_CLIENT_SECRET` — OIDC client secret (env var override for DB config)
 - `OIDC_DEFAULT_ROLE` — Default role for OIDC-provisioned users: `admin` or `member` (default: `member`)
+- `OIDC_SKIP_EMAIL_VERIFICATION` — Skip `email_verified` claim check for OIDC login (default: `false`)
 
 ## Development Workflow
 
