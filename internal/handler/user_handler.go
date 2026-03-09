@@ -72,7 +72,7 @@ func (h *UserHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	// Generate 32 random bytes, hex-encoded
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to generate random token", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -124,7 +124,7 @@ func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	// Generate 32 random bytes, hex-encoded (same approach as Invite)
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to generate random token", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}

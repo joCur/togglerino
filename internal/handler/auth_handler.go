@@ -45,7 +45,7 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 
 	count, err := h.users.Count(r.Context())
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to count users", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -56,7 +56,7 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to hash password", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -182,7 +182,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Status(w http.ResponseWriter, r *http.Request) {
 	count, err := h.users.Count(r.Context())
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to count users", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -272,7 +272,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	dbUser, err := h.users.FindByID(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to find user by ID", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -284,7 +284,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to hash password", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -353,7 +353,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to hash password", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -417,7 +417,7 @@ func (h *AuthHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to hash password", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}

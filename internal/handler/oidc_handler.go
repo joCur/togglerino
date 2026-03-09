@@ -132,19 +132,19 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 
 	state, err := oidc.GenerateRandom(32)
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to generate OIDC state", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	nonce, err := oidc.GenerateRandom(32)
 	if err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to generate OIDC nonce", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	if err := oidc.SetStateCookie(w, h.secret, oidc.StateData{State: state, Nonce: nonce}, h.secureCookies()); err != nil {
-		slog.Error("internal error", "error", err)
+		slog.Error("failed to set OIDC state cookie", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
