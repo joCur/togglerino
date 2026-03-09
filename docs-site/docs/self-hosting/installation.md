@@ -5,7 +5,7 @@ title: Installation
 
 # Installation
 
-Togglerino is distributed as a single binary that serves the management UI, API, and SDK evaluation endpoints. Choose the installation method that best fits your environment.
+Togglerino is distributed as a single binary that includes the dashboard, management API, and SDK evaluation endpoints. Choose the installation method that best fits your environment.
 
 :::info
 Database migrations run automatically on startup for all installation methods. No manual migration step is required.
