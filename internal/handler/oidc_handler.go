@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -18,6 +19,7 @@ type OIDCHandler struct {
 	oidcStore    *store.OIDCStore
 	userStore    *store.UserStore
 	sessionStore *store.SessionStore
+	audit        *store.AuditStore
 	secret       []byte
 	baseURL      string
 
@@ -25,14 +27,21 @@ type OIDCHandler struct {
 	provider *oidc.Provider
 }
 
-func NewOIDCHandler(oidcStore *store.OIDCStore, userStore *store.UserStore, sessionStore *store.SessionStore, secret []byte, baseURL string) *OIDCHandler {
+func NewOIDCHandler(oidcStore *store.OIDCStore, userStore *store.UserStore, sessionStore *store.SessionStore, secret []byte, baseURL string, audit *store.AuditStore) *OIDCHandler {
 	return &OIDCHandler{
 		oidcStore:    oidcStore,
 		userStore:    userStore,
 		sessionStore: sessionStore,
 		secret:       secret,
 		baseURL:      baseURL,
+		audit:        audit,
 	}
+}
+
+func redactProvider(p *model.OIDCProvider) model.OIDCProvider {
+	redacted := *p
+	redacted.ClientSecret = "[REDACTED]"
+	return redacted
 }
 
 func (h *OIDCHandler) secureCookies() bool {
@@ -220,34 +229,40 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if claims.Email != "" {
-		_, err := h.userStore.FindByEmail(r.Context(), claims.Email)
-		switch {
-		case err == nil:
-			// Existing user found — redirect to account linking
-			if err := oidc.SetPendingLinkCookie(w, h.secret, oidc.PendingLink{
-				ProviderID: dbProvider.ID,
-				Subject:    claims.Subject,
-				Email:      claims.Email,
-			}, h.secureCookies()); err != nil {
-				slog.Error("failed to set pending link cookie", "error", err)
-				http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
-				return
-			}
-			http.Redirect(w, r, "/link-account", http.StatusFound)
-			return
-		case !store.IsNotFound(err):
-			// Transient DB error — do not fall through to provisioning
-			slog.Error("oidc email lookup failed", "email", claims.Email, "error", err)
-			http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
-			return
-		}
-		// err is pgx.ErrNoRows — user doesn't exist, proceed to provisioning
-	} else {
+	if claims.Email == "" {
 		slog.Error("oidc provider did not return an email claim, cannot provision user")
 		http.Redirect(w, r, "/?error=oidc_no_email", http.StatusFound)
 		return
 	}
+
+	if !claims.EmailVerified {
+		slog.Warn("oidc email not verified, rejecting login", "email", claims.Email, "subject", claims.Subject, "email_verified_present", claims.EmailVerifiedPresent)
+		http.Redirect(w, r, "/?error=oidc_email_not_verified", http.StatusFound)
+		return
+	}
+
+	_, err = h.userStore.FindByEmail(r.Context(), claims.Email)
+	switch {
+	case err == nil:
+		// Existing user found — redirect to account linking
+		if err := oidc.SetPendingLinkCookie(w, h.secret, oidc.PendingLink{
+			ProviderID: dbProvider.ID,
+			Subject:    claims.Subject,
+			Email:      claims.Email,
+		}, h.secureCookies()); err != nil {
+			slog.Error("failed to set pending link cookie", "error", err)
+			http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
+			return
+		}
+		http.Redirect(w, r, "/link-account", http.StatusFound)
+		return
+	case !store.IsNotFound(err):
+		// Transient DB error — do not fall through to provisioning
+		slog.Error("oidc email lookup failed", "email", claims.Email, "error", err)
+		http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
+		return
+	}
+	// err is pgx.ErrNoRows — user doesn't exist, proceed to provisioning
 
 	userID, err := h.oidcStore.ProvisionUser(r.Context(), claims.Email, claims.Name, dbProvider.DefaultRole, dbProvider.ID, claims.Subject)
 	if err != nil {
@@ -313,6 +328,23 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to link account")
 			return
 		}
+
+		// Best-effort audit logging
+		newVal, _ := json.Marshal(map[string]string{
+			"user_email":  pending.Email,
+			"subject":     pending.Subject,
+			"provider_id": pending.ProviderID,
+		})
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			Action:     "create",
+			EntityType: "oidc_identity",
+			EntityID:   pending.Subject,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
 	}
 
 	oidc.ClearPendingLinkCookie(w)
@@ -376,14 +408,16 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture old state for audit logging
+	oldProvider, _ := h.oidcStore.GetProvider(r.Context())
+
 	// On updates, allow omitting client_secret to keep the existing one
 	if req.ClientSecret == "" {
-		existing, err := h.oidcStore.GetProvider(r.Context())
-		if err != nil || existing == nil {
+		if oldProvider == nil {
 			writeError(w, http.StatusBadRequest, "client_secret is required for initial setup")
 			return
 		}
-		req.ClientSecret = existing.ClientSecret
+		req.ClientSecret = oldProvider.ClientSecret
 	}
 
 	if req.DefaultRole != model.RoleAdmin && req.DefaultRole != model.RoleMember {
@@ -426,6 +460,31 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	h.provider = newProvider // nil when disabled
 	h.mu.Unlock()
 
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		action := "update"
+		var oldVal json.RawMessage
+		if oldProvider != nil {
+			redacted := redactProvider(oldProvider)
+			oldVal, _ = json.Marshal(redacted)
+		} else {
+			action = "create"
+		}
+		redacted := redactProvider(provider)
+		newVal, _ := json.Marshal(redacted)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			Action:     action,
+			EntityType: "oidc_provider",
+			EntityID:   provider.Name,
+			OldValue:   oldVal,
+			NewValue:   newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, provider)
 }
 
@@ -446,6 +505,22 @@ func (h *OIDCHandler) DeleteConfig(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	h.provider = nil
 	h.mu.Unlock()
+
+	// Best-effort audit logging
+	if user := auth.UserFromContext(r.Context()); user != nil {
+		redacted := redactProvider(provider)
+		oldVal, _ := json.Marshal(redacted)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			UserID:     &user.ID,
+			UserEmail:  &user.Email,
+			Action:     "delete",
+			EntityType: "oidc_provider",
+			EntityID:   provider.Name,
+			OldValue:   oldVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 }

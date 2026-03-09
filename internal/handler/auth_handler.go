@@ -16,6 +16,7 @@ type AuthHandler struct {
 	users          *store.UserStore
 	sessions       *store.SessionStore
 	invites        *store.InviteStore
+	baseURL        string
 	oidcConfigured func() bool
 }
 
@@ -24,8 +25,12 @@ func (h *AuthHandler) SetOIDCChecker(fn func() bool) {
 	h.oidcConfigured = fn
 }
 
-func NewAuthHandler(users *store.UserStore, sessions *store.SessionStore, invites *store.InviteStore) *AuthHandler {
-	return &AuthHandler{users: users, sessions: sessions, invites: invites}
+func NewAuthHandler(users *store.UserStore, sessions *store.SessionStore, invites *store.InviteStore, baseURL string) *AuthHandler {
+	return &AuthHandler{users: users, sessions: sessions, invites: invites, baseURL: baseURL}
+}
+
+func (h *AuthHandler) secureCookies() bool {
+	return strings.HasPrefix(h.baseURL, "https://")
 }
 
 // POST /api/v1/auth/setup — create the initial admin user (only works when no users exist)
@@ -80,6 +85,7 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 		Value:    session.ID,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   h.secureCookies(),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   7 * 24 * 60 * 60,
 	})
@@ -121,6 +127,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Value:    session.ID,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   h.secureCookies(),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   7 * 24 * 60 * 60,
 	})
@@ -140,6 +147,8 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   h.secureCookies(),
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
 
