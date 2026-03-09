@@ -52,6 +52,7 @@ func (h *EnvironmentAccessHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	restrictions, err := h.envAccess.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list environment access restrictions", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list environment access restrictions")
 		return
 	}
@@ -61,6 +62,7 @@ func (h *EnvironmentAccessHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	envs, err := h.environments.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list environments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list environments")
 		return
 	}
@@ -103,6 +105,7 @@ func (h *EnvironmentAccessHandler) Update(w http.ResponseWriter, r *http.Request
 	for _, restriction := range req.Restrictions {
 		exists, err := h.roles.Exists(r.Context(), restriction.RoleName)
 		if err != nil {
+			slog.Error("failed to validate role", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to validate role")
 			return
 		}
@@ -116,6 +119,7 @@ func (h *EnvironmentAccessHandler) Update(w http.ResponseWriter, r *http.Request
 	if len(req.Restrictions) > 0 {
 		envs, err := h.environments.ListByProject(r.Context(), project.ID)
 		if err != nil {
+			slog.Error("failed to list environments", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to list environments")
 			return
 		}
@@ -137,6 +141,7 @@ func (h *EnvironmentAccessHandler) Update(w http.ResponseWriter, r *http.Request
 	oldRestrictions, _ := h.envAccess.ListByProject(r.Context(), project.ID)
 
 	if err := h.envAccess.ReplaceForProject(r.Context(), project.ID, req.Restrictions); err != nil {
+		slog.Error("failed to update environment access restrictions", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update environment access restrictions")
 		return
 	}

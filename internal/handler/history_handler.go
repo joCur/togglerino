@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/model"
@@ -53,6 +54,7 @@ func (h *HistoryHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	entries, totalCount, err := h.audit.ListByFlag(r.Context(), project.ID, flagKey, envID, limit, offset)
 	if err != nil {
+		slog.Error("failed to list flag history", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list flag history")
 		return
 	}

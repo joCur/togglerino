@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -44,6 +45,7 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 
 	count, err := h.users.Count(r.Context())
 	if err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -54,18 +56,21 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	user, err := h.users.Create(r.Context(), req.Email, hash, model.RoleAdmin)
 	if err != nil {
+		slog.Error("failed to create user", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}
 
 	session, err := h.sessions.Create(r.Context(), user.ID, 7*24*time.Hour)
 	if err != nil {
+		slog.Error("failed to create session", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create session")
 		return
 	}
@@ -106,6 +111,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	session, err := h.sessions.Create(r.Context(), user.ID, 7*24*time.Hour)
 	if err != nil {
+		slog.Error("failed to create session", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create session")
 		return
 	}
@@ -176,6 +182,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Status(w http.ResponseWriter, r *http.Request) {
 	count, err := h.users.Count(r.Context())
 	if err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -225,6 +232,7 @@ func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "email already in use")
 			return
 		}
+		slog.Error("failed to update profile", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update profile")
 		return
 	}
@@ -264,6 +272,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	dbUser, err := h.users.FindByID(r.Context(), user.ID)
 	if err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -275,11 +284,13 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	if err := h.users.UpdatePassword(r.Context(), user.ID, hash); err != nil {
+		slog.Error("failed to update password", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update password")
 		return
 	}
@@ -324,6 +335,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	// Atomically claim the token to prevent reuse
 	claimed, err := h.invites.MarkAccepted(r.Context(), invite.ID)
 	if err != nil {
+		slog.Error("failed to process reset token", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to process reset token")
 		return
 	}
@@ -341,11 +353,13 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	if err := h.users.UpdatePassword(r.Context(), user.ID, hash); err != nil {
+		slog.Error("failed to update password", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update password")
 		return
 	}
@@ -392,6 +406,7 @@ func (h *AuthHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	// requests both see accepted_at == nil before either marks it accepted.
 	claimed, err := h.invites.MarkAccepted(r.Context(), invite.ID)
 	if err != nil {
+		slog.Error("failed to mark invite accepted", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to mark invite accepted")
 		return
 	}
@@ -402,12 +417,14 @@ func (h *AuthHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	_, err = h.users.Create(r.Context(), invite.Email, hash, invite.Role)
 	if err != nil {
+		slog.Error("failed to create user", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create user")
 		return
 	}

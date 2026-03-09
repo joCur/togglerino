@@ -41,6 +41,7 @@ func (h *ProjectMemberHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	members, err := h.members.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list members", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list members")
 		return
 	}
@@ -109,6 +110,7 @@ func (h *ProjectMemberHandler) Add(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "user is already a member of this project")
 			return
 		}
+		slog.Error("failed to add member", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to add member")
 		return
 	}

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"errors"
 	"net/http"
 
@@ -35,6 +36,7 @@ func (h *UnknownFlagHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	flags, totalCount, err := h.unknownFlags.ListByProject(r.Context(), project.ID, limit, offset)
 	if err != nil {
+		slog.Error("failed to list unknown flags", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list unknown flags")
 		return
 	}
@@ -72,6 +74,7 @@ func (h *UnknownFlagHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "unknown flag not found")
 			return
 		}
+		slog.Error("failed to dismiss unknown flag", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to dismiss unknown flag")
 		return
 	}

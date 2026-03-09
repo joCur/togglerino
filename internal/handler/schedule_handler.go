@@ -33,6 +33,7 @@ func (h *ScheduleHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	schedules, err := h.schedules.ListByFlagEnvironment(r.Context(), flag.ID, env.ID)
 	if err != nil {
+		slog.Error("failed to list schedules", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list schedules")
 		return
 	}
@@ -87,6 +88,7 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	sc, err := h.schedules.Create(r.Context(), flag.ID, env.ID, scheduledAt, req.ConfigSnapshot, createdBy)
 	if err != nil {
+		slog.Error("failed to create schedule", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create schedule")
 		return
 	}
@@ -153,6 +155,7 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		slog.Error("failed to update schedule", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update schedule")
 		return
 	}
@@ -194,6 +197,7 @@ func (h *ScheduleHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		slog.Error("failed to cancel schedule", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to cancel schedule")
 		return
 	}

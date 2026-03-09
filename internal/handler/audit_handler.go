@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/model"
@@ -34,6 +35,7 @@ func (h *AuditHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	entries, totalCount, err := h.audit.ListByProject(r.Context(), project.ID, limit, offset)
 	if err != nil {
+		slog.Error("failed to list audit log", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list audit log")
 		return
 	}

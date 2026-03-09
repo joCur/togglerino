@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -33,6 +34,7 @@ func (h *LifecycleHandler) Summary(w http.ResponseWriter, r *http.Request) {
 
 	summary, err := h.flags.LifecycleSummary(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to get lifecycle summary", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get lifecycle summary")
 		return
 	}
@@ -72,6 +74,7 @@ func (h *LifecycleHandler) Trends(w http.ResponseWriter, r *http.Request) {
 
 	trends, err := h.snapshots.GetTrends(r.Context(), project.ID, days)
 	if err != nil {
+		slog.Error("failed to get lifecycle trends", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get lifecycle trends")
 		return
 	}

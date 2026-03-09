@@ -32,6 +32,7 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	users, totalCount, err := h.users.List(r.Context(), limit, offset)
 	if err != nil {
+		slog.Error("failed to list users", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list users")
 		return
 	}
@@ -71,6 +72,7 @@ func (h *UserHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	// Generate 32 random bytes, hex-encoded
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -91,6 +93,7 @@ func (h *UserHandler) Invite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.invites.Create(r.Context(), invite); err != nil {
+		slog.Error("failed to create invite", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create invite")
 		return
 	}
@@ -121,6 +124,7 @@ func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	// Generate 32 random bytes, hex-encoded (same approach as Invite)
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
+		slog.Error("internal error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -142,6 +146,7 @@ func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.invites.Create(r.Context(), invite); err != nil {
+		slog.Error("failed to create reset token", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create reset token")
 		return
 	}
@@ -178,6 +183,7 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) ListInvites(w http.ResponseWriter, r *http.Request) {
 	invites, err := h.invites.ListPending(r.Context())
 	if err != nil {
+		slog.Error("failed to list invites", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list invites")
 		return
 	}
@@ -194,6 +200,7 @@ func (h *UserHandler) ListProjectAssignments(w http.ResponseWriter, r *http.Requ
 
 	assignments, err := h.members.ListByUser(r.Context(), userID)
 	if err != nil {
+		slog.Error("failed to list project assignments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list project assignments")
 		return
 	}
@@ -244,6 +251,7 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 	// Get current assignments
 	current, err := h.members.ListByUser(r.Context(), userID)
 	if err != nil {
+		slog.Error("failed to list current assignments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list current assignments")
 		return
 	}
@@ -262,6 +270,7 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 	// Use a transaction so all changes are atomic
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
+		slog.Error("failed to begin transaction", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to begin transaction")
 		return
 	}
@@ -274,6 +283,7 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 				`DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`,
 				c.ProjectID, userID)
 			if err != nil {
+				slog.Error("failed to remove assignment", "error", err)
 				writeError(w, http.StatusInternalServerError, "failed to remove assignment")
 				return
 			}
@@ -288,6 +298,7 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 					`UPDATE project_members SET role = $3, updated_at = NOW() WHERE project_id = $1 AND user_id = $2`,
 					projectID, userID, role)
 				if err != nil {
+					slog.Error("failed to update assignment", "error", err)
 					writeError(w, http.StatusInternalServerError, "failed to update assignment")
 					return
 				}
@@ -297,6 +308,7 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 				`INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, $3)`,
 				projectID, userID, role)
 			if err != nil {
+				slog.Error("failed to add assignment", "error", err)
 				writeError(w, http.StatusInternalServerError, "failed to add assignment")
 				return
 			}
@@ -304,6 +316,7 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
+		slog.Error("failed to commit transaction", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to commit transaction")
 		return
 	}
@@ -327,6 +340,7 @@ func (h *UserHandler) UpdateProjectAssignments(w http.ResponseWriter, r *http.Re
 	// Return updated list
 	assignments, err := h.members.ListByUser(r.Context(), userID)
 	if err != nil {
+		slog.Error("failed to list updated assignments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list updated assignments")
 		return
 	}
