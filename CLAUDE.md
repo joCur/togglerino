@@ -232,6 +232,22 @@ Go tests require a running PostgreSQL instance. Tests use `testPool()` helper th
 - **`.github/workflows/ci.yml`**: Six jobs — `test-go` (postgres service container, builds frontend for `go:embed`, runs `go test`), `test-sdks` (JS + React SDK tests), `test-dotnet-sdk` (.NET SDK tests), `test-go-sdk` (Go SDK tests), `lint-frontend` (`npm run lint`), `build` (gates on all five, full binary build). Runs on push/PR to `main`.
 - **`.github/workflows/release.yml`**: Uses `release-please-action@v4` (`release-type: simple`). On release, builds and pushes Docker image to **ghcr.io** with semver + `latest` tags. Changelog auto-generated from Conventional Commits.
 
+## Documentation Site
+
+User-facing docs live in `docs-site/` (Docusaurus 3). Built and deployed to GitHub Pages on release.
+
+```bash
+cd docs-site && npm install && npm run build   # Build docs site
+cd docs-site && npm start                      # Local dev server with hot reload
+```
+
+**Docs maintenance rule**: If you change API endpoints, env vars, UI flows, SDK interfaces, or flag evaluation behavior, update the relevant docs page in `docs-site/docs/`. Key mappings:
+- Env vars (`internal/config/`) → `docs-site/docs/self-hosting/configuration.md`
+- API routes (`internal/handler/`) → `docs-site/docs/api-reference/`
+- SDK changes (`sdks/`) → `docs-site/docs/sdks/`
+- Flag evaluation (`internal/evaluation/`) → `docs-site/docs/core-concepts/`
+- Dashboard UI (`web/src/`) → `docs-site/docs/dashboard/`
+
 ## Other
 
 - `docs/plans/` — design documents and implementation plans (planning artifacts, not API docs)
