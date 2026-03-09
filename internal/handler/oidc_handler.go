@@ -236,10 +236,13 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !bool(claims.EmailVerified) && !dbProvider.SkipEmailVerification {
-		slog.Warn("oidc email not verified, rejecting login", "email", claims.Email, "subject", claims.Subject, "email_verified_present", claims.EmailVerifiedPresent)
-		http.Redirect(w, r, "/?error=oidc_email_not_verified", http.StatusFound)
-		return
+	if !bool(claims.EmailVerified) {
+		if !dbProvider.SkipEmailVerification {
+			slog.Warn("oidc email not verified, rejecting login", "email", claims.Email, "subject", claims.Subject, "email_verified_present", claims.EmailVerifiedPresent)
+			http.Redirect(w, r, "/?error=oidc_email_not_verified", http.StatusFound)
+			return
+		}
+		slog.Info("oidc email verification skipped", "email", claims.Email, "subject", claims.Subject)
 	}
 
 	_, err = h.userStore.FindByEmail(r.Context(), claims.Email)
