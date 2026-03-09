@@ -207,6 +207,9 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
               This will remove the OIDC configuration. Users who signed in exclusively via SSO will lose access until OIDC is reconfigured.
             </DialogDescription>
           </DialogHeader>
+          {deleteMutation.isError && (
+            <div className="text-[13px] text-destructive">{deleteMutation.error.message}</div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
               Cancel

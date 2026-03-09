@@ -7,20 +7,32 @@ import (
 
 func TestClaimsEmailVerified(t *testing.T) {
 	tests := []struct {
-		name     string
-		json     string
-		wantVer  bool
+		name      string
+		json      string
+		wantVer   bool
 		wantEmail string
 	}{
 		{
-			name:      "email_verified true",
+			name:      "email_verified boolean true",
 			json:      `{"sub":"123","email":"user@example.com","name":"User","email_verified":true}`,
 			wantVer:   true,
 			wantEmail: "user@example.com",
 		},
 		{
-			name:      "email_verified false",
+			name:      "email_verified boolean false",
 			json:      `{"sub":"123","email":"user@example.com","name":"User","email_verified":false}`,
+			wantVer:   false,
+			wantEmail: "user@example.com",
+		},
+		{
+			name:      "email_verified string true (Google-style)",
+			json:      `{"sub":"123","email":"user@example.com","name":"User","email_verified":"true"}`,
+			wantVer:   true,
+			wantEmail: "user@example.com",
+		},
+		{
+			name:      "email_verified string false",
+			json:      `{"sub":"123","email":"user@example.com","name":"User","email_verified":"false"}`,
 			wantVer:   false,
 			wantEmail: "user@example.com",
 		},
@@ -38,7 +50,7 @@ func TestClaimsEmailVerified(t *testing.T) {
 			if err := json.Unmarshal([]byte(tt.json), &c); err != nil {
 				t.Fatalf("unmarshal: %v", err)
 			}
-			if c.EmailVerified != tt.wantVer {
+			if bool(c.EmailVerified) != tt.wantVer {
 				t.Errorf("EmailVerified = %v, want %v", c.EmailVerified, tt.wantVer)
 			}
 			if c.Email != tt.wantEmail {

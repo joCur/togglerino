@@ -32,18 +32,21 @@ func TestSetup_SecureCookie_HTTPS(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.Setup(rr, req)
 
-	// Setup may fail with 409 if users exist, but if 201 check cookie
-	if rr.Code == http.StatusCreated {
-		for _, c := range rr.Result().Cookies() {
-			if c.Name == "session_id" {
-				if !c.Secure {
-					t.Error("expected Secure=true on session cookie with HTTPS base URL")
-				}
-				return
-			}
-		}
-		t.Error("session_id cookie not found")
+	if rr.Code == http.StatusConflict {
+		t.Skip("users already exist in database, cannot test setup cookie")
 	}
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("unexpected status %d", rr.Code)
+	}
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == "session_id" {
+			if !c.Secure {
+				t.Error("expected Secure=true on session cookie with HTTPS base URL")
+			}
+			return
+		}
+	}
+	t.Error("session_id cookie not found")
 }
 
 func TestLogin_SecureCookie_HTTPS(t *testing.T) {

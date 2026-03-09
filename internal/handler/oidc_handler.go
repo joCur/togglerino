@@ -229,37 +229,40 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if claims.Email != "" && claims.EmailVerified {
-		_, err := h.userStore.FindByEmail(r.Context(), claims.Email)
-		switch {
-		case err == nil:
-			// Existing user found — redirect to account linking
-			if err := oidc.SetPendingLinkCookie(w, h.secret, oidc.PendingLink{
-				ProviderID: dbProvider.ID,
-				Subject:    claims.Subject,
-				Email:      claims.Email,
-			}, h.secureCookies()); err != nil {
-				slog.Error("failed to set pending link cookie", "error", err)
-				http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
-				return
-			}
-			http.Redirect(w, r, "/link-account", http.StatusFound)
-			return
-		case !store.IsNotFound(err):
-			// Transient DB error — do not fall through to provisioning
-			slog.Error("oidc email lookup failed", "email", claims.Email, "error", err)
-			http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
-			return
-		}
-		// err is pgx.ErrNoRows — user doesn't exist, proceed to provisioning
-	} else if claims.Email != "" && !claims.EmailVerified {
-		slog.Warn("oidc email not verified, skipping account linking", "email", claims.Email, "subject", claims.Subject)
-		// Fall through to provisioning with unverified email
-	} else {
+	if claims.Email == "" {
 		slog.Error("oidc provider did not return an email claim, cannot provision user")
 		http.Redirect(w, r, "/?error=oidc_no_email", http.StatusFound)
 		return
 	}
+
+	if !claims.EmailVerified {
+		slog.Warn("oidc email not verified, rejecting login", "email", claims.Email, "subject", claims.Subject)
+		http.Redirect(w, r, "/?error=oidc_email_not_verified", http.StatusFound)
+		return
+	}
+
+	_, err = h.userStore.FindByEmail(r.Context(), claims.Email)
+	switch {
+	case err == nil:
+		// Existing user found — redirect to account linking
+		if err := oidc.SetPendingLinkCookie(w, h.secret, oidc.PendingLink{
+			ProviderID: dbProvider.ID,
+			Subject:    claims.Subject,
+			Email:      claims.Email,
+		}, h.secureCookies()); err != nil {
+			slog.Error("failed to set pending link cookie", "error", err)
+			http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
+			return
+		}
+		http.Redirect(w, r, "/link-account", http.StatusFound)
+		return
+	case !store.IsNotFound(err):
+		// Transient DB error — do not fall through to provisioning
+		slog.Error("oidc email lookup failed", "email", claims.Email, "error", err)
+		http.Redirect(w, r, "/?error=oidc_failed", http.StatusFound)
+		return
+	}
+	// err is pgx.ErrNoRows — user doesn't exist, proceed to provisioning
 
 	userID, err := h.oidcStore.ProvisionUser(r.Context(), claims.Email, claims.Name, dbProvider.DefaultRole, dbProvider.ID, claims.Subject)
 	if err != nil {
@@ -328,8 +331,9 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 
 		// Best-effort audit logging
 		newVal, _ := json.Marshal(map[string]string{
-			"user_email": pending.Email,
-			"subject":    pending.Subject,
+			"user_email":  pending.Email,
+			"subject":     pending.Subject,
+			"provider_id": pending.ProviderID,
 		})
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			UserID:     &user.ID,
