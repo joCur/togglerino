@@ -15,7 +15,7 @@ Togglerino is configured entirely through environment variables. There are no co
 | `DATABASE_URL` | `postgres://togglerino:togglerino@localhost:5432/togglerino?sslmode=disable` | PostgreSQL connection string |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins. Use `*` for development only. |
 | `LOG_FORMAT` | `json` | Log output format: `json` or `text` |
-| `SESSION_SECRET` | (auto-generated) | HMAC key for session and OIDC state cookies. Auto-generated if unset. **Set explicitly for persistence across restarts and multi-instance deployments.** |
+| `SESSION_SECRET` | (auto-generated) | HMAC key for session and OIDC state cookies. Auto-generated if unset. **Set explicitly for persistence across restarts.** |
 | `BASE_URL` | (auto-derived from requests) | External base URL for OIDC callbacks (e.g., `https://flags.example.com`). Set when behind a reverse proxy. |
 | `OIDC_ISSUER_URL` | — | OIDC provider issuer URL. Overrides database config if set. |
 | `OIDC_CLIENT_ID` | — | OIDC client ID. Overrides database config if set. |
@@ -66,9 +66,8 @@ If `SESSION_SECRET` is not set, Togglerino generates a random secret on each sta
 
 - All active user sessions are invalidated on every restart.
 - OIDC state verification will fail if the server restarts mid-authentication flow.
-- Multi-instance deployments will not share sessions.
 
-For production, always set `SESSION_SECRET` to a stable, random string (at least 32 characters). Use the same value across all instances if running behind a load balancer.
+For production, always set `SESSION_SECRET` to a stable, random string (at least 32 characters).
 
 ```bash
 # Generate a random secret

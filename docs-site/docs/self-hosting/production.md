@@ -119,26 +119,18 @@ In production, you **must** set `SESSION_SECRET` explicitly:
 SESSION_SECRET="$(openssl rand -hex 32)"
 ```
 
-If running multiple instances behind a load balancer, all instances must share the same `SESSION_SECRET`. Without it, sessions created on one instance will not be valid on another, and OIDC authentication flows will break.
+Without a stable `SESSION_SECRET`, sessions won't survive restarts and OIDC authentication flows will break.
 
 ## Resource Sizing
 
-Togglerino is a lightweight single binary with an in-memory flag cache. Typical resource requirements are modest:
+Togglerino runs as a single instance. Typical resource requirements are modest:
 
 - **CPU**: 1 vCPU is sufficient for most workloads.
 - **Memory**: Base memory usage is low. The primary memory consumer is the in-memory flag cache and active SSE connections.
-- **SSE connections**: Each connected SDK client maintains one persistent SSE connection with a buffered channel (size 16). Plan for the number of concurrent SDK clients in your deployment. Events are dropped for slow subscribers to prevent unbounded memory growth.
+- **SSE connections**: Each connected SDK client maintains one persistent SSE connection. Plan for the number of concurrent SDK clients in your deployment.
 - **Disk**: Minimal. The binary is self-contained and logs to stdout.
 
 For most teams, a single instance with 1 vCPU and 512 MB of RAM handles thousands of SDK clients comfortably. Scale PostgreSQL resources based on audit log volume and the number of flags/projects.
-
-## Multi-Instance Deployments
-
-Togglerino can run multiple instances behind a load balancer. Requirements:
-
-- All instances must share the same `SESSION_SECRET`.
-- All instances must connect to the same PostgreSQL database.
-- SSE connections are per-instance. Each SDK client connects to one instance and receives updates from that instance's in-memory hub. Flag changes made on any instance are written to the database, and each instance refreshes its own cache on mutation.
 
 ## Next Steps
 

@@ -78,10 +78,4 @@ Downgrade migrations (`.down.sql` files) exist in the source tree but are **not*
 
 ## Zero-Downtime Upgrades
 
-For deployments that require zero downtime:
-
-1. Run the new version alongside the old version behind a load balancer.
-2. The new instance runs migrations on startup. Since migrations run in transactions and are idempotent (tracked by version), this is safe even while the old instance is still running.
-3. Once the new instance is healthy (check `/healthz`), drain connections from the old instance and shut it down.
-
-Ensure all instances share the same `SESSION_SECRET` so user sessions remain valid across the transition.
+To minimize downtime, stop the old instance, start the new one, and verify it's healthy via `/healthz`. Migrations run automatically and complete within seconds.
