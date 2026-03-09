@@ -358,25 +358,9 @@ func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string)
 
 	var configs []model.FlagEnvironmentConfig
 	for rows.Next() {
-		var cfg model.FlagEnvironmentConfig
-		var variantsJSON, rulesJSON json.RawMessage
-		var updatedByUserID, updatedByEmail *string
-		var updatedByDisplayName *string
-		if err := rows.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-			&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
-			&updatedByUserID, &updatedByEmail, &updatedByDisplayName); err != nil {
-			return nil, fmt.Errorf("scanning environment config: %w", err)
-		}
-		json.Unmarshal(variantsJSON, &cfg.Variants)
-		json.Unmarshal(rulesJSON, &cfg.TargetingRules)
-		if cfg.Variants == nil {
-			cfg.Variants = []model.Variant{}
-		}
-		if cfg.TargetingRules == nil {
-			cfg.TargetingRules = []model.TargetingRule{}
-		}
-		if updatedByUserID != nil {
-			cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
+		cfg, err := scanEnvironmentConfigRowWithUser(rows)
+		if err != nil {
+			return nil, err
 		}
 		configs = append(configs, cfg)
 	}
@@ -410,25 +394,9 @@ func (s *FlagStore) GetEnvironmentConfigsByFlagIDs(ctx context.Context, flagIDs 
 	defer rows.Close()
 
 	for rows.Next() {
-		var cfg model.FlagEnvironmentConfig
-		var variantsJSON, rulesJSON json.RawMessage
-		var updatedByUserID, updatedByEmail *string
-		var updatedByDisplayName *string
-		if err := rows.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-			&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
-			&updatedByUserID, &updatedByEmail, &updatedByDisplayName); err != nil {
-			return nil, fmt.Errorf("scanning environment config: %w", err)
-		}
-		json.Unmarshal(variantsJSON, &cfg.Variants)
-		json.Unmarshal(rulesJSON, &cfg.TargetingRules)
-		if cfg.Variants == nil {
-			cfg.Variants = []model.Variant{}
-		}
-		if cfg.TargetingRules == nil {
-			cfg.TargetingRules = []model.TargetingRule{}
-		}
-		if updatedByUserID != nil {
-			cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
+		cfg, err := scanEnvironmentConfigRowWithUser(rows)
+		if err != nil {
+			return nil, err
 		}
 		result[cfg.FlagID] = append(result[cfg.FlagID], cfg)
 	}
@@ -499,8 +467,12 @@ func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("scanning flag environment config: %w", err)
 	}
-	json.Unmarshal(variantsJSON, &cfg.Variants)
-	json.Unmarshal(rulesJSON, &cfg.TargetingRules)
+	if err := json.Unmarshal(variantsJSON, &cfg.Variants); err != nil {
+		return nil, fmt.Errorf("unmarshalling variants: %w", err)
+	}
+	if err := json.Unmarshal(rulesJSON, &cfg.TargetingRules); err != nil {
+		return nil, fmt.Errorf("unmarshalling targeting rules: %w", err)
+	}
 	if cfg.Variants == nil {
 		cfg.Variants = []model.Variant{}
 	}
@@ -521,8 +493,12 @@ func scanFlagEnvConfigWithUser(row pgx.Row) (*model.FlagEnvironmentConfig, error
 	if err != nil {
 		return nil, fmt.Errorf("scanning flag environment config: %w", err)
 	}
-	json.Unmarshal(variantsJSON, &cfg.Variants)
-	json.Unmarshal(rulesJSON, &cfg.TargetingRules)
+	if err := json.Unmarshal(variantsJSON, &cfg.Variants); err != nil {
+		return nil, fmt.Errorf("unmarshalling variants: %w", err)
+	}
+	if err := json.Unmarshal(rulesJSON, &cfg.TargetingRules); err != nil {
+		return nil, fmt.Errorf("unmarshalling targeting rules: %w", err)
+	}
 	if cfg.Variants == nil {
 		cfg.Variants = []model.Variant{}
 	}
@@ -533,6 +509,36 @@ func scanFlagEnvConfigWithUser(row pgx.Row) (*model.FlagEnvironmentConfig, error
 		cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
 	}
 	return &cfg, nil
+}
+
+// scanEnvironmentConfigRowWithUser scans a single row from a multi-row query
+// that includes the LEFT JOIN on users for the updated_by field.
+func scanEnvironmentConfigRowWithUser(rows pgx.Rows) (model.FlagEnvironmentConfig, error) {
+	var cfg model.FlagEnvironmentConfig
+	var variantsJSON, rulesJSON json.RawMessage
+	var updatedByUserID, updatedByEmail *string
+	var updatedByDisplayName *string
+	if err := rows.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
+		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&updatedByUserID, &updatedByEmail, &updatedByDisplayName); err != nil {
+		return cfg, fmt.Errorf("scanning environment config: %w", err)
+	}
+	if err := json.Unmarshal(variantsJSON, &cfg.Variants); err != nil {
+		return cfg, fmt.Errorf("unmarshalling variants: %w", err)
+	}
+	if err := json.Unmarshal(rulesJSON, &cfg.TargetingRules); err != nil {
+		return cfg, fmt.Errorf("unmarshalling targeting rules: %w", err)
+	}
+	if cfg.Variants == nil {
+		cfg.Variants = []model.Variant{}
+	}
+	if cfg.TargetingRules == nil {
+		cfg.TargetingRules = []model.TargetingRule{}
+	}
+	if updatedByUserID != nil {
+		cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
+	}
+	return cfg, nil
 }
 
 // LifecycleSummary returns flag counts grouped by lifecycle status for a

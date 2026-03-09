@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/model"
@@ -33,6 +34,7 @@ func (h *ProjectSettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	settings, err := h.settings.Get(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to get project settings", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get project settings")
 		return
 	}
@@ -85,6 +87,7 @@ func (h *ProjectSettingsHandler) Update(w http.ResponseWriter, r *http.Request) 
 
 	settings, err := h.settings.Upsert(r.Context(), project.ID, req.FlagLifetimes)
 	if err != nil {
+		slog.Error("failed to update project settings", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update project settings")
 		return
 	}
@@ -110,12 +113,14 @@ func (h *ProjectSettingsHandler) GetEnvironmentDefaults(w http.ResponseWriter, r
 
 	envs, err := h.environments.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list environments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list environments")
 		return
 	}
 
 	settings, err := h.settings.Get(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to get project settings", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get project settings")
 		return
 	}
@@ -169,6 +174,7 @@ func (h *ProjectSettingsHandler) UpdateEnvironmentDefaults(w http.ResponseWriter
 
 	_, err = h.settings.UpsertEnvironmentDefaults(r.Context(), project.ID, req.EnvironmentDefaults)
 	if err != nil {
+		slog.Error("failed to update environment defaults", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update environment defaults")
 		return
 	}

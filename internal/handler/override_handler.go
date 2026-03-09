@@ -342,6 +342,7 @@ func (h *OverrideHandler) SetOverrideAllEnvs(w http.ResponseWriter, r *http.Requ
 
 	envs, err := h.environments.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list environments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list environments")
 		return
 	}
@@ -372,6 +373,7 @@ func (h *OverrideHandler) SetOverrideAllEnvs(w http.ResponseWriter, r *http.Requ
 	}
 
 	if len(failed) > 0 {
+		slog.Error("failed to set override for some environments", "failed_envs", failed)
 		writeError(w, http.StatusInternalServerError, "failed to set override for some environments")
 		return
 	}

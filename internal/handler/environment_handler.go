@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -50,6 +51,7 @@ func (h *EnvironmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "environment key already exists for this project")
 			return
 		}
+		slog.Error("failed to create environment", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create environment")
 		return
 	}
@@ -73,6 +75,7 @@ func (h *EnvironmentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	envs, err := h.environments.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list environments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list environments")
 		return
 	}
@@ -115,6 +118,7 @@ func (h *EnvironmentHandler) UpdateOrder(w http.ResponseWriter, r *http.Request)
 
 	envs, err := h.environments.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list environments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list environments")
 		return
 	}

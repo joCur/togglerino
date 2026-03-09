@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/model"
@@ -57,6 +58,7 @@ func (h *SDKKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	sdkKey, err := h.sdkKeys.Create(r.Context(), env.ID, req.Name)
 	if err != nil {
+		slog.Error("failed to create SDK key", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create SDK key")
 		return
 	}
@@ -92,6 +94,7 @@ func (h *SDKKeyHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	keys, err := h.sdkKeys.ListByEnvironment(r.Context(), env.ID)
 	if err != nil {
+		slog.Error("failed to list SDK keys", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list SDK keys")
 		return
 	}
@@ -110,6 +113,7 @@ func (h *SDKKeyHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.sdkKeys.Revoke(r.Context(), id); err != nil {
+		slog.Error("failed to revoke SDK key", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to revoke SDK key")
 		return
 	}

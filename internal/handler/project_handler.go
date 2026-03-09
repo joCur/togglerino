@@ -45,6 +45,7 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "project key already exists")
 			return
 		}
+		slog.Error("failed to create project", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create project")
 		return
 	}
@@ -81,6 +82,7 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	if user != nil && user.Role == model.RoleAdmin {
 		projects, totalCount, err := h.projects.List(r.Context(), limit, offset)
 		if err != nil {
+			slog.Error("failed to list projects", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to list projects")
 			return
 		}
@@ -96,6 +98,7 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	if baseRole != "" && baseRole != "none" {
 		projects, totalCount, err := h.projects.List(r.Context(), limit, offset)
 		if err != nil {
+			slog.Error("failed to list projects", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to list projects")
 			return
 		}
@@ -113,6 +116,7 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	projectIDs, err := h.members.ListAccessibleProjectIDs(r.Context(), user.ID)
 	if err != nil {
+		slog.Error("failed to list accessible projects", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list accessible projects")
 		return
 	}
@@ -123,6 +127,7 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	projects, totalCount, err := h.projects.ListByIDs(r.Context(), projectIDs, limit, offset)
 	if err != nil {
+		slog.Error("failed to list projects", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list projects")
 		return
 	}
@@ -215,6 +220,7 @@ func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.projects.Delete(r.Context(), key); err != nil {
+		slog.Error("failed to delete project", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete project")
 		return
 	}

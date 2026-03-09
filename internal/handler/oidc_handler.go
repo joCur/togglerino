@@ -132,16 +132,19 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 
 	state, err := oidc.GenerateRandom(32)
 	if err != nil {
+		slog.Error("failed to generate OIDC state", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	nonce, err := oidc.GenerateRandom(32)
 	if err != nil {
+		slog.Error("failed to generate OIDC nonce", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	if err := oidc.SetStateCookie(w, h.secret, oidc.StateData{State: state, Nonce: nonce}, h.secureCookies()); err != nil {
+		slog.Error("failed to set OIDC state cookie", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -295,6 +298,7 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 	// Check if identity is already linked (idempotent on duplicate submit)
 	existing, err := h.oidcStore.FindIdentity(r.Context(), pending.ProviderID, pending.Subject)
 	if err != nil {
+		slog.Error("failed to check existing identity", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to check existing identity")
 		return
 	}
@@ -305,6 +309,7 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 			Subject:    pending.Subject,
 			Email:      pending.Email,
 		}); err != nil {
+			slog.Error("failed to link account", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to link account")
 			return
 		}
@@ -314,6 +319,7 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 
 	session, err := h.sessionStore.Create(r.Context(), user.ID, 7*24*time.Hour)
 	if err != nil {
+		slog.Error("failed to create session", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create session")
 		return
 	}
@@ -335,6 +341,7 @@ func (h *OIDCHandler) Link(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	provider, err := h.oidcStore.GetProvider(r.Context())
 	if err != nil {
+		slog.Error("failed to load oidc config", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to load oidc config")
 		return
 	}
@@ -410,6 +417,7 @@ func (h *OIDCHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.oidcStore.UpsertProvider(r.Context(), provider); err != nil {
+		slog.Error("failed to save oidc config", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to save oidc config")
 		return
 	}
@@ -430,6 +438,7 @@ func (h *OIDCHandler) DeleteConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.oidcStore.DeleteProvider(r.Context(), provider.ID); err != nil {
+		slog.Error("failed to delete oidc config", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete oidc config")
 		return
 	}
@@ -451,6 +460,7 @@ func (h *OIDCHandler) OIDCIdentities(w http.ResponseWriter, r *http.Request) {
 
 	identities, err := h.oidcStore.FindIdentitiesByUser(r.Context(), user.ID)
 	if err != nil {
+		slog.Error("failed to load identities", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to load identities")
 		return
 	}

@@ -108,6 +108,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Resolve environment defaults
 	envs, err := h.environments.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list environments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list environments")
 		return
 	}
@@ -128,6 +129,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "flag key already exists for this project")
 			return
 		}
+		slog.Error("failed to create flag", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create flag")
 		return
 	}
@@ -184,6 +186,7 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	flags, totalCount, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType, owner, limit, offset)
 	if err != nil {
+		slog.Error("failed to list flags", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list flags")
 		return
 	}
@@ -199,6 +202,7 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 		configsMap, err := h.flags.GetEnvironmentConfigsByFlagIDs(r.Context(), flagIDs)
 		if err != nil {
+			slog.Error("failed to get environment configs", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to get environment configs")
 			return
 		}
@@ -247,6 +251,7 @@ func (h *FlagHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	configs, err := h.flags.GetAllEnvironmentConfigs(r.Context(), flag.ID)
 	if err != nil {
+		slog.Error("failed to get environment configs", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get environment configs")
 		return
 	}
@@ -307,6 +312,7 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	updated, err := h.flags.Update(r.Context(), flag.ID, req.Name, req.Description, req.Tags, flagTypeToUse, req.OwnerID)
 	if err != nil {
+		slog.Error("failed to update flag", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update flag")
 		return
 	}
@@ -370,6 +376,7 @@ func (h *FlagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.flags.Delete(r.Context(), flag.ID); err != nil {
+		slog.Error("failed to delete flag", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete flag")
 		return
 	}
@@ -441,6 +448,7 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.flags.SetLifecycleStatus(r.Context(), flag.ID, status)
 	if err != nil {
+		slog.Error("failed to update flag archive status", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update flag archive status")
 		return
 	}
@@ -554,6 +562,7 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 
 	cfg, err := h.flags.UpdateEnvironmentConfig(r.Context(), flag.ID, env.ID, req.Enabled, req.DefaultVariant, req.Variants, req.TargetingRules, updatedBy)
 	if err != nil {
+		slog.Error("failed to update environment config", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update environment config")
 		return
 	}
@@ -629,6 +638,7 @@ func (h *FlagHandler) SetStaleness(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.flags.SetLifecycleStatus(r.Context(), flag.ID, model.LifecycleStale)
 	if err != nil {
+		slog.Error("failed to update staleness", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update staleness")
 		return
 	}
@@ -1061,6 +1071,7 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 		updatedBy,
 	)
 	if err != nil {
+		slog.Error("failed to promote environment config", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to promote environment config")
 		return
 	}

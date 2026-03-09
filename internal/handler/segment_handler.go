@@ -81,6 +81,7 @@ func (h *SegmentHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	segments, totalCount, err := h.segments.ListByProject(r.Context(), project.ID, limit, offset)
 	if err != nil {
+		slog.Error("failed to list segments", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list segments")
 		return
 	}
@@ -145,6 +146,7 @@ func (h *SegmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "segment key already exists for this project")
 			return
 		}
+		slog.Error("failed to create segment", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create segment")
 		return
 	}
@@ -251,6 +253,7 @@ func (h *SegmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.segments.Update(r.Context(), segment.ID, req.Name, req.Description, conditionsJSON)
 	if err != nil {
+		slog.Error("failed to update segment", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update segment")
 		return
 	}
@@ -306,6 +309,7 @@ func (h *SegmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	// Check for referencing flags before deleting
 	refs, err := h.segments.FindReferencingFlags(r.Context(), project.ID, segmentKey)
 	if err != nil {
+		slog.Error("failed to check segment references", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to check segment references")
 		return
 	}
@@ -318,6 +322,7 @@ func (h *SegmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.segments.Delete(r.Context(), segment.ID); err != nil {
+		slog.Error("failed to delete segment", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete segment")
 		return
 	}
@@ -370,6 +375,7 @@ func (h *SegmentHandler) Usage(w http.ResponseWriter, r *http.Request) {
 
 	refs, err := h.segments.FindReferencingFlags(r.Context(), project.ID, segmentKey)
 	if err != nil {
+		slog.Error("failed to find referencing flags", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to find referencing flags")
 		return
 	}

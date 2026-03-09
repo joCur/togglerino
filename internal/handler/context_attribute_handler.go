@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/togglerino/togglerino/internal/model"
@@ -32,6 +33,7 @@ func (h *ContextAttributeHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	attrs, err := h.contextAttrs.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list context attributes", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list context attributes")
 		return
 	}

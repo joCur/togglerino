@@ -37,6 +37,7 @@ func NewRoleHandler(roles *store.RoleStore, refresher RoleCacheRefresher, audit 
 func (h *RoleHandler) List(w http.ResponseWriter, r *http.Request) {
 	roles, err := h.roles.List(r.Context())
 	if err != nil {
+		slog.Error("failed to list roles", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list roles")
 		return
 	}
@@ -56,6 +57,7 @@ func (h *RoleHandler) Get(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "role not found")
 			return
 		}
+		slog.Error("failed to get role", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get role")
 		return
 	}
@@ -105,6 +107,7 @@ func (h *RoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "role name already exists")
 			return
 		}
+		slog.Error("failed to create role", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create role")
 		return
 	}
@@ -171,6 +174,7 @@ func (h *RoleHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "role not found")
 			return
 		}
+		slog.Error("failed to update role", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update role")
 		return
 	}
@@ -220,6 +224,7 @@ func (h *RoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "role not found")
 			return
 		}
+		slog.Error("failed to delete role", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete role")
 		return
 	}

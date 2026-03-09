@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"errors"
 	"net/http"
 
@@ -22,6 +23,7 @@ func NewOrgSettingsHandler(orgSettings *store.OrgSettingsStore) *OrgSettingsHand
 func (h *OrgSettingsHandler) GetBaseProjectRole(w http.ResponseWriter, r *http.Request) {
 	role, err := h.orgSettings.GetBaseProjectRole(r.Context())
 	if err != nil {
+		slog.Error("failed to get base project role", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get base project role")
 		return
 	}
@@ -49,6 +51,7 @@ func (h *OrgSettingsHandler) SetBaseProjectRole(w http.ResponseWriter, r *http.R
 			writeError(w, http.StatusBadRequest, "invalid role")
 			return
 		}
+		slog.Error("failed to set base project role", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to set base project role")
 		return
 	}

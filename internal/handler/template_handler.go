@@ -100,6 +100,7 @@ func defaultRawMessage(v json.RawMessage, def string) json.RawMessage {
 func (h *TemplateHandler) ListGlobal(w http.ResponseWriter, r *http.Request) {
 	templates, err := h.templates.ListGlobal(r.Context())
 	if err != nil {
+		slog.Error("failed to list templates", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list templates")
 		return
 	}
@@ -132,6 +133,7 @@ func (h *TemplateHandler) CreateGlobal(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "template key already exists")
 			return
 		}
+		slog.Error("failed to create template", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create template")
 		return
 	}
@@ -174,6 +176,7 @@ func (h *TemplateHandler) UpdateGlobal(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.templates.Update(r.Context(), existing.ID, req.Name, req.Description, req.FlagType, req.ValueType, req.DefaultValue, req.Tags, req.EnvironmentDefaults, req.VariantConfig, req.SortOrder)
 	if err != nil {
+		slog.Error("failed to update template", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update template")
 		return
 	}
@@ -202,6 +205,7 @@ func (h *TemplateHandler) DeleteGlobal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.templates.Delete(r.Context(), existing.ID); err != nil {
+		slog.Error("failed to delete template", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete template")
 		return
 	}
@@ -227,12 +231,14 @@ func (h *TemplateHandler) ListForProject(w http.ResponseWriter, r *http.Request)
 
 	global, err := h.templates.ListGlobal(r.Context())
 	if err != nil {
+		slog.Error("failed to list global templates", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list global templates")
 		return
 	}
 
 	projectTemplates, err := h.templates.ListByProject(r.Context(), project.ID)
 	if err != nil {
+		slog.Error("failed to list project templates", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list project templates")
 		return
 	}
@@ -281,6 +287,7 @@ func (h *TemplateHandler) CreateForProject(w http.ResponseWriter, r *http.Reques
 			writeError(w, http.StatusConflict, "template key already exists for this project")
 			return
 		}
+		slog.Error("failed to create template", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create template")
 		return
 	}
@@ -335,6 +342,7 @@ func (h *TemplateHandler) UpdateForProject(w http.ResponseWriter, r *http.Reques
 
 	updated, err := h.templates.Update(r.Context(), existing.ID, req.Name, req.Description, req.FlagType, req.ValueType, req.DefaultValue, req.Tags, req.EnvironmentDefaults, req.VariantConfig, req.SortOrder)
 	if err != nil {
+		slog.Error("failed to update template", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update template")
 		return
 	}
@@ -375,6 +383,7 @@ func (h *TemplateHandler) DeleteForProject(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.templates.Delete(r.Context(), existing.ID); err != nil {
+		slog.Error("failed to delete template", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete template")
 		return
 	}
