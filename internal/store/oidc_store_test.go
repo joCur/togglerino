@@ -324,6 +324,58 @@ func TestOIDCStore_ProvisionUser(t *testing.T) {
 	us.Delete(ctx, userID)
 }
 
+func TestOIDCStore_SkipEmailVerification(t *testing.T) {
+	pool := testPool(t)
+	s := store.NewOIDCStore(pool)
+	ctx := context.Background()
+
+	// Clean up any existing provider
+	existing, _ := s.GetProvider(ctx)
+	if existing != nil {
+		s.DeleteProvider(ctx, existing.ID)
+	}
+
+	// Upsert with skip_email_verification = true
+	p := &model.OIDCProvider{
+		Name:                  "Test Provider",
+		IssuerURL:             "https://example.com",
+		ClientID:              "client-id",
+		ClientSecret:          "client-secret",
+		Scopes:                "openid email",
+		DefaultRole:           model.RoleMember,
+		Enabled:               true,
+		SkipEmailVerification: true,
+	}
+	if err := s.UpsertProvider(ctx, p); err != nil {
+		t.Fatalf("UpsertProvider: %v", err)
+	}
+
+	got, err := s.GetProvider(ctx)
+	if err != nil {
+		t.Fatalf("GetProvider: %v", err)
+	}
+	if !got.SkipEmailVerification {
+		t.Error("expected SkipEmailVerification=true, got false")
+	}
+
+	// Update to false
+	p.SkipEmailVerification = false
+	if err := s.UpsertProvider(ctx, p); err != nil {
+		t.Fatalf("UpsertProvider (update): %v", err)
+	}
+
+	got, err = s.GetProvider(ctx)
+	if err != nil {
+		t.Fatalf("GetProvider (after update): %v", err)
+	}
+	if got.SkipEmailVerification {
+		t.Error("expected SkipEmailVerification=false, got true")
+	}
+
+	// Clean up
+	s.DeleteProvider(ctx, got.ID)
+}
+
 func TestOIDCStore_GetProvider_Empty(t *testing.T) {
 	pool := testPool(t)
 	s := store.NewOIDCStore(pool)

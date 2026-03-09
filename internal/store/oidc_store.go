@@ -22,9 +22,9 @@ func NewOIDCStore(pool *pgxpool.Pool) *OIDCStore {
 func (s *OIDCStore) GetProvider(ctx context.Context) (*model.OIDCProvider, error) {
 	var p model.OIDCProvider
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, name, issuer_url, client_id, client_secret, scopes, default_role, enabled, created_at, updated_at
+		`SELECT id, name, issuer_url, client_id, client_secret, scopes, default_role, enabled, skip_email_verification, created_at, updated_at
 		 FROM oidc_providers ORDER BY created_at LIMIT 1`,
-	).Scan(&p.ID, &p.Name, &p.IssuerURL, &p.ClientID, &p.ClientSecret, &p.Scopes, &p.DefaultRole, &p.Enabled, &p.CreatedAt, &p.UpdatedAt)
+	).Scan(&p.ID, &p.Name, &p.IssuerURL, &p.ClientID, &p.ClientSecret, &p.Scopes, &p.DefaultRole, &p.Enabled, &p.SkipEmailVerification, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -38,14 +38,14 @@ func (s *OIDCStore) GetProvider(ctx context.Context) (*model.OIDCProvider, error
 // Uses INSERT ON CONFLICT on the singleton constraint for atomic upsert.
 func (s *OIDCStore) UpsertProvider(ctx context.Context, p *model.OIDCProvider) error {
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO oidc_providers (name, issuer_url, client_id, client_secret, scopes, default_role, enabled)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO oidc_providers (name, issuer_url, client_id, client_secret, scopes, default_role, enabled, skip_email_verification)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		 ON CONFLICT (singleton) DO UPDATE SET
 		   name = EXCLUDED.name, issuer_url = EXCLUDED.issuer_url, client_id = EXCLUDED.client_id,
 		   client_secret = EXCLUDED.client_secret, scopes = EXCLUDED.scopes, default_role = EXCLUDED.default_role,
-		   enabled = EXCLUDED.enabled, updated_at = NOW()
+		   enabled = EXCLUDED.enabled, skip_email_verification = EXCLUDED.skip_email_verification, updated_at = NOW()
 		 RETURNING id, created_at, updated_at`,
-		p.Name, p.IssuerURL, p.ClientID, p.ClientSecret, p.Scopes, p.DefaultRole, p.Enabled,
+		p.Name, p.IssuerURL, p.ClientID, p.ClientSecret, p.Scopes, p.DefaultRole, p.Enabled, p.SkipEmailVerification,
 	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("upserting oidc provider: %w", err)
