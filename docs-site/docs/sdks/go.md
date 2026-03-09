@@ -10,7 +10,7 @@ The Togglerino Go SDK provides a client for evaluating feature flags with real-t
 ## Installation
 
 ```bash
-go get github.com/togglerino/togglerino/sdks/go
+go get github.com/joCur/togglerino/sdks/go
 ```
 
 ## Quick Start
@@ -22,7 +22,7 @@ import (
     "context"
     "fmt"
 
-    togglerino "github.com/togglerino/togglerino/sdks/go"
+    togglerino "github.com/joCur/togglerino/sdks/go"
 )
 
 func main() {
@@ -278,7 +278,7 @@ import (
     "os/signal"
     "time"
 
-    togglerino "github.com/togglerino/togglerino/sdks/go"
+    togglerino "github.com/joCur/togglerino/sdks/go"
 )
 
 func main() {

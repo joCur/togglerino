@@ -15,7 +15,7 @@ Togglerino provides official SDKs for JavaScript, React, Go, and .NET. All SDKs 
 
 | Feature | JavaScript | React | Go | .NET |
 |---------|-----------|-------|-----|------|
-| Package | `@togglerino/sdk` | `@togglerino/react` | `github.com/togglerino/togglerino/sdks/go` | `Togglerino.Sdk` |
+| Package | `@togglerino/sdk` | `@togglerino/react` | `github.com/joCur/togglerino/sdks/go` | `Togglerino.Sdk` |
 | Registry | npm | npm | Go modules | NuGet |
 | Streaming (SSE) | Yes | Yes (via JS SDK) | Yes | Yes |
 | Polling fallback | Yes | Yes | Yes | Yes |

@@ -29,7 +29,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   togglerino:
-    image: ghcr.io/togglerino/togglerino:latest
+    image: ghcr.io/joCur/togglerino:latest
     ports:
       - "8090:8080"
     environment:
@@ -63,17 +63,17 @@ The Compose file maps host port **8090** to container port **8080**. You can cha
 If you prefer to run the container without Compose, pull the image and provide your own PostgreSQL:
 
 ```bash
-docker pull ghcr.io/togglerino/togglerino:latest
+docker pull ghcr.io/joCur/togglerino:latest
 
 docker run -d \
   -p 8080:8080 \
   -e DATABASE_URL="postgres://user:pass@your-postgres-host:5432/togglerino?sslmode=disable" \
-  ghcr.io/togglerino/togglerino:latest
+  ghcr.io/joCur/togglerino:latest
 ```
 
 ## Pre-built Binary
 
-Download a pre-built binary from the [GitHub Releases](https://github.com/togglerino/togglerino/releases) page.
+Download a pre-built binary from the [GitHub Releases](https://github.com/joCur/togglerino/releases) page.
 
 **Requirements:**
 - An external PostgreSQL instance (16+ recommended)
@@ -106,7 +106,7 @@ Build Togglerino from the source code in the GitHub repository.
 
 ```bash
 # Clone the repository
-git clone https://github.com/togglerino/togglerino.git
+git clone https://github.com/joCur/togglerino.git
 cd togglerino
 
 # 1. Build the frontend (must be done first — the Go binary embeds web/dist/)

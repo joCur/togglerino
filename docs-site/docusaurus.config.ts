@@ -6,10 +6,10 @@ const config: Config = {
   tagline: 'Self-hosted feature flag management',
   favicon: 'img/favicon.ico',
 
-  url: 'https://togglerino.github.io',
+  url: 'https://joCur.github.io',
   baseUrl: '/togglerino/',
 
-  organizationName: 'togglerino',
+  organizationName: 'joCur',
   projectName: 'togglerino',
 
   onBrokenLinks: 'throw',
@@ -46,7 +46,7 @@ const config: Config = {
       title: 'Togglerino',
       items: [
         {
-          href: 'https://github.com/togglerino/togglerino',
+          href: 'https://github.com/joCur/togglerino',
           label: 'GitHub',
           position: 'right',
         },
@@ -66,7 +66,7 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            { label: 'GitHub', href: 'https://github.com/togglerino/togglerino' },
+            { label: 'GitHub', href: 'https://github.com/joCur/togglerino' },
           ],
         },
       ],

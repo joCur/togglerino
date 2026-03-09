@@ -40,7 +40,7 @@ Or with Docker:
 ```yaml
 services:
   togglerino:
-    image: ghcr.io/togglerino/togglerino:latest
+    image: ghcr.io/joCur/togglerino:latest
     ports:
       - "8080:8080"
     environment:

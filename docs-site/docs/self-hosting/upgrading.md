@@ -9,7 +9,7 @@ Togglerino is designed for straightforward upgrades. Database migrations run aut
 
 ## Before Upgrading
 
-Check the [CHANGELOG](https://github.com/togglerino/togglerino/blob/main/CHANGELOG.md) for breaking changes before upgrading. While Togglerino avoids breaking changes where possible, major version bumps may require manual action.
+Check the [CHANGELOG](https://github.com/joCur/togglerino/blob/main/CHANGELOG.md) for breaking changes before upgrading. While Togglerino avoids breaking changes where possible, major version bumps may require manual action.
 
 **Back up your database** before upgrading, especially for major version changes:
 
@@ -33,7 +33,7 @@ To upgrade to a specific version:
 # docker-compose.yml
 services:
   togglerino:
-    image: ghcr.io/togglerino/togglerino:1.2.0  # pin to a specific version
+    image: ghcr.io/joCur/togglerino:1.2.0  # pin to a specific version
 ```
 
 Then:
@@ -44,7 +44,7 @@ docker compose up -d
 
 ## Pre-built Binary
 
-1. Download the new release from the [GitHub Releases](https://github.com/togglerino/togglerino/releases) page.
+1. Download the new release from the [GitHub Releases](https://github.com/joCur/togglerino/releases) page.
 2. Stop the running process (e.g., `systemctl stop togglerino` or send `SIGTERM`).
 3. Replace the binary.
 4. Start the new version.
