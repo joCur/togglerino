@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/joCur/togglerino/compare/v0.14.0...v0.14.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* handle unmarshal errors, extract shared scanner, add error logging ([#104](https://github.com/joCur/togglerino/issues/104), [#105](https://github.com/joCur/togglerino/issues/105), [#106](https://github.com/joCur/togglerino/issues/106)) ([#108](https://github.com/joCur/togglerino/issues/108)) ([a4d055e](https://github.com/joCur/togglerino/commit/a4d055e2dfcfd65fb3b57e84a467adc13a339eae))
+
 ## [0.14.0](https://github.com/joCur/togglerino/compare/v0.13.0...v0.14.0) (2026-03-08)
 
 
