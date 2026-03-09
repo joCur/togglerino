@@ -16,9 +16,10 @@ type Config struct {
 	OIDCIssuerURL    string
 	OIDCClientID     string
 	OIDCClientSecret string
-	OIDCDefaultRole  string
-	SessionSecret    string
-	BaseURL          string
+	OIDCDefaultRole           string
+	OIDCSkipEmailVerification bool
+	SessionSecret string
+	BaseURL       string
 }
 
 func Load() (*Config, error) {
@@ -35,9 +36,10 @@ func Load() (*Config, error) {
 		OIDCIssuerURL:    os.Getenv("OIDC_ISSUER_URL"),
 		OIDCClientID:     os.Getenv("OIDC_CLIENT_ID"),
 		OIDCClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
-		OIDCDefaultRole:  oidcRole,
-		SessionSecret:    os.Getenv("SESSION_SECRET"),
-		BaseURL:          os.Getenv("BASE_URL"),
+		OIDCDefaultRole:           oidcRole,
+		OIDCSkipEmailVerification: os.Getenv("OIDC_SKIP_EMAIL_VERIFICATION") == "true",
+		SessionSecret: os.Getenv("SESSION_SECRET"),
+		BaseURL:       os.Getenv("BASE_URL"),
 	}
 	return cfg, nil
 }
