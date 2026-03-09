@@ -27,7 +27,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   togglerino:
-    build: .
+    image: ghcr.io/togglerino/togglerino:latest
     ports:
       - "8090:8080"
     environment:
@@ -43,7 +43,7 @@ volumes:
 ```
 
 :::tip
-If you prefer to use a prebuilt image instead of building from source, replace `build: .` with `image: ghcr.io/togglerino/togglerino:latest`.
+If you want to build from source instead, clone the repository and replace `image: ghcr.io/togglerino/togglerino:latest` with `build: .`.
 :::
 
 ## Step 2: Start the Services
