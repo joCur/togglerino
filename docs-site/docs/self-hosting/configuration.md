@@ -21,6 +21,7 @@ Togglerino is configured entirely through environment variables. There are no co
 | `OIDC_CLIENT_ID` | — | OIDC client ID. Overrides database config if set. |
 | `OIDC_CLIENT_SECRET` | — | OIDC client secret. Overrides database config if set. |
 | `OIDC_DEFAULT_ROLE` | `member` | Default role for OIDC-provisioned users: `admin` or `member` |
+| `OIDC_SKIP_EMAIL_VERIFICATION` | `false` | Skip `email_verified` claim check for OIDC login. Set to `true` only if your provider doesn't emit this claim. |
 
 ## Example
 
