@@ -16,7 +16,7 @@ Togglerino is a self-hosted feature flag management platform. It comes with a ma
 - **Multi-environment support** — manage flag configurations independently per environment (development, staging, production)
 - **Real-time SSE updates** — flag changes are pushed to connected SDKs instantly, no polling required
 - **Reusable segments** — define named groups of targeting conditions and share them across flags
-- **Team management with RBAC** — org-level roles (admin, member) and project-level roles (admin, editor, viewer) with granular permissions
+- **Team management with RBAC** — org-level roles (admin, member), project-level roles (admin, editor, viewer, plus custom roles), and environment-scoped write permissions
 - **Audit log** — every flag and project change is recorded with full before/after snapshots
 - **Flag lifecycle management** — flags progress through active, potentially stale, stale, and archived states with configurable staleness thresholds per flag type
 - **Client SDKs** — official SDKs for JavaScript, React, Go, and .NET with automatic SSE reconnection

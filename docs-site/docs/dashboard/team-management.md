@@ -93,6 +93,36 @@ Admins can create custom project roles with a tailored set of permissions:
 
 Custom roles can then be assigned to users as project roles, just like the built-in `admin`, `editor`, and `viewer` roles.
 
+:::note
+Built-in roles (`admin`, `editor`, `viewer`) cannot be modified or deleted. Custom roles cannot be deleted while they are assigned to any project member or set as the base project role.
+:::
+
+## Environment-Scoped Permissions
+
+By default, a project role's write permissions apply to **all environments** in the project. Environment-scoped permissions let you restrict which environments a role can write to — for example, allowing a QA role to modify flag configs in staging but not production.
+
+### Configuring Environment Access
+
+1. Navigate to the project.
+2. Go to **Settings** and open the **Environment Access** tab.
+3. For each role, select which environments it can write to.
+4. Save.
+
+### How It Works
+
+- **Unrestricted by default**: if no restrictions are configured for a role, it can write to all environments.
+- **Only write operations are restricted**: read access is not affected. A restricted role can still view flag configurations in all environments.
+- **Organization admins bypass all restrictions**: they always have full access to every environment.
+- **Applies to per-environment flag config updates**: changing a flag's enabled state, variants, or targeting rules in a specific environment. Flag creation, deletion, and metadata updates are not environment-scoped.
+
+### Example
+
+A team has three environments: development, staging, and production.
+
+- Role "developer" is restricted to **development** only — developers can freely toggle flags in dev but cannot touch staging or production configs.
+- Role "qa" is restricted to **development** and **staging** — QA can test flag configurations in both environments.
+- Role "admin" has no restrictions — full access to all environments (this is the default for the built-in admin role).
+
 ## Password Management
 
 ### Users Changing Their Own Password
