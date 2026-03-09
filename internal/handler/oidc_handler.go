@@ -236,7 +236,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !claims.EmailVerified {
-		slog.Warn("oidc email not verified, rejecting login", "email", claims.Email, "subject", claims.Subject)
+		slog.Warn("oidc email not verified, rejecting login", "email", claims.Email, "subject", claims.Subject, "email_verified_present", claims.EmailVerifiedPresent)
 		http.Redirect(w, r, "/?error=oidc_email_not_verified", http.StatusFound)
 		return
 	}

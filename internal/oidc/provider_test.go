@@ -7,40 +7,46 @@ import (
 
 func TestClaimsEmailVerified(t *testing.T) {
 	tests := []struct {
-		name      string
-		json      string
-		wantVer   bool
-		wantEmail string
+		name        string
+		json        string
+		wantVer     bool
+		wantPresent bool
+		wantEmail   string
 	}{
 		{
-			name:      "email_verified boolean true",
-			json:      `{"sub":"123","email":"user@example.com","name":"User","email_verified":true}`,
-			wantVer:   true,
-			wantEmail: "user@example.com",
+			name:        "email_verified boolean true",
+			json:        `{"sub":"123","email":"user@example.com","name":"User","email_verified":true}`,
+			wantVer:     true,
+			wantPresent: true,
+			wantEmail:   "user@example.com",
 		},
 		{
-			name:      "email_verified boolean false",
-			json:      `{"sub":"123","email":"user@example.com","name":"User","email_verified":false}`,
-			wantVer:   false,
-			wantEmail: "user@example.com",
+			name:        "email_verified boolean false",
+			json:        `{"sub":"123","email":"user@example.com","name":"User","email_verified":false}`,
+			wantVer:     false,
+			wantPresent: true,
+			wantEmail:   "user@example.com",
 		},
 		{
-			name:      "email_verified string true (Google-style)",
-			json:      `{"sub":"123","email":"user@example.com","name":"User","email_verified":"true"}`,
-			wantVer:   true,
-			wantEmail: "user@example.com",
+			name:        "email_verified string true (Google-style)",
+			json:        `{"sub":"123","email":"user@example.com","name":"User","email_verified":"true"}`,
+			wantVer:     true,
+			wantPresent: true,
+			wantEmail:   "user@example.com",
 		},
 		{
-			name:      "email_verified string false",
-			json:      `{"sub":"123","email":"user@example.com","name":"User","email_verified":"false"}`,
-			wantVer:   false,
-			wantEmail: "user@example.com",
+			name:        "email_verified string false",
+			json:        `{"sub":"123","email":"user@example.com","name":"User","email_verified":"false"}`,
+			wantVer:     false,
+			wantPresent: true,
+			wantEmail:   "user@example.com",
 		},
 		{
-			name:      "email_verified missing defaults to false",
-			json:      `{"sub":"123","email":"user@example.com","name":"User"}`,
-			wantVer:   false,
-			wantEmail: "user@example.com",
+			name:        "email_verified missing defaults to false",
+			json:        `{"sub":"123","email":"user@example.com","name":"User"}`,
+			wantVer:     false,
+			wantPresent: false,
+			wantEmail:   "user@example.com",
 		},
 	}
 
@@ -52,6 +58,9 @@ func TestClaimsEmailVerified(t *testing.T) {
 			}
 			if bool(c.EmailVerified) != tt.wantVer {
 				t.Errorf("EmailVerified = %v, want %v", c.EmailVerified, tt.wantVer)
+			}
+			if c.EmailVerifiedPresent != tt.wantPresent {
+				t.Errorf("EmailVerifiedPresent = %v, want %v", c.EmailVerifiedPresent, tt.wantPresent)
 			}
 			if c.Email != tt.wantEmail {
 				t.Errorf("Email = %q, want %q", c.Email, tt.wantEmail)

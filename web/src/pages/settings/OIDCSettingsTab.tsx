@@ -188,7 +188,7 @@ function OIDCForm({ provider, configured }: { provider?: OIDCProvider; configure
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={() => { deleteMutation.reset(); setShowDeleteDialog(true) }}
                   disabled={deleteMutation.isPending}
                 >
                   {deleteMutation.isPending ? 'Removing...' : 'Remove OIDC'}

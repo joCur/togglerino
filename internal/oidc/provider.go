@@ -43,6 +43,32 @@ type Claims struct {
 	Email         string   `json:"email"`
 	Name          string   `json:"name"`
 	EmailVerified FlexBool `json:"email_verified"`
+
+	// EmailVerifiedPresent is true when the email_verified claim was included
+	// in the token, regardless of its value. Useful for debugging providers
+	// that omit the claim entirely (optional per OIDC spec).
+	EmailVerifiedPresent bool `json:"-"`
+}
+
+// UnmarshalJSON implements custom unmarshaling to track whether email_verified was present.
+func (c *Claims) UnmarshalJSON(data []byte) error {
+	// Use an alias to avoid infinite recursion
+	type Alias Claims
+	aux := &struct {
+		*Alias
+	}{Alias: (*Alias)(c)}
+
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	*c = Claims(*aux.Alias)
+
+	// Check if email_verified was present in the raw JSON
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err == nil {
+		_, c.EmailVerifiedPresent = raw["email_verified"]
+	}
+	return nil
 }
 
 // NewProvider creates a new OIDC provider from configuration.

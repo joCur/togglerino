@@ -73,6 +73,18 @@ Existing users can proactively link their OIDC identity without waiting to encou
 
 After linking, the user can sign in via SSO or with their email and password.
 
+## Email Verification Requirement
+
+Togglerino requires the OIDC provider to return an `email_verified: true` claim in the ID token. If the claim is missing or set to `false`, the login is rejected with an `oidc_email_not_verified` error.
+
+This prevents account linking to the wrong user when an identity provider returns an unverified email address.
+
+**Providers known to include `email_verified`:** Google Workspace, Okta, Auth0, Azure AD (Entra ID).
+
+**Providers that may omit the claim:** Some enterprise SAML-to-OIDC bridges and self-hosted identity providers may not include `email_verified` in the ID token. If users from your provider are blocked, check the server logs for `oidc email not verified` warnings — the `email_verified_present` field will indicate whether the claim was missing entirely or explicitly set to `false`.
+
+If your provider does not emit the `email_verified` claim, ensure it is configured to include this claim in the ID token or userinfo response. Most providers support adding custom claims via scope or claim mapping configuration.
+
 ## Important: SESSION_SECRET
 
 The OIDC authentication flow uses HMAC-signed cookies for the state parameter and nonce. These cookies are signed using the `SESSION_SECRET` environment variable.
