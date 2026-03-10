@@ -82,6 +82,17 @@ func (h *Hub) SubscriberCount(projectKey, envKey string) int {
 	return len(h.subscribers[key])
 }
 
+// AllSubscriberCounts returns subscriber counts per "projectKey:envKey" key.
+func (h *Hub) AllSubscriberCounts() map[string]int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	counts := make(map[string]int, len(h.subscribers))
+	for key, subs := range h.subscribers {
+		counts[key] = len(subs)
+	}
+	return counts
+}
+
 // Close closes all subscriber channels and clears the subscribers map.
 // It should be called during graceful shutdown to notify all connected SSE clients.
 func (h *Hub) Close() {
