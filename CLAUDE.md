@@ -119,6 +119,7 @@ Key internal packages:
 | `oidc` | OIDC provider wrapper (`coreos/go-oidc/v3`), HMAC-signed state/link cookies, secure random generation |
 | `store` | PostgreSQL repositories using pgx/v5, database pool creation, migration runner |
 | `stream` | SSE pub/sub hub — broadcasts flag changes to subscribed SDK clients |
+| `webhook` | Webhook dispatcher — matches events to subscriptions, fires async HTTP delivery with HMAC-SHA256 signing, exponential backoff retries (3 attempts), delivery log cleanup (30-day retention) |
 
 ### Frontend (`web/`)
 
@@ -140,6 +141,8 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `/projects/:key/audit-log` — audit log
 - `/projects/:key/segments` — segment management
 - `/projects/:key/settings` — project settings
+- `/projects/:key/settings/webhooks` — webhook management
+- `/projects/:key/settings/webhooks/:id` — webhook detail + delivery log
 - `/account` — user account page (display name, password change, SSO identities)
 - `/preferences` — user preferences (theme selector)
 - `/settings` — admin-only settings (OIDC config)
@@ -191,6 +194,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **Segments**: CRUD on `/api/v1/projects/{key}/segments[/{segmentKey}]`, `GET .../segments/{segmentKey}/usage` for referencing flags
 - **Context attributes**: `GET /api/v1/projects/{key}/context-attributes` — autocomplete for rule builder
 - **Audit log**: `GET /api/v1/projects/{key}/audit-log?limit=50&offset=0`
+- **Webhooks**: CRUD on `/api/v1/projects/{key}/webhooks[/{id}]`, `POST .../webhooks/{id}/test` for test delivery, `GET .../webhooks/{id}/deliveries` for delivery log (all require `project:settings`)
 
 ### SDK-authed (client SDKs)
 
@@ -216,6 +220,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **Unknown flag tracking**: SDK evaluations for non-existent flag keys are recorded with request counts and first/last seen timestamps, surfaced in the management UI for cleanup
 - **Context attribute autocomplete**: Attributes seen in SDK evaluation contexts are tracked per project and surfaced in the rule builder for autocomplete
 - **Audit log**: Best-effort recording (errors logged, don't fail requests). Stores full JSON snapshots of old/new entity state. Events: flag/project create/update/delete, flag config update, lifecycle status changes
+- **Webhooks**: Project-scoped HTTP callbacks on management events. HMAC-SHA256 signed payloads (`X-Togglerino-Signature` header). Async delivery via goroutines with 3 retries (exponential backoff). Delivery log with 30-day retention. URL validation rejects private IPs (SSRF prevention). Secret auto-generated on creation, displayed once
 - **Rate limiting**: Fixed-window per-IP on auth endpoints (10 req/60s, returns 429 + `Retry-After`)
 - **CORS**: When `CORS_ORIGINS=*`, all origins allowed. Specific list → exact-match only, 403 for unlisted origins on OPTIONS. Sends `Allow-Credentials: true`
 - **Dependency injection**: Stores and handlers created in `main.go` and passed via constructors
@@ -226,7 +231,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 
 ## Database
 
-PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`, `oidc_providers`, `oidc_identities`, `org_settings`, `project_members`. Migrations in `migrations/` (currently: `001_initial_schema` through `016_rbac`).
+PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `flags`, `flag_environment_configs`, `sdk_keys`, `audit_log`, `invites`, `context_attributes`, `unknown_flags`, `project_settings`, `segments`, `oidc_providers`, `oidc_identities`, `org_settings`, `project_members`, `webhooks`, `webhook_deliveries`. Migrations in `migrations/` (currently: `001_initial_schema` through `025_webhooks`).
 
 ## Testing
 
