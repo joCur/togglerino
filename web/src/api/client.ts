@@ -1,4 +1,4 @@
-import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User, AppIdentity, FlagOverrideEntry, EnvironmentAccessResponse, EnvironmentAccessRestriction } from './types'
+import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User, AppIdentity, FlagOverrideEntry, EnvironmentAccessResponse, EnvironmentAccessRestriction, Webhook, WebhookDelivery, WebhookTestResult } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -222,5 +222,32 @@ export const api = {
       request<FlagTemplate>(`/projects/${projectKey}/templates/${templateKey}`, { method: 'PUT', body: JSON.stringify(body) }),
     deleteForProject: (projectKey: string, templateKey: string) =>
       request<void>(`/projects/${projectKey}/templates/${templateKey}`, { method: 'DELETE' }),
+  },
+
+  webhooks: {
+    list: (projectKey: string, params?: { limit?: number; offset?: number }) => {
+      const search = new URLSearchParams()
+      if (params?.limit !== undefined) search.set('limit', String(params.limit))
+      if (params?.offset !== undefined) search.set('offset', String(params.offset))
+      const qs = search.toString()
+      return request<PaginatedResponse<Webhook>>(`/projects/${projectKey}/webhooks${qs ? `?${qs}` : ''}`)
+    },
+    get: (projectKey: string, id: string) =>
+      request<Webhook>(`/projects/${projectKey}/webhooks/${id}`),
+    create: (projectKey: string, body: { name: string; url: string; event_types: string[] }) =>
+      request<Webhook>(`/projects/${projectKey}/webhooks`, { method: 'POST', body: JSON.stringify(body) }),
+    update: (projectKey: string, id: string, body: { name?: string; url?: string; event_types?: string[]; enabled?: boolean }) =>
+      request<Webhook>(`/projects/${projectKey}/webhooks/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (projectKey: string, id: string) =>
+      request<void>(`/projects/${projectKey}/webhooks/${id}`, { method: 'DELETE' }),
+    test: (projectKey: string, id: string) =>
+      request<WebhookTestResult>(`/projects/${projectKey}/webhooks/${id}/test`, { method: 'POST' }),
+    deliveries: (projectKey: string, id: string, params?: { limit?: number; offset?: number }) => {
+      const search = new URLSearchParams()
+      if (params?.limit !== undefined) search.set('limit', String(params.limit))
+      if (params?.offset !== undefined) search.set('offset', String(params.offset))
+      const qs = search.toString()
+      return request<PaginatedResponse<WebhookDelivery>>(`/projects/${projectKey}/webhooks/${id}/deliveries${qs ? `?${qs}` : ''}`)
+    },
   },
 }

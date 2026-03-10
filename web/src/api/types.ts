@@ -342,3 +342,36 @@ export interface EnvironmentAccessResponse {
   restrictions: EnvironmentAccessRestriction[]
   environments: EnvironmentSummary[]
 }
+
+export interface Webhook {
+  id: string
+  project_id: string
+  name: string
+  url: string
+  secret: string
+  event_types: string[]
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface WebhookDelivery {
+  id: string
+  webhook_id: string
+  event_type: string
+  payload: unknown
+  status_code?: number
+  response_body?: string
+  error?: string
+  attempt: number
+  success: boolean
+  duration_ms?: number
+  created_at: string
+}
+
+export interface WebhookTestResult {
+  success: boolean
+  status_code?: number
+  error?: string
+  duration_ms: number
+}
