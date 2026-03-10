@@ -2,11 +2,18 @@ package webhook
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 )
+
+var deliveryTransport http.RoundTripper = &http.Transport{
+	DialContext: ssrfSafeDialer,
+}
 
 type DeliveryResult struct {
 	StatusCode   *int
@@ -31,7 +38,10 @@ func Deliver(url, secret, eventType, deliveryID string, payload []byte) Delivery
 	req.Header.Set("X-Togglerino-Event", eventType)
 	req.Header.Set("X-Togglerino-Delivery", deliveryID)
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: deliveryTransport,
+	}
 	resp, err := client.Do(req)
 	durationMs := int(time.Since(start).Milliseconds())
 	if err != nil {
@@ -57,4 +67,33 @@ func Deliver(url, secret, eventType, deliveryID string, payload []byte) Delivery
 		result.Error = &errStr
 	}
 	return result
+}
+
+func GenerateDeliveryID() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func ssrfSafeDialer(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid address: %w", err)
+	}
+
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, fmt.Errorf("dns lookup failed: %w", err)
+	}
+
+	for _, ip := range ips {
+		if isPrivateIP(ip.IP) {
+			return nil, fmt.Errorf("resolved to private IP address %s", ip.IP)
+		}
+	}
+
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
 }

@@ -1725,7 +1725,7 @@ To verify a webhook delivery, compute the HMAC-SHA256 of the raw request body us
 import hmac, hashlib
 
 def verify(body: bytes, secret: str, signature: str) -> bool:
-    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
 ```
 

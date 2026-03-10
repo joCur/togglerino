@@ -50,6 +50,10 @@ func (h *WebhookHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name, url, and event_types are required")
 		return
 	}
+	if len(req.Name) > 100 {
+		writeError(w, http.StatusBadRequest, "name must be 100 characters or fewer")
+		return
+	}
 
 	for _, et := range req.EventTypes {
 		if !webhook.ValidEventTypes[et] {
@@ -324,11 +328,11 @@ func (h *WebhookHandler) Test(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deliveryID := fmt.Sprintf("%s-test-%d", wh.ID, time.Now().UnixNano())
+	deliveryID := webhook.GenerateDeliveryID()
 	result := webhook.Deliver(wh.URL, wh.Secret, webhook.EventWebhookTest, deliveryID, payload)
 
 	// Record the delivery
-	if _, err := h.deliveries.Record(r.Context(), wh.ID, webhook.EventWebhookTest, payload, result.StatusCode, result.ResponseBody, result.Error, 1, result.Success, &result.DurationMs); err != nil {
+	if _, err := h.deliveries.Record(r.Context(), deliveryID, wh.ID, webhook.EventWebhookTest, payload, result.StatusCode, result.ResponseBody, result.Error, 1, result.Success, &result.DurationMs); err != nil {
 		slog.Warn("failed to record test webhook delivery", "error", err)
 	}
 

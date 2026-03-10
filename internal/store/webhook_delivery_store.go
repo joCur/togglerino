@@ -17,13 +17,13 @@ func NewWebhookDeliveryStore(pool *pgxpool.Pool) *WebhookDeliveryStore {
 	return &WebhookDeliveryStore{pool: pool}
 }
 
-func (s *WebhookDeliveryStore) Record(ctx context.Context, webhookID, eventType string, payload json.RawMessage, statusCode *int, responseBody, errMsg *string, attempt int, success bool, durationMs *int) (*model.WebhookDelivery, error) {
+func (s *WebhookDeliveryStore) Record(ctx context.Context, deliveryID, webhookID, eventType string, payload json.RawMessage, statusCode *int, responseBody, errMsg *string, attempt int, success bool, durationMs *int) (*model.WebhookDelivery, error) {
 	var d model.WebhookDelivery
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO webhook_deliveries (webhook_id, event_type, payload, status_code, response_body, error, attempt, success, duration_ms)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		`INSERT INTO webhook_deliveries (id, webhook_id, event_type, payload, status_code, response_body, error, attempt, success, duration_ms)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		 RETURNING id, webhook_id, event_type, payload, status_code, response_body, error, attempt, success, duration_ms, created_at`,
-		webhookID, eventType, payload, statusCode, responseBody, errMsg, attempt, success, durationMs,
+		deliveryID, webhookID, eventType, payload, statusCode, responseBody, errMsg, attempt, success, durationMs,
 	).Scan(&d.ID, &d.WebhookID, &d.EventType, &d.Payload, &d.StatusCode, &d.ResponseBody, &d.Error, &d.Attempt, &d.Success, &d.DurationMs, &d.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("recording webhook delivery: %w", err)

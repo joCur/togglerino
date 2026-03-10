@@ -3,10 +3,15 @@ package webhook
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync/atomic"
 	"testing"
-	"time"
 )
+
+func TestMain(m *testing.M) {
+	deliveryTransport = http.DefaultTransport
+	os.Exit(m.Run())
+}
 
 func TestDeliver_Success(t *testing.T) {
 	var called atomic.Bool
@@ -75,4 +80,3 @@ func TestDeliver_SignatureIsCorrect(t *testing.T) {
 	}
 }
 
-var _ = time.Second // avoid unused import if tests are skipped

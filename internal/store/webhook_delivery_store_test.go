@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/togglerino/togglerino/internal/store"
+	"github.com/togglerino/togglerino/internal/webhook"
 )
 
 func TestWebhookDeliveryStore_Record(t *testing.T) {
@@ -20,7 +21,8 @@ func TestWebhookDeliveryStore_Record(t *testing.T) {
 
 	statusCode := 200
 	durationMs := 150
-	delivery, err := ds.Record(ctx, wh.ID, "flag.created", json.RawMessage(`{"type":"flag.created"}`), &statusCode, nil, nil, 1, true, &durationMs)
+	deliveryID := webhook.GenerateDeliveryID()
+	delivery, err := ds.Record(ctx, deliveryID, wh.ID, "flag.created", json.RawMessage(`{"type":"flag.created"}`), &statusCode, nil, nil, 1, true, &durationMs)
 	if err != nil {
 		t.Fatalf("Record: %v", err)
 	}
@@ -44,8 +46,8 @@ func TestWebhookDeliveryStore_ListByWebhook(t *testing.T) {
 
 	sc := 200
 	dur := 100
-	ds.Record(ctx, wh.ID, "flag.created", json.RawMessage(`{}`), &sc, nil, nil, 1, true, &dur)
-	ds.Record(ctx, wh.ID, "flag.updated", json.RawMessage(`{}`), &sc, nil, nil, 1, true, &dur)
+	ds.Record(ctx, webhook.GenerateDeliveryID(), wh.ID, "flag.created", json.RawMessage(`{}`), &sc, nil, nil, 1, true, &dur)
+	ds.Record(ctx, webhook.GenerateDeliveryID(), wh.ID, "flag.updated", json.RawMessage(`{}`), &sc, nil, nil, 1, true, &dur)
 
 	deliveries, total, err := ds.ListByWebhook(ctx, wh.ID, 50, 0)
 	if err != nil {
@@ -71,7 +73,7 @@ func TestWebhookDeliveryStore_DeleteOlderThan(t *testing.T) {
 
 	sc := 200
 	dur := 100
-	ds.Record(ctx, wh.ID, "flag.created", json.RawMessage(`{}`), &sc, nil, nil, 1, true, &dur)
+	ds.Record(ctx, webhook.GenerateDeliveryID(), wh.ID, "flag.created", json.RawMessage(`{}`), &sc, nil, nil, 1, true, &dur)
 
 	deleted, err := ds.DeleteOlderThan(ctx, 0)
 	if err != nil {

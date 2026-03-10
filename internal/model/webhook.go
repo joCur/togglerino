@@ -10,7 +10,7 @@ type Webhook struct {
 	ProjectID  string    `json:"project_id"`
 	Name       string    `json:"name"`
 	URL        string    `json:"url"`
-	Secret     string    `json:"secret,omitempty"`
+	Secret     string    `json:"secret"`
 	EventTypes []string  `json:"event_types"`
 	Enabled    bool      `json:"enabled"`
 	CreatedAt  time.Time `json:"created_at"`

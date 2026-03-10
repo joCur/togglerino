@@ -41,5 +41,4 @@ var ValidEventTypes = map[string]bool{
 	EventSegmentUpdated:     true,
 	EventSegmentDeleted:     true,
 	EventEnvironmentCreated: true,
-	EventWebhookTest:        true,
 }

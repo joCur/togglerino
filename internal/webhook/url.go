@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strings"
 )
 
 func ValidateURL(rawURL string) error {
@@ -70,9 +69,6 @@ func isPrivateIP(ip net.IP) bool {
 			continue
 		}
 		if network.Contains(ip) {
-			if strings.HasPrefix(cidr, "127.") {
-				continue
-			}
 			return true
 		}
 	}

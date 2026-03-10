@@ -3,7 +3,6 @@ package webhook
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -50,10 +49,10 @@ func (disp *Dispatcher) deliverWithRetry(webhookID, url, secret, eventType strin
 		}
 
 		ctx := context.Background()
-		deliveryID := fmt.Sprintf("%s-%d-%d", webhookID, attempt, time.Now().UnixNano())
+		deliveryID := GenerateDeliveryID()
 		result := Deliver(url, secret, eventType, deliveryID, payload)
 
-		if _, err := disp.deliveries.Record(ctx, webhookID, eventType, payload, result.StatusCode, result.ResponseBody, result.Error, attempt, result.Success, &result.DurationMs); err != nil {
+		if _, err := disp.deliveries.Record(ctx, deliveryID, webhookID, eventType, payload, result.StatusCode, result.ResponseBody, result.Error, attempt, result.Success, &result.DurationMs); err != nil {
 			slog.Warn("failed to record webhook delivery", "webhook_id", webhookID, "attempt", attempt, "error", err)
 		}
 
@@ -74,6 +73,7 @@ func (disp *Dispatcher) RetryFailed(ctx context.Context) {
 		return
 	}
 	slog.Info("retrying failed webhook deliveries", "count", len(deliveries))
+	sem := make(chan struct{}, 10)
 	for _, del := range deliveries {
 		wh, err := disp.webhooks.GetByID(ctx, del.WebhookID)
 		if err != nil {
@@ -81,12 +81,14 @@ func (disp *Dispatcher) RetryFailed(ctx context.Context) {
 			continue
 		}
 		d := del
+		sem <- struct{}{}
 		go func() {
+			defer func() { <-sem }()
 			nextAttempt := d.Attempt + 1
-			deliveryID := fmt.Sprintf("%s-retry-%d-%d", d.WebhookID, nextAttempt, time.Now().UnixNano())
+			deliveryID := GenerateDeliveryID()
 			result := Deliver(wh.URL, wh.Secret, d.EventType, deliveryID, d.Payload)
 			bgCtx := context.Background()
-			if _, err := disp.deliveries.Record(bgCtx, d.WebhookID, d.EventType, d.Payload, result.StatusCode, result.ResponseBody, result.Error, nextAttempt, result.Success, &result.DurationMs); err != nil {
+			if _, err := disp.deliveries.Record(bgCtx, deliveryID, d.WebhookID, d.EventType, d.Payload, result.StatusCode, result.ResponseBody, result.Error, nextAttempt, result.Success, &result.DurationMs); err != nil {
 				slog.Warn("failed to record retry delivery", "error", err)
 			}
 		}()
