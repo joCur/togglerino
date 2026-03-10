@@ -26,18 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-
-const EVENT_TYPES = [
-  { value: 'flag.created', label: 'Flag Created' },
-  { value: 'flag.updated', label: 'Flag Updated' },
-  { value: 'flag.deleted', label: 'Flag Deleted' },
-  { value: 'flag.archived', label: 'Flag Archived' },
-  { value: 'flag_config.updated', label: 'Flag Config Updated' },
-  { value: 'segment.created', label: 'Segment Created' },
-  { value: 'segment.updated', label: 'Segment Updated' },
-  { value: 'segment.deleted', label: 'Segment Deleted' },
-  { value: 'environment.created', label: 'Environment Created' },
-]
+import { EVENT_TYPES } from './webhook-constants'
 
 export default function WebhooksTab() {
   const { key } = useParams<{ key: string }>()
@@ -51,6 +40,7 @@ export default function WebhooksTab() {
   const [url, setUrl] = useState('')
   const [selectedEvents, setSelectedEvents] = useState<string[]>([])
   const [error, setError] = useState('')
+  const [mutationError, setMutationError] = useState('')
   const [copied, setCopied] = useState(false)
 
   const { data, isLoading } = useQuery({
@@ -83,15 +73,19 @@ export default function WebhooksTab() {
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
       api.webhooks.update(key!, id, { enabled }),
     onSuccess: () => {
+      setMutationError('')
       queryClient.invalidateQueries({ queryKey: ['webhooks', key] })
     },
+    onError: (err: Error) => setMutationError(err.message),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.webhooks.delete(key!, id),
     onSuccess: () => {
+      setMutationError('')
       queryClient.invalidateQueries({ queryKey: ['webhooks', key] })
     },
+    onError: (err: Error) => setMutationError(err.message),
   })
 
   const handleCreate = (e: React.FormEvent) => {
@@ -295,6 +289,9 @@ export default function WebhooksTab() {
                 </TableBody>
               </Table>
             </div>
+          )}
+          {mutationError && (
+            <div className="text-[13px] text-destructive mt-4">{mutationError}</div>
           )}
         </CardContent>
       </Card>

@@ -30,18 +30,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-
-const EVENT_TYPES = [
-  { value: 'flag.created', label: 'Flag Created' },
-  { value: 'flag.updated', label: 'Flag Updated' },
-  { value: 'flag.deleted', label: 'Flag Deleted' },
-  { value: 'flag.archived', label: 'Flag Archived' },
-  { value: 'flag_config.updated', label: 'Flag Config Updated' },
-  { value: 'segment.created', label: 'Segment Created' },
-  { value: 'segment.updated', label: 'Segment Updated' },
-  { value: 'segment.deleted', label: 'Segment Deleted' },
-  { value: 'environment.created', label: 'Environment Created' },
-]
+import { EVENT_TYPES, DELIVERY_PAGE_SIZE } from './webhook-constants'
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -70,6 +59,7 @@ export default function WebhookDetailPage() {
   const [editError, setEditError] = useState('')
   const [testResult, setTestResult] = useState<WebhookTestResult | null>(null)
   const [testLoading, setTestLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const [deliveryPage, setDeliveryPage] = useState(0)
 
   const { data: webhook, isLoading: webhookLoading } = useQuery({
@@ -80,7 +70,7 @@ export default function WebhookDetailPage() {
 
   const { data: deliveriesData, isLoading: deliveriesLoading } = useQuery({
     queryKey: ['webhook-deliveries', key, id, deliveryPage],
-    queryFn: () => api.webhooks.deliveries(key!, id!, { limit: 20, offset: deliveryPage * 20 }),
+    queryFn: () => api.webhooks.deliveries(key!, id!, { limit: DELIVERY_PAGE_SIZE, offset: deliveryPage * DELIVERY_PAGE_SIZE }),
     enabled: !!key && !!id,
   })
 
@@ -106,6 +96,7 @@ export default function WebhookDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['webhooks', key] })
       navigate(`/projects/${key}/settings/webhooks`)
     },
+    onError: (err: Error) => setDeleteError(err.message),
   })
 
   const handleEdit = (e: React.FormEvent) => {
@@ -224,6 +215,9 @@ export default function WebhookDetailPage() {
               </Button>
             </div>
           </div>
+          {deleteError && (
+            <div className="text-[13px] text-destructive mb-4">{deleteError}</div>
+          )}
 
           {/* Event types */}
           <div className="flex flex-wrap gap-1.5 mb-4">
@@ -360,7 +354,7 @@ export default function WebhookDetailPage() {
             {deliveriesData && (
               <div className="flex items-center justify-between mt-3">
                 <span className="text-[13px] text-muted-foreground/60">
-                  Page {deliveryPage + 1} of {Math.max(1, Math.ceil((deliveriesData.total ?? 0) / 20))}
+                  Page {deliveryPage + 1} of {Math.max(1, Math.ceil((deliveriesData.total ?? 0) / DELIVERY_PAGE_SIZE))}
                 </span>
                 <div className="flex items-center gap-2">
                   <Button
@@ -376,7 +370,7 @@ export default function WebhookDetailPage() {
                     variant="outline"
                     size="sm"
                     className="text-xs h-7"
-                    disabled={(deliveryPage + 1) * 20 >= (deliveriesData.total ?? 0)}
+                    disabled={(deliveryPage + 1) * DELIVERY_PAGE_SIZE >= (deliveriesData.total ?? 0)}
                     onClick={() => setDeliveryPage((p) => p + 1)}
                   >
                     Next
