@@ -205,6 +205,17 @@ func (c *Cache) RefreshSegments(ctx context.Context, pool *pgxpool.Pool, project
 	return nil
 }
 
+// FlagCount returns the total number of cached flags across all project/environments.
+func (c *Cache) FlagCount() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	count := 0
+	for _, flags := range c.data {
+		count += len(flags)
+	}
+	return count
+}
+
 // GetFlags returns all flag data for a project/environment.
 // Returns nil if the project/environment combination is not found.
 func (c *Cache) GetFlags(projectKey, envKey string) map[string]FlagData {

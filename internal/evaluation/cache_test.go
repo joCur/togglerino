@@ -259,6 +259,25 @@ func TestCache_LoadOverrides(t *testing.T) {
 	}
 }
 
+func TestCache_FlagCount(t *testing.T) {
+	c := evaluation.NewCache()
+	if got := c.FlagCount(); got != 0 {
+		t.Errorf("empty cache: expected 0, got %d", got)
+	}
+
+	c.Set("proj1", "dev", map[string]evaluation.FlagData{
+		"flag-a": {Flag: model.Flag{Key: "flag-a"}},
+		"flag-b": {Flag: model.Flag{Key: "flag-b"}},
+	})
+	c.Set("proj1", "prod", map[string]evaluation.FlagData{
+		"flag-a": {Flag: model.Flag{Key: "flag-a"}},
+	})
+
+	if got := c.FlagCount(); got != 3 {
+		t.Errorf("expected 3 flags, got %d", got)
+	}
+}
+
 func TestCache_PurgeExpiredOverrides(t *testing.T) {
 	c := evaluation.NewCache()
 
