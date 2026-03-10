@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/togglerino/togglerino/internal/store"
@@ -73,6 +74,7 @@ func (disp *Dispatcher) RetryFailed(ctx context.Context) {
 		return
 	}
 	slog.Info("retrying failed webhook deliveries", "count", len(deliveries))
+	var wg sync.WaitGroup
 	sem := make(chan struct{}, 10)
 	for _, del := range deliveries {
 		wh, err := disp.webhooks.GetByID(ctx, del.WebhookID)
@@ -81,8 +83,10 @@ func (disp *Dispatcher) RetryFailed(ctx context.Context) {
 			continue
 		}
 		d := del
+		wg.Add(1)
 		sem <- struct{}{}
 		go func() {
+			defer wg.Done()
 			defer func() { <-sem }()
 			nextAttempt := d.Attempt + 1
 			deliveryID := GenerateDeliveryID()
@@ -93,6 +97,7 @@ func (disp *Dispatcher) RetryFailed(ctx context.Context) {
 			}
 		}()
 	}
+	wg.Wait()
 }
 
 func matchesEventType(hookTypes []string, eventType string) bool {

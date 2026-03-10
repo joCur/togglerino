@@ -203,6 +203,10 @@ func (h *WebhookHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = existing.Name
 	}
+	if len(name) > 100 {
+		writeError(w, http.StatusBadRequest, "name must be 100 characters or fewer")
+		return
+	}
 	url := req.URL
 	if url == "" {
 		url = existing.URL

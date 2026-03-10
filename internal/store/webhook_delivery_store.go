@@ -63,6 +63,11 @@ func (s *WebhookDeliveryStore) ListFailedRecent(ctx context.Context) ([]model.We
 		 FROM webhook_deliveries d
 		 JOIN webhooks w ON w.id = d.webhook_id AND w.enabled = true
 		 WHERE d.success = false AND d.attempt < 3 AND d.created_at > NOW() - INTERVAL '1 hour'
+		   AND NOT EXISTS (
+		     SELECT 1 FROM webhook_deliveries d2
+		     WHERE d2.webhook_id = d.webhook_id AND d2.event_type = d.event_type
+		       AND d2.success = true AND d2.created_at > d.created_at
+		   )
 		 ORDER BY d.created_at ASC`,
 	)
 	if err != nil {

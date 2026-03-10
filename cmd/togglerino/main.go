@@ -426,7 +426,7 @@ func main() {
 	})
 
 	webhook.StartCleanup(ctx, webhookDeliveryStore)
-	webhookDispatcher.RetryFailed(context.Background())
+	go webhookDispatcher.RetryFailed(context.Background())
 
 	// Start server with logging and CORS middleware
 	slog.Info("cors configured", "origins", cfg.CORSOrigins)

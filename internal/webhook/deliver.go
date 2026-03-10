@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -38,9 +39,13 @@ func Deliver(url, secret, eventType, deliveryID string, payload []byte) Delivery
 	req.Header.Set("X-Togglerino-Event", eventType)
 	req.Header.Set("X-Togglerino-Delivery", deliveryID)
 
+	transport := deliveryTransport
+	if isLocalhostURL(url) {
+		transport = http.DefaultTransport
+	}
 	client := &http.Client{
 		Timeout:   10 * time.Second,
-		Transport: deliveryTransport,
+		Transport: transport,
 	}
 	resp, err := client.Do(req)
 	durationMs := int(time.Since(start).Milliseconds())
@@ -75,6 +80,15 @@ func GenerateDeliveryID() string {
 	b[6] = (b[6] & 0x0f) | 0x40
 	b[8] = (b[8] & 0x3f) | 0x80
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func isLocalhostURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 func ssrfSafeDialer(ctx context.Context, network, addr string) (net.Conn, error) {
