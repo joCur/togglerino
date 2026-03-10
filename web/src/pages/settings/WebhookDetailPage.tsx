@@ -6,6 +6,7 @@ import type { Webhook, WebhookTestResult } from '@/api/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -69,6 +70,7 @@ export default function WebhookDetailPage() {
   const [editError, setEditError] = useState('')
   const [testResult, setTestResult] = useState<WebhookTestResult | null>(null)
   const [testLoading, setTestLoading] = useState(false)
+  const [deliveryPage, setDeliveryPage] = useState(0)
 
   const { data: webhook, isLoading: webhookLoading } = useQuery({
     queryKey: ['webhooks', key, id],
@@ -77,15 +79,15 @@ export default function WebhookDetailPage() {
   })
 
   const { data: deliveriesData, isLoading: deliveriesLoading } = useQuery({
-    queryKey: ['webhook-deliveries', key, id],
-    queryFn: () => api.webhooks.deliveries(key!, id!),
+    queryKey: ['webhook-deliveries', key, id, deliveryPage],
+    queryFn: () => api.webhooks.deliveries(key!, id!, { limit: 20, offset: deliveryPage * 20 }),
     enabled: !!key && !!id,
   })
 
   const deliveries = deliveriesData?.data ?? []
 
   const updateMutation = useMutation({
-    mutationFn: (body: { name?: string; url?: string; event_types?: string[] }) =>
+    mutationFn: (body: { name?: string; url?: string; event_types?: string[]; enabled?: boolean }) =>
       api.webhooks.update(key!, id!, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['webhooks', key, id] })
@@ -146,6 +148,7 @@ export default function WebhookDetailPage() {
     try {
       const result = await api.webhooks.test(key!, id!)
       setTestResult(result)
+      queryClient.invalidateQueries({ queryKey: ['webhook-deliveries', key, id] })
     } catch (err) {
       setTestResult({
         success: false,
@@ -192,9 +195,15 @@ export default function WebhookDetailPage() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-sm font-semibold text-foreground">{webhook.name}</span>
-                <Badge variant={webhook.enabled ? 'secondary' : 'outline'} className="text-[11px]">
+                <Switch
+                  checked={webhook.enabled}
+                  onCheckedChange={(checked) =>
+                    updateMutation.mutate({ enabled: checked })
+                  }
+                />
+                <span className="text-[11px] text-muted-foreground">
                   {webhook.enabled ? 'Enabled' : 'Disabled'}
-                </Badge>
+                </span>
               </div>
               <div className="text-[13px] text-muted-foreground/60 font-mono break-all">
                 {webhook.url}
@@ -256,11 +265,12 @@ export default function WebhookDetailPage() {
             <div className="text-center py-8 text-muted-foreground/60 text-[13px] animate-pulse">
               Loading deliveries...
             </div>
-          ) : deliveries.length === 0 ? (
+          ) : deliveries.length === 0 && deliveryPage === 0 ? (
             <div className="text-center py-8 text-muted-foreground/60 text-[13px]">
               No deliveries yet.
             </div>
           ) : (
+            <>
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -347,6 +357,34 @@ export default function WebhookDetailPage() {
                 </TableBody>
               </Table>
             </div>
+            {deliveriesData && (
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-[13px] text-muted-foreground/60">
+                  Page {deliveryPage + 1} of {Math.max(1, Math.ceil((deliveriesData.total ?? 0) / 20))}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    disabled={deliveryPage === 0}
+                    onClick={() => setDeliveryPage((p) => p - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    disabled={(deliveryPage + 1) * 20 >= (deliveriesData.total ?? 0)}
+                    onClick={() => setDeliveryPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>
