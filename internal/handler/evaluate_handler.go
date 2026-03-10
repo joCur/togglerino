@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/evaluation"
+	"github.com/togglerino/togglerino/internal/metrics"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
@@ -18,11 +20,12 @@ type EvaluateHandler struct {
 	engine       *evaluation.Engine
 	unknownFlags *store.UnknownFlagStore
 	contextAttrs *store.ContextAttributeStore
+	metrics      *metrics.Registry
 }
 
 // NewEvaluateHandler creates a new EvaluateHandler.
-func NewEvaluateHandler(cache *evaluation.Cache, engine *evaluation.Engine, unknownFlags *store.UnknownFlagStore, contextAttrs *store.ContextAttributeStore) *EvaluateHandler {
-	return &EvaluateHandler{cache: cache, engine: engine, unknownFlags: unknownFlags, contextAttrs: contextAttrs}
+func NewEvaluateHandler(cache *evaluation.Cache, engine *evaluation.Engine, unknownFlags *store.UnknownFlagStore, contextAttrs *store.ContextAttributeStore, metricsReg *metrics.Registry) *EvaluateHandler {
+	return &EvaluateHandler{cache: cache, engine: engine, unknownFlags: unknownFlags, contextAttrs: contextAttrs, metrics: metricsReg}
 }
 
 type evaluateRequest struct {
@@ -55,6 +58,7 @@ func (h *EvaluateHandler) trackAttributes(projectKey string, evalCtx *model.Eval
 // EvaluateAll evaluates all flags for the SDK key's project/environment.
 // POST /api/v1/evaluate
 func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	sdkKey := auth.SDKKeyFromContext(r.Context())
 
 	evalCtx := h.parseContext(r)
@@ -72,10 +76,21 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 					Variant: "override",
 					Reason:  "override",
 				}
+				if h.metrics != nil {
+					h.metrics.RecordEvaluation(sdkKey.ProjectKey, sdkKey.EnvironmentKey, flagKey, "override")
+				}
 				continue
 			}
 		}
-		results[flagKey] = h.engine.EvaluateWithSegments(&fd.Flag, &fd.Config, evalCtx, segments)
+		result := h.engine.EvaluateWithSegments(&fd.Flag, &fd.Config, evalCtx, segments)
+		results[flagKey] = result
+		if h.metrics != nil {
+			h.metrics.RecordEvaluation(sdkKey.ProjectKey, sdkKey.EnvironmentKey, flagKey, result.Variant)
+		}
+	}
+
+	if h.metrics != nil {
+		h.metrics.ObserveEvaluationDuration(time.Since(start).Seconds())
 	}
 
 	writeJSON(w, http.StatusOK, evaluateAllResponse{Flags: results})
@@ -84,6 +99,7 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 // EvaluateSingle evaluates a single flag for the SDK key's project/environment.
 // POST /api/v1/evaluate/{flag}
 func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	flagKey := r.PathValue("flag")
 
 	sdkKey := auth.SDKKeyFromContext(r.Context())
@@ -105,6 +121,10 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 	// Personal overrides bypass disabled flags (by design) but respect archived flags.
 	if evalCtx.UserID != "" && fd.Flag.LifecycleStatus != model.LifecycleArchived {
 		if overrideVal, ok := h.cache.GetOverride(sdkKey.ProjectKey, sdkKey.EnvironmentKey, evalCtx.UserID, flagKey); ok {
+			if h.metrics != nil {
+				h.metrics.RecordEvaluation(sdkKey.ProjectKey, sdkKey.EnvironmentKey, flagKey, "override")
+				h.metrics.ObserveEvaluationDuration(time.Since(start).Seconds())
+			}
 			writeJSON(w, http.StatusOK, &model.EvaluationResult{
 				Value:   rawToAny(overrideVal),
 				Variant: "override",
@@ -116,6 +136,10 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 
 	segments := h.cache.GetSegments(sdkKey.ProjectKey)
 	result := h.engine.EvaluateWithSegments(&fd.Flag, &fd.Config, evalCtx, segments)
+	if h.metrics != nil {
+		h.metrics.RecordEvaluation(sdkKey.ProjectKey, sdkKey.EnvironmentKey, flagKey, result.Variant)
+		h.metrics.ObserveEvaluationDuration(time.Since(start).Seconds())
+	}
 	writeJSON(w, http.StatusOK, result)
 }
 
