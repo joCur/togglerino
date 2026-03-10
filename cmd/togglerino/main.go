@@ -14,12 +14,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/auth"
 	"github.com/togglerino/togglerino/internal/config"
 	"github.com/togglerino/togglerino/internal/evaluation"
 	"github.com/togglerino/togglerino/internal/handler"
 	"github.com/togglerino/togglerino/internal/lifecycle"
 	"github.com/togglerino/togglerino/internal/logging"
+	"github.com/togglerino/togglerino/internal/metrics"
 	"github.com/togglerino/togglerino/internal/override"
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/ratelimit"
@@ -93,6 +95,13 @@ func main() {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
 	hub := stream.NewHub()
+
+	// Initialize metrics (if enabled)
+	var metricsReg *metrics.Registry
+	if cfg.MetricsEnabled {
+		metricsReg = metrics.NewRegistry()
+	}
+
 	cacheRefresher := cacheRefreshFunc(func(ctx context.Context) error {
 		return cache.LoadAll(ctx, pool)
 	})
@@ -135,6 +144,10 @@ func main() {
 	go snapshotRecorder.Run(ctx)
 	go scheduleChecker.Run(ctx)
 	go overrideCleaner.Run(ctx)
+	if metricsReg != nil {
+		statsSrc := &statsAdapter{cache: cache, hub: hub, pool: pool}
+		go metricsReg.RunCollector(ctx, statsSrc, 15*time.Second)
+	}
 
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore, cfg.BaseURL)
@@ -148,7 +161,7 @@ func main() {
 	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore, environmentStore)
 	contextAttributeStore := store.NewContextAttributeStore(pool)
 	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
-	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore, nil)
+	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore, metricsReg)
 	playgroundHandler := handler.NewPlaygroundHandler(cache, engine)
 	unknownFlagHandler := handler.NewUnknownFlagHandler(unknownFlagStore, projectStore)
 	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool)
@@ -364,6 +377,11 @@ func main() {
 	mux.Handle("POST /api/v1/evaluate/{flag}", wrap(evaluateHandler.EvaluateSingle, sdkAuth))
 	mux.Handle("GET /api/v1/stream", wrap(streamHandler.Handle, sdkAuth))
 
+	// Metrics endpoint (public, no auth)
+	if metricsReg != nil && cfg.MetricsPort == "" {
+		mux.Handle("GET /metrics", metricsReg.Handler())
+	}
+
 	// Serve the embedded React dashboard
 	distFS, err := fs.Sub(web.DistFS, "dist")
 	if err != nil {
@@ -398,7 +416,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    cfg.Addr(),
-		Handler: logging.Middleware(corsMiddleware(cfg.CORSOrigins, mux)),
+		Handler: metricsMiddleware(metricsReg, logging.Middleware(corsMiddleware(cfg.CORSOrigins, mux))),
 	}
 
 	// Start listening in a goroutine so we can wait for shutdown signals.
@@ -407,6 +425,21 @@ func main() {
 			log.Fatalf("server error: %v", err)
 		}
 	}()
+
+	if metricsReg != nil && cfg.MetricsPort != "" {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("GET /metrics", metricsReg.Handler())
+		metricsSrv := &http.Server{
+			Addr:    cfg.MetricsAddr(),
+			Handler: metricsMux,
+		}
+		go func() {
+			slog.Info("metrics server listening", "addr", cfg.MetricsAddr())
+			if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("metrics server error", "error", err)
+			}
+		}()
+	}
 
 	// Wait for SIGINT or SIGTERM.
 	quit := make(chan os.Signal, 1)
@@ -549,3 +582,21 @@ func corsMiddleware(origins []string, next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func metricsMiddleware(reg *metrics.Registry, next http.Handler) http.Handler {
+	if reg == nil {
+		return next
+	}
+	return reg.Middleware(next)
+}
+
+type statsAdapter struct {
+	cache *evaluation.Cache
+	hub   *stream.Hub
+	pool  *pgxpool.Pool
+}
+
+func (s *statsAdapter) FlagCount() int                     { return s.cache.FlagCount() }
+func (s *statsAdapter) AllSubscriberCounts() map[string]int { return s.hub.AllSubscriberCounts() }
+func (s *statsAdapter) ActiveConns() int32                  { return int32(s.pool.Stat().AcquiredConns()) }
+func (s *statsAdapter) IdleConns() int32                    { return int32(s.pool.Stat().IdleConns()) }
