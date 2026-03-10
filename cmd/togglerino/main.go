@@ -426,10 +426,11 @@ func main() {
 		}
 	}()
 
+	var metricsSrv *http.Server
 	if metricsReg != nil && cfg.MetricsPort != "" {
 		metricsMux := http.NewServeMux()
 		metricsMux.Handle("GET /metrics", metricsReg.Handler())
-		metricsSrv := &http.Server{
+		metricsSrv = &http.Server{
 			Addr:    cfg.MetricsAddr(),
 			Handler: metricsMux,
 		}
@@ -453,6 +454,11 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("server shutdown error", "error", err)
+	}
+	if metricsSrv != nil {
+		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+			slog.Error("metrics server shutdown error", "error", err)
+		}
 	}
 
 	cancelCtx()
