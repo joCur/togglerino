@@ -20,6 +20,9 @@ type Config struct {
 	OIDCSkipEmailVerification bool
 	SessionSecret             string
 	BaseURL                   string
+	// Prometheus metrics
+	MetricsEnabled bool
+	MetricsPort    string
 }
 
 func Load() (*Config, error) {
@@ -40,6 +43,8 @@ func Load() (*Config, error) {
 		OIDCSkipEmailVerification: os.Getenv("OIDC_SKIP_EMAIL_VERIFICATION") == "true",
 		SessionSecret:             os.Getenv("SESSION_SECRET"),
 		BaseURL:                   os.Getenv("BASE_URL"),
+		MetricsEnabled:            envOr("METRICS_ENABLED", "true") == "true",
+		MetricsPort:               os.Getenv("METRICS_PORT"),
 	}
 	return cfg, nil
 }
@@ -58,6 +63,10 @@ func parseOrigins(raw string) []string {
 
 func (c *Config) Addr() string {
 	return fmt.Sprintf(":%s", c.Port)
+}
+
+func (c *Config) MetricsAddr() string {
+	return fmt.Sprintf(":%s", c.MetricsPort)
 }
 
 func (c *Config) OIDCConfigured() bool {

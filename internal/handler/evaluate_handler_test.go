@@ -15,7 +15,7 @@ import (
 func TestEvaluateHandler_PersonalOverride(t *testing.T) {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
-	h := NewEvaluateHandler(cache, engine, nil, nil)
+	h := NewEvaluateHandler(cache, engine, nil, nil, nil)
 
 	// Set up a flag
 	cache.SetFlag("proj", "dev", "my-flag", evaluation.FlagData{
@@ -74,7 +74,7 @@ func TestEvaluateHandler_PersonalOverride(t *testing.T) {
 func TestEvaluateHandler_NoOverrideFallsThrough(t *testing.T) {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
-	h := NewEvaluateHandler(cache, engine, nil, nil)
+	h := NewEvaluateHandler(cache, engine, nil, nil, nil)
 
 	cache.SetFlag("proj", "dev", "my-flag", evaluation.FlagData{
 		Flag: model.Flag{
@@ -123,7 +123,7 @@ func TestEvaluateHandler_NoOverrideFallsThrough(t *testing.T) {
 func TestEvaluateHandler_PersonalOverride_EvaluateAll(t *testing.T) {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
-	h := NewEvaluateHandler(cache, engine, nil, nil)
+	h := NewEvaluateHandler(cache, engine, nil, nil, nil)
 
 	cache.SetFlag("proj", "dev", "flag-a", evaluation.FlagData{
 		Flag: model.Flag{
@@ -200,7 +200,7 @@ func TestEvaluateHandler_PersonalOverride_EvaluateAll(t *testing.T) {
 func TestEvaluateHandler_OverrideSkipsArchivedFlag(t *testing.T) {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
-	h := NewEvaluateHandler(cache, engine, nil, nil)
+	h := NewEvaluateHandler(cache, engine, nil, nil, nil)
 
 	cache.SetFlag("proj", "dev", "archived-flag", evaluation.FlagData{
 		Flag: model.Flag{

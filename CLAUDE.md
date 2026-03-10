@@ -62,6 +62,8 @@ Multi-stage Dockerfile: `node:20-alpine` (frontend build) → `golang:1.25-alpin
 - `OIDC_CLIENT_SECRET` — OIDC client secret (env var override for DB config)
 - `OIDC_DEFAULT_ROLE` — Default role for OIDC-provisioned users: `admin` or `member` (default: `member`)
 - `OIDC_SKIP_EMAIL_VERIFICATION` — Skip `email_verified` claim check for OIDC login (default: `false`)
+- `METRICS_ENABLED` — Enable Prometheus metrics endpoint (default: `true`)
+- `METRICS_PORT` — Serve metrics on a separate port (optional; if unset, served on main port at `GET /metrics`)
 
 ## Development Workflow
 
@@ -158,6 +160,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 ### Public (no auth, some rate-limited)
 
 - `GET /healthz` — health check (`{"status":"ok"}`)
+- `GET /metrics` — Prometheus metrics endpoint (when METRICS_ENABLED=true)
 - `GET /api/v1/auth/status` — returns `{"setup_required": true}` when no users exist
 - `POST /api/v1/auth/setup` — create first admin user (rate-limited, 409 if users exist)
 - `POST /api/v1/auth/login` — session login (rate-limited)
@@ -218,6 +221,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **Dependency injection**: Stores and handlers created in `main.go` and passed via constructors
 - **SQL migrations**: Embedded via `migrations/` package using `embed.FS`, run on startup. Tracks versions in `schema_migrations` table, each migration runs in a transaction. Files: `NNN_name.up.sql` / `NNN_name.down.sql` (only `.up.sql` applied automatically)
 - **OIDC SSO**: Single OIDC provider (configurable via admin UI or env vars). Authorization Code Flow with HMAC-signed state/nonce cookies. Three callback outcomes: existing identity → session, email match → password-confirmed account linking, new user → auto-provisioned with configurable default role. Provider config stored in `oidc_providers` table, identity links in `oidc_identities`. `sync.RWMutex`-protected hot-reloadable provider in `OIDCHandler`
+- **Prometheus metrics**: Optional `/metrics` endpoint (enabled by default) exposes evaluation counts, HTTP request stats, SSE connection gauges, cache state, and DB pool health. Uses `prometheus/client_golang`. Metrics middleware normalizes HTTP paths to route patterns via `r.Pattern`. Optional separate listener via `METRICS_PORT`
 - **SPA fallback**: Go file server tries static file first, falls back to `index.html` for React Router
 
 ## Database

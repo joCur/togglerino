@@ -51,6 +51,58 @@ services:
       BASE_URL: "https://flags.example.com"
 ```
 
+## Metrics
+
+Togglerino exposes a Prometheus-compatible metrics endpoint for monitoring.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `METRICS_ENABLED` | `true` | Enable the `/metrics` endpoint |
+| `METRICS_PORT` | *(unset)* | Serve metrics on a separate port. If unset, metrics are served on the main HTTP port |
+
+### Available Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `togglerino_evaluations_total` | Counter | project, environment, flag, variant | Total flag evaluations |
+| `togglerino_evaluation_duration_seconds` | Histogram | — | Evaluation request duration |
+| `togglerino_sse_connections_active` | Gauge | project, environment | Active SSE connections |
+| `togglerino_cache_flags_total` | Gauge | — | Flags in memory cache |
+| `togglerino_http_requests_total` | Counter | method, path, status | HTTP requests |
+| `togglerino_http_request_duration_seconds` | Histogram | method, path | HTTP request duration |
+| `togglerino_db_pool_active_connections` | Gauge | — | Active database connections |
+| `togglerino_db_pool_idle_connections` | Gauge | — | Idle database connections |
+
+Go runtime metrics (`go_*`) and process metrics (`process_*`) are also included.
+
+:::note Cardinality
+The `togglerino_evaluations_total` counter includes `flag` and `variant` labels. In large deployments with many projects, environments, and flags, this can produce thousands of time series. Monitor your Prometheus instance's memory usage and consider using [recording rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/) to pre-aggregate if needed.
+:::
+
+### Prometheus Scrape Config
+
+```yaml
+scrape_configs:
+  - job_name: togglerino
+    static_configs:
+      - targets: ['localhost:8080']
+```
+
+If using a separate metrics port:
+
+```yaml
+scrape_configs:
+  - job_name: togglerino
+    static_configs:
+      - targets: ['localhost:9090']
+```
+
+### Disabling Metrics
+
+Set `METRICS_ENABLED=false` to disable the metrics endpoint entirely.
+
 ## Notes
 
 ### CORS Origins
