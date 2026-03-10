@@ -58,12 +58,12 @@ func (h *EvaluateHandler) trackAttributes(projectKey string, evalCtx *model.Eval
 // EvaluateAll evaluates all flags for the SDK key's project/environment.
 // POST /api/v1/evaluate
 func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
 	sdkKey := auth.SDKKeyFromContext(r.Context())
 
 	evalCtx := h.parseContext(r)
 	h.trackAttributes(sdkKey.ProjectKey, evalCtx)
 
+	start := time.Now() // after JSON parsing, measures evaluation only
 	flags := h.cache.GetFlags(sdkKey.ProjectKey, sdkKey.EnvironmentKey)
 	segments := h.cache.GetSegments(sdkKey.ProjectKey)
 	results := make(map[string]*model.EvaluationResult, len(flags))
@@ -99,13 +99,13 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 // EvaluateSingle evaluates a single flag for the SDK key's project/environment.
 // POST /api/v1/evaluate/{flag}
 func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
 	flagKey := r.PathValue("flag")
 
 	sdkKey := auth.SDKKeyFromContext(r.Context())
 	evalCtx := h.parseContext(r)
 	h.trackAttributes(sdkKey.ProjectKey, evalCtx)
 
+	start := time.Now() // after JSON parsing, measures evaluation only
 	fd, ok := h.cache.GetFlag(sdkKey.ProjectKey, sdkKey.EnvironmentKey, flagKey)
 	if !ok {
 		// Best-effort unknown flag tracking

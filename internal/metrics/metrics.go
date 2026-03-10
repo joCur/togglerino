@@ -20,7 +20,9 @@ type Registry struct {
 	DBPoolActive               prometheus.Gauge
 	DBPoolIdle                 prometheus.Gauge
 
-	sseKeys []string // tracks previous SSE label keys for stale cleanup
+	// sseKeys tracks previous SSE label keys for stale cleanup.
+	// Only accessed from RunCollector's single goroutine (or tests); not concurrency-safe.
+	sseKeys []string
 }
 
 func NewRegistry() *Registry {
