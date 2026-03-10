@@ -29,6 +29,8 @@ import FlagLifetimesTab from './pages/settings/FlagLifetimesTab.tsx'
 import EnvironmentDefaultsTab from './pages/settings/EnvironmentDefaultsTab.tsx'
 import MembersTab from './pages/settings/MembersTab.tsx'
 import EnvironmentAccessTab from './pages/settings/EnvironmentAccessTab.tsx'
+import WebhooksTab from './pages/settings/WebhooksTab.tsx'
+import WebhookDetailPage from './pages/settings/WebhookDetailPage.tsx'
 import ProjectTemplatesPage from './pages/ProjectTemplatesPage.tsx'
 import TemplatesPage from './pages/TemplatesPage.tsx'
 import PlaygroundPage from './pages/PlaygroundPage.tsx'
@@ -115,6 +117,8 @@ function AuthRouter() {
           <Route path="environments" element={<EnvironmentDefaultsTab />} />
           <Route path="members" element={<MembersTab />} />
           <Route path="environment-access" element={<EnvironmentAccessTab />} />
+          <Route path="webhooks" element={<WebhooksTab />} />
+          <Route path="webhooks/:id" element={<WebhookDetailPage />} />
         </Route>
         <Route path="segments" element={<SegmentsPage />} />
         <Route path="playground" element={<PlaygroundPage />} />
