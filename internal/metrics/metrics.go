@@ -19,6 +19,8 @@ type Registry struct {
 	HTTPRequestDurationSeconds *prometheus.HistogramVec
 	DBPoolActive               prometheus.Gauge
 	DBPoolIdle                 prometheus.Gauge
+
+	sseKeys []string // tracks previous SSE label keys for stale cleanup
 }
 
 func NewRegistry() *Registry {
@@ -33,7 +35,7 @@ func NewRegistry() *Registry {
 		EvaluationDurationSeconds: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Name:    "togglerino_evaluation_duration_seconds",
 			Help:    "Duration of flag evaluation requests.",
-			Buckets: prometheus.DefBuckets,
+			Buckets: []float64{0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1},
 		}),
 		SSEConnectionsActive: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "togglerino_sse_connections_active",
@@ -92,11 +94,27 @@ func (r *Registry) SetDBPoolStats(active, idle int) {
 }
 
 func (r *Registry) SetSSEConnections(counts map[string]int) {
-	r.SSEConnectionsActive.Reset()
+	// Set current values and track which keys are present.
+	seen := make(map[string]struct{}, len(counts))
 	for key, count := range counts {
 		parts := strings.SplitN(key, ":", 2)
 		if len(parts) == 2 {
 			r.SSEConnectionsActive.WithLabelValues(parts[0], parts[1]).Set(float64(count))
+			seen[key] = struct{}{}
 		}
+	}
+	// Remove stale keys that are no longer present.
+	for _, key := range r.sseKeys {
+		if _, ok := seen[key]; !ok {
+			parts := strings.SplitN(key, ":", 2)
+			if len(parts) == 2 {
+				r.SSEConnectionsActive.DeleteLabelValues(parts[0], parts[1])
+			}
+		}
+	}
+	// Update tracked keys.
+	r.sseKeys = make([]string, 0, len(seen))
+	for key := range seen {
+		r.sseKeys = append(r.sseKeys, key)
 	}
 }

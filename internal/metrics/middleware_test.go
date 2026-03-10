@@ -43,6 +43,22 @@ func TestMiddleware_UnmatchedRoute(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	// Should record with "unmatched" or whatever pattern the mux sets
-	// Just verify no panic
+	// Go's ServeMux returns 404 for unmatched routes but still sets a pattern.
+	// Verify the request was recorded (not panicking) with some path label.
+	counter, err := r.HTTPRequestsTotal.GetMetricWithLabelValues("GET", "unmatched", "404")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := collectCounter(counter)
+	if got == 1 {
+		return // "unmatched" label used as expected
+	}
+	// ServeMux may set a catch-all pattern — verify at least one counter was incremented
+	counter2, err := r.HTTPRequestsTotal.GetMetricWithLabelValues("GET", "/", "404")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if collectCounter(counter2) != 1 && got != 1 {
+		t.Error("expected unmatched request to be recorded with either 'unmatched' or '/' path label")
+	}
 }

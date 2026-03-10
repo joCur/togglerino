@@ -77,6 +77,10 @@ Togglerino exposes a Prometheus-compatible metrics endpoint for monitoring.
 
 Go runtime metrics (`go_*`) and process metrics (`process_*`) are also included.
 
+:::note Cardinality
+The `togglerino_evaluations_total` counter includes `flag` and `variant` labels. In large deployments with many projects, environments, and flags, this can produce thousands of time series. Monitor your Prometheus instance's memory usage and consider using [recording rules](https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/) to pre-aggregate if needed.
+:::
+
 ### Prometheus Scrape Config
 
 ```yaml
