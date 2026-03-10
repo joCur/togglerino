@@ -20,8 +20,8 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
-      dotnet-sdk--release_created: ${{ steps.release.outputs['dotnet-sdk--release_created'] }}
-      dotnet-sdk--tag_name: ${{ steps.release.outputs['dotnet-sdk--tag_name'] }}
+      dotnet-sdk--release_created: ${{ steps.release.outputs['sdks/dotnet--release_created'] }}
+      dotnet-sdk--tag_name: ${{ steps.release.outputs['sdks/dotnet--tag_name'] }}
       sdk--release_created: ${{ steps.release.outputs['sdks/javascript--release_created'] }}
       sdk--tag_name: ${{ steps.release.outputs['sdks/javascript--tag_name'] }}
       react--release_created: ${{ steps.release.outputs['sdks/react--release_created'] }}
