@@ -51,6 +51,13 @@ func (h *WebhookHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, et := range req.EventTypes {
+		if !webhook.ValidEventTypes[et] {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid event type: %s", et))
+			return
+		}
+	}
+
 	if err := webhook.ValidateURL(req.URL); err != nil {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid url: %v", err))
 		return
@@ -199,6 +206,13 @@ func (h *WebhookHandler) Update(w http.ResponseWriter, r *http.Request) {
 	eventTypes := req.EventTypes
 	if len(eventTypes) == 0 {
 		eventTypes = existing.EventTypes
+	} else {
+		for _, et := range eventTypes {
+			if !webhook.ValidEventTypes[et] {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid event type: %s", et))
+				return
+			}
+		}
 	}
 	enabled := existing.Enabled
 	if req.Enabled != nil {
@@ -300,6 +314,7 @@ func (h *WebhookHandler) Test(w http.ResponseWriter, r *http.Request) {
 		Timestamp: time.Now().UTC(),
 		ProjectID: project.ID,
 		Actor:     webhookActorFromContext(r.Context()),
+		Entity:    json.RawMessage(`{"message":"This is a test webhook delivery from Togglerino."}`),
 	}
 
 	payload, err := json.Marshal(event)

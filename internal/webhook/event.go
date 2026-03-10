@@ -30,3 +30,16 @@ const (
 	EventEnvironmentCreated = "environment.created"
 	EventWebhookTest        = "webhook.test"
 )
+
+var ValidEventTypes = map[string]bool{
+	EventFlagCreated:        true,
+	EventFlagUpdated:        true,
+	EventFlagDeleted:        true,
+	EventFlagArchived:       true,
+	EventFlagConfigUpdated:  true,
+	EventSegmentCreated:     true,
+	EventSegmentUpdated:     true,
+	EventSegmentDeleted:     true,
+	EventEnvironmentCreated: true,
+	EventWebhookTest:        true,
+}
