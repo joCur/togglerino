@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/auth"
@@ -14,6 +15,7 @@ import (
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
+	"github.com/togglerino/togglerino/internal/webhook"
 )
 
 var segmentKeyRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`)
@@ -26,10 +28,11 @@ type SegmentHandler struct {
 	hub          *stream.Hub
 	cache        *evaluation.Cache
 	pool         *pgxpool.Pool
+	webhooks     *webhook.Dispatcher
 }
 
-func NewSegmentHandler(segments *store.SegmentStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool) *SegmentHandler {
-	return &SegmentHandler{segments: segments, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool}
+func NewSegmentHandler(segments *store.SegmentStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool, webhooks *webhook.Dispatcher) *SegmentHandler {
+	return &SegmentHandler{segments: segments, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool, webhooks: webhooks}
 }
 
 // validateSegmentConditions checks that at least one condition exists and that
@@ -152,8 +155,8 @@ func (h *SegmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Best-effort audit logging
+	newVal, _ := json.Marshal(segment)
 	if user := auth.UserFromContext(r.Context()); user != nil {
-		newVal, _ := json.Marshal(segment)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
@@ -164,6 +167,16 @@ func (h *SegmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
+	}
+
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventSegmentCreated,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    newVal,
+		})
 	}
 
 	h.refreshSegmentCache(r.Context(), projectKey)
@@ -259,9 +272,9 @@ func (h *SegmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Best-effort audit logging
+	newVal, _ := json.Marshal(updated)
 	if user := auth.UserFromContext(r.Context()); user != nil {
 		oldVal, _ := json.Marshal(segment)
-		newVal, _ := json.Marshal(updated)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
@@ -273,6 +286,16 @@ func (h *SegmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
+	}
+
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventSegmentUpdated,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    newVal,
+		})
 	}
 
 	h.refreshSegmentCacheAndBroadcast(r.Context(), projectKey, project.ID)
@@ -328,8 +351,8 @@ func (h *SegmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Best-effort audit logging
+	oldVal, _ := json.Marshal(segment)
 	if user := auth.UserFromContext(r.Context()); user != nil {
-		oldVal, _ := json.Marshal(segment)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
@@ -340,6 +363,16 @@ func (h *SegmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
+	}
+
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventSegmentDeleted,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    oldVal,
+		})
 	}
 
 	h.refreshSegmentCache(r.Context(), projectKey)

@@ -22,13 +22,14 @@ import (
 	"github.com/togglerino/togglerino/internal/lifecycle"
 	"github.com/togglerino/togglerino/internal/logging"
 	"github.com/togglerino/togglerino/internal/metrics"
-	"github.com/togglerino/togglerino/internal/override"
 	"github.com/togglerino/togglerino/internal/model"
+	"github.com/togglerino/togglerino/internal/override"
 	"github.com/togglerino/togglerino/internal/ratelimit"
 	"github.com/togglerino/togglerino/internal/schedule"
 	"github.com/togglerino/togglerino/internal/staleness"
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
+	"github.com/togglerino/togglerino/internal/webhook"
 	"github.com/togglerino/togglerino/migrations"
 	"github.com/togglerino/togglerino/web"
 )
@@ -69,6 +70,8 @@ func main() {
 	projectSettingsStore := store.NewProjectSettingsStore(pool)
 	unknownFlagStore := store.NewUnknownFlagStore(pool)
 	segmentStore := store.NewSegmentStore(pool)
+	webhookStore := store.NewWebhookStore(pool)
+	webhookDeliveryStore := store.NewWebhookDeliveryStore(pool)
 	scheduleStore := store.NewScheduleStore(pool)
 	oidcStore := store.NewOIDCStore(pool)
 	templateStore := store.NewTemplateStore(pool)
@@ -149,13 +152,15 @@ func main() {
 		go metricsReg.RunCollector(ctx, statsSrc, 15*time.Second)
 	}
 
+	webhookDispatcher := webhook.NewDispatcher(webhookStore, webhookDeliveryStore)
+
 	// 7. Initialize all handlers
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore, cfg.BaseURL)
 	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore, roleStore, pool, auditStore)
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore, orgSettingsStore, projectMemberStore)
-	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore)
+	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore, webhookDispatcher)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
-	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore, projectSettingsStore)
+	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore, projectSettingsStore, webhookDispatcher)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
 	historyHandler := handler.NewHistoryHandler(auditStore, flagStore, projectStore, environmentStore)
 	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore, environmentStore)
@@ -164,7 +169,8 @@ func main() {
 	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore, metricsReg)
 	playgroundHandler := handler.NewPlaygroundHandler(cache, engine)
 	unknownFlagHandler := handler.NewUnknownFlagHandler(unknownFlagStore, projectStore)
-	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool)
+	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool, webhookDispatcher)
+	webhookHandler := handler.NewWebhookHandler(webhookStore, webhookDeliveryStore, projectStore, webhookDispatcher)
 	scheduleHandler := handler.NewScheduleHandler(scheduleStore, flagStore, projectStore, environmentStore, auditStore)
 	streamHandler := handler.NewStreamHandler(hub)
 	oidcHandler := handler.NewOIDCHandler(oidcStore, userStore, sessionStore, []byte(sessionSecret), cfg.BaseURL, auditStore)
@@ -322,6 +328,15 @@ func main() {
 	mux.Handle("DELETE /api/v1/projects/{key}/segments/{segmentKey}", wrap(segmentHandler.Delete, sessionAuth, requireSegmentsWrite))
 	mux.Handle("GET /api/v1/projects/{key}/segments/{segmentKey}/usage", wrap(segmentHandler.Usage, sessionAuth, requireFlagsRead))
 
+	// Webhooks
+	mux.Handle("POST /api/v1/projects/{key}/webhooks", wrap(webhookHandler.Create, sessionAuth, requireProjectSettings))
+	mux.Handle("GET /api/v1/projects/{key}/webhooks", wrap(webhookHandler.List, sessionAuth, requireProjectSettings))
+	mux.Handle("GET /api/v1/projects/{key}/webhooks/{id}", wrap(webhookHandler.Get, sessionAuth, requireProjectSettings))
+	mux.Handle("PUT /api/v1/projects/{key}/webhooks/{id}", wrap(webhookHandler.Update, sessionAuth, requireProjectSettings))
+	mux.Handle("DELETE /api/v1/projects/{key}/webhooks/{id}", wrap(webhookHandler.Delete, sessionAuth, requireProjectSettings))
+	mux.Handle("POST /api/v1/projects/{key}/webhooks/{id}/test", wrap(webhookHandler.Test, sessionAuth, requireProjectSettings))
+	mux.Handle("GET /api/v1/projects/{key}/webhooks/{id}/deliveries", wrap(webhookHandler.Deliveries, sessionAuth, requireProjectSettings))
+
 	// App identity
 	mux.Handle("PUT /api/v1/projects/{key}/app-identity", wrap(overrideHandler.SetAppIdentity, sessionAuth, requireFlagsRead))
 	mux.Handle("GET /api/v1/projects/{key}/app-identity", wrap(overrideHandler.GetAppIdentity, sessionAuth, requireFlagsRead))
@@ -409,6 +424,9 @@ func main() {
 		r.URL.Path = "/"
 		fileServer.ServeHTTP(w, r)
 	})
+
+	webhook.StartCleanup(ctx, webhookDeliveryStore)
+	webhookDispatcher.RetryFailed(context.Background())
 
 	// Start server with logging and CORS middleware
 	slog.Info("cors configured", "origins", cfg.CORSOrigins)

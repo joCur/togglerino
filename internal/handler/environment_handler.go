@@ -1,21 +1,25 @@
 package handler
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
+	"github.com/togglerino/togglerino/internal/webhook"
 )
 
 type EnvironmentHandler struct {
 	environments *store.EnvironmentStore
 	projects     *store.ProjectStore
+	webhooks     *webhook.Dispatcher
 }
 
-func NewEnvironmentHandler(environments *store.EnvironmentStore, projects *store.ProjectStore) *EnvironmentHandler {
-	return &EnvironmentHandler{environments: environments, projects: projects}
+func NewEnvironmentHandler(environments *store.EnvironmentStore, projects *store.ProjectStore, webhooks *webhook.Dispatcher) *EnvironmentHandler {
+	return &EnvironmentHandler{environments: environments, projects: projects, webhooks: webhooks}
 }
 
 // Create handles POST /api/v1/projects/{key}/environments
@@ -54,6 +58,17 @@ func (h *EnvironmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to create environment", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to create environment")
 		return
+	}
+
+	if h.webhooks != nil {
+		envJSON, _ := json.Marshal(env)
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventEnvironmentCreated,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    envJSON,
+		})
 	}
 
 	writeJSON(w, http.StatusCreated, env)
