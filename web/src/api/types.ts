@@ -105,6 +105,11 @@ export interface FlagEnvironmentConfig {
   updated_at: string
   updated_by?: string
   updated_by_user?: FlagOwner
+  locked: boolean
+  locked_by?: string
+  locked_by_user?: FlagOwner
+  locked_at?: string
+  lock_reason?: string
 }
 
 export interface AuditEntry {

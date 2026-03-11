@@ -37,11 +37,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gravatarUrl } from '@/lib/gravatar'
 import { formatRelativeTime } from '@/lib/date'
-import { useCanWrite } from '@/hooks/usePermissions'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useCanWrite, useIsProjectAdmin } from '@/hooks/usePermissions'
 import { useEnvironmentWriteAccess } from '@/hooks/useEnvironmentAccess'
 import PromoteDialog from '../components/PromoteDialog.tsx'
 import { FlagOverrideControl } from '../components/FlagOverrideControl.tsx'
-import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play, ArrowRightFromLine, Lock } from 'lucide-react'
+import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play, ArrowRightFromLine, Lock, Unlock } from 'lucide-react'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -54,11 +56,14 @@ export default function FlagDetailPage() {
   const queryClient = useQueryClient()
 
   const canWrite = useCanWrite(key)
+  const isProjectAdmin = useIsProjectAdmin(key)
   const { canWriteEnv } = useEnvironmentWriteAccess(key)
   const [expandedEnvs, setExpandedEnvs] = useState<Set<string> | null>(null)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [promoteState, setPromoteState] = useState<{ sourceEnvKey: string; targetEnvKey: string } | null>(null)
+  const [lockDialogState, setLockDialogState] = useState<{ open: boolean; envKey: string; envName: string } | null>(null)
+  const [lockReason, setLockReason] = useState('')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['projects', key, 'flags', flagKey],
@@ -146,6 +151,22 @@ export default function FlagDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
       setPromoteState(null)
+    },
+  })
+
+  const lockMutation = useMutation({
+    mutationFn: ({ envKey, reason }: { envKey: string; reason?: string }) =>
+      api.flags.lock(key!, flagKey!, envKey, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+    },
+  })
+
+  const unlockMutation = useMutation({
+    mutationFn: ({ envKey }: { envKey: string }) =>
+      api.flags.unlock(key!, flagKey!, envKey),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
     },
   })
 
@@ -421,10 +442,43 @@ export default function FlagDetailPage() {
                               <span className="hidden sm:inline">Restricted</span>
                             </span>
                           )}
+                          {config?.locked && (
+                            <Badge variant="destructive" className="text-xs mr-2">
+                              <Lock className="h-3 w-3 mr-1" />
+                              Locked
+                            </Badge>
+                          )}
                           <div
                             className="flex items-center gap-2 ml-auto"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            {isProjectAdmin && (
+                              config?.locked ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                                  onClick={() => unlockMutation.mutate({ envKey: env.key })}
+                                  disabled={unlockMutation.isPending}
+                                >
+                                  <Unlock className="h-3.5 w-3.5 mr-1" />
+                                  Unlock
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    setLockDialogState({ open: true, envKey: env.key, envName: env.name })
+                                    setLockReason('')
+                                  }}
+                                >
+                                  <Lock className="h-3.5 w-3.5 mr-1" />
+                                  Lock
+                                </Button>
+                              )
+                            )}
                             {envWritable && promoteTargets.length > 0 && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -453,7 +507,7 @@ export default function FlagDetailPage() {
                             </span>
                             <Switch
                               checked={enabled}
-                              disabled={!envWritable || !config || toggleMutation.isPending}
+                              disabled={!envWritable || !config || config.locked || toggleMutation.isPending}
                               onCheckedChange={() => {
                                 if (config) toggleMutation.mutate({ envKey: env.key, config })
                               }}
@@ -462,6 +516,20 @@ export default function FlagDetailPage() {
                         </CollapsibleTrigger>
 
                         <CollapsibleContent>
+                          {config?.locked && (
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-950/30 border-t border-amber-900/30">
+                              <Lock className="h-4 w-4 text-amber-500 shrink-0" />
+                              <span className="text-sm text-amber-500">
+                                Locked by {config.locked_by_user?.display_name || config.locked_by_user?.email || 'unknown'}
+                                {config.lock_reason && ` — ${config.lock_reason}`}
+                              </span>
+                              {config.locked_at && (
+                                <span className="text-xs text-muted-foreground ml-auto">
+                                  {formatRelativeTime(config.locked_at)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                           <div className="px-4 pb-4 pt-1 border-t border-border/50">
                             <div className="flex items-center justify-between mb-4 mt-3">
                               <EvaluationFlow config={config} />
@@ -489,7 +557,7 @@ export default function FlagDetailPage() {
                               flagKey={flagKey!}
                               allConfigs={data.environment_configs}
                               environments={environments}
-                              readOnly={!envWritable}
+                              readOnly={!envWritable || !!config?.locked}
                             />
                           </div>
                         </CollapsibleContent>
@@ -564,6 +632,62 @@ export default function FlagDetailPage() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lock Dialog */}
+      <Dialog
+        open={lockDialogState?.open ?? false}
+        onOpenChange={(open) => !open && setLockDialogState(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lock Flag in Environment</DialogTitle>
+            <DialogDescription>
+              Locking prevents any configuration changes to this flag in the selected environment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-muted-foreground text-xs">Flag</Label>
+              <p className="font-mono text-sm">{flagKey}</p>
+            </div>
+            <div>
+              <Label className="text-muted-foreground text-xs">Environment</Label>
+              <p className="font-mono text-sm">{lockDialogState?.envName}</p>
+            </div>
+            <div>
+              <Label htmlFor="lock-reason">Reason (optional)</Label>
+              <Input
+                id="lock-reason"
+                placeholder="e.g. Holiday code freeze"
+                value={lockReason}
+                onChange={(e) => setLockReason(e.target.value)}
+                maxLength={255}
+              />
+              <p className="text-xs text-muted-foreground mt-1">{lockReason.length}/255</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLockDialogState(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (lockDialogState) {
+                  lockMutation.mutate(
+                    { envKey: lockDialogState.envKey, reason: lockReason || undefined },
+                    { onSuccess: () => setLockDialogState(null) },
+                  )
+                }
+              }}
+              disabled={lockMutation.isPending}
+            >
+              <Lock className="h-3.5 w-3.5 mr-1" />
+              Lock Flag
             </Button>
           </DialogFooter>
         </DialogContent>
