@@ -1302,6 +1302,7 @@ func (h *FlagHandler) LockEnvironmentConfig(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Best-effort audit log
+	oldVal, _ := json.Marshal(existing)
 	newVal, _ := json.Marshal(cfg)
 	if err := h.audit.Record(r.Context(), model.AuditEntry{
 		ProjectID:     &project.ID,
@@ -1311,6 +1312,7 @@ func (h *FlagHandler) LockEnvironmentConfig(w http.ResponseWriter, r *http.Reque
 		Action:        "lock",
 		EntityType:    "flag_config",
 		EntityID:      flag.Key,
+		OldValue:      oldVal,
 		NewValue:      newVal,
 	}); err != nil {
 		slog.Warn("failed to record audit log", "error", err)
@@ -1436,6 +1438,10 @@ func (h *FlagHandler) BulkLockFlags(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "flag_keys is required")
 		return
 	}
+	if len(req.FlagKeys) > 200 {
+		writeError(w, http.StatusBadRequest, "flag_keys must not exceed 200 entries")
+		return
+	}
 	if req.EnvironmentKey == "" {
 		writeError(w, http.StatusBadRequest, "environment_key is required")
 		return
@@ -1537,6 +1543,10 @@ func (h *FlagHandler) BulkUnlockFlags(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.FlagKeys) == 0 {
 		writeError(w, http.StatusBadRequest, "flag_keys is required")
+		return
+	}
+	if len(req.FlagKeys) > 200 {
+		writeError(w, http.StatusBadRequest, "flag_keys must not exceed 200 entries")
 		return
 	}
 	if req.EnvironmentKey == "" {

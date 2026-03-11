@@ -160,7 +160,6 @@ export default function FlagDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
     },
-    onError: () => {},
   })
 
   const unlockMutation = useMutation({
@@ -169,7 +168,6 @@ export default function FlagDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
     },
-    onError: () => {},
   })
 
   // Sort environments by sort_order for promotion targets
