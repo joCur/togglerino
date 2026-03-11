@@ -98,6 +98,7 @@ func main() {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
 	hub := stream.NewHub()
+	evalTracker := evaluation.NewTracker(flagStore, 60*time.Second)
 
 	// Initialize metrics (if enabled)
 	var metricsReg *metrics.Registry
@@ -147,6 +148,7 @@ func main() {
 	go snapshotRecorder.Run(ctx)
 	go scheduleChecker.Run(ctx)
 	go overrideCleaner.Run(ctx)
+	go evalTracker.Start(ctx)
 	if metricsReg != nil {
 		statsSrc := &statsAdapter{cache: cache, hub: hub, pool: pool}
 		go metricsReg.RunCollector(ctx, statsSrc, 15*time.Second)
@@ -166,7 +168,7 @@ func main() {
 	projectSettingsHandler := handler.NewProjectSettingsHandler(projectSettingsStore, projectStore, environmentStore)
 	contextAttributeStore := store.NewContextAttributeStore(pool)
 	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
-	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore, metricsReg)
+	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore, metricsReg, evalTracker)
 	playgroundHandler := handler.NewPlaygroundHandler(cache, engine)
 	unknownFlagHandler := handler.NewUnknownFlagHandler(unknownFlagStore, projectStore)
 	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool, webhookDispatcher)
@@ -480,6 +482,7 @@ func main() {
 	}
 
 	cancelCtx()
+	evalTracker.Stop()
 	hub.Close()
 	pool.Close()
 

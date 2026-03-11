@@ -25,7 +25,7 @@ func TestEvaluateAll_RecordsMetrics(t *testing.T) {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
 	reg := metrics.NewRegistry()
-	h := NewEvaluateHandler(cache, engine, nil, nil, reg)
+	h := NewEvaluateHandler(cache, engine, nil, nil, reg, nil)
 
 	cache.SetFlag("proj", "dev", "flag-1", evaluation.FlagData{
 		Flag: model.Flag{
@@ -66,7 +66,7 @@ func TestEvaluateSingle_RecordsMetrics(t *testing.T) {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
 	reg := metrics.NewRegistry()
-	h := NewEvaluateHandler(cache, engine, nil, nil, reg)
+	h := NewEvaluateHandler(cache, engine, nil, nil, reg, nil)
 
 	cache.SetFlag("proj", "dev", "my-flag", evaluation.FlagData{
 		Flag: model.Flag{
@@ -107,7 +107,7 @@ func TestEvaluateAll_OverrideRecordsMetrics(t *testing.T) {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
 	reg := metrics.NewRegistry()
-	h := NewEvaluateHandler(cache, engine, nil, nil, reg)
+	h := NewEvaluateHandler(cache, engine, nil, nil, reg, nil)
 
 	cache.SetFlag("proj", "dev", "flag-a", evaluation.FlagData{
 		Flag: model.Flag{
@@ -150,7 +150,7 @@ func TestEvaluateAll_OverrideRecordsMetrics(t *testing.T) {
 func TestEvaluateHandler_NilMetricsDoesNotPanic(t *testing.T) {
 	cache := evaluation.NewCache()
 	engine := evaluation.NewEngine()
-	h := NewEvaluateHandler(cache, engine, nil, nil, nil)
+	h := NewEvaluateHandler(cache, engine, nil, nil, nil, nil)
 
 	cache.SetFlag("proj", "dev", "flag-1", evaluation.FlagData{
 		Flag: model.Flag{
