@@ -36,6 +36,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { gravatarUrl } from '@/lib/gravatar'
+import { formatRelativeTime } from '@/lib/date'
 import { useCanWrite } from '@/hooks/usePermissions'
 import { useEnvironmentWriteAccess } from '@/hooks/useEnvironmentAccess'
 import PromoteDialog from '../components/PromoteDialog.tsx'
@@ -300,6 +301,20 @@ export default function FlagDetailPage() {
             ))}
           </>
         )}
+        <span>&middot;</span>
+        <Badge
+          variant="secondary"
+          className={cn(
+            'text-[11px]',
+            flag.last_evaluated_at
+              ? 'bg-muted text-muted-foreground'
+              : 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+          )}
+        >
+          {flag.last_evaluated_at
+            ? `Last evaluated ${formatRelativeTime(flag.last_evaluated_at)}`
+            : 'Never evaluated'}
+        </Badge>
       </div>
 
       {/* Description */}
