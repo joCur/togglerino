@@ -34,9 +34,9 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 	err = tx.QueryRow(ctx,
 		`INSERT INTO flags (project_id, key, name, description, value_type, flag_type, default_value, tags, owner_id)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id`,
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
 		projectID, key, name, description, valueType, flagType, defaultValue, tags, ownerID,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID)
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("creating flag: %w", err)
 	}
@@ -112,10 +112,10 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 }
 
 // ListByProject returns flags for a project with pagination. Supports optional tag filter,
-// search query, lifecycle status filter, flag type filter, and owner filter.
+// search query, lifecycle status filter, flag type filter, owner filter, and unevaluated days filter.
 // Returns the flags, total count (before pagination), and any error.
-func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string, limit, offset int) ([]model.Flag, int, error) {
-	query := `SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id,
+func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string, unevaluatedDays string, limit, offset int) ([]model.Flag, int, error) {
+	query := `SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id, f.last_evaluated_at,
 	       u.id, u.email, u.display_name,
 	       COUNT(*) OVER() AS total_count
 		FROM flags f
@@ -156,6 +156,16 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 		argIdx++
 	}
 
+	if unevaluatedDays != "" {
+		if unevaluatedDays == "never" {
+			query += " AND f.last_evaluated_at IS NULL"
+		} else {
+			query += fmt.Sprintf(" AND (f.last_evaluated_at IS NULL OR f.last_evaluated_at < NOW() - ($%d || ' days')::INTERVAL)", argIdx)
+			args = append(args, unevaluatedDays)
+			argIdx++
+		}
+	}
+
 	query += fmt.Sprintf(" ORDER BY f.created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
@@ -171,7 +181,7 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 		var f model.Flag
 		var ownerUserID, ownerEmail *string
 		var ownerDisplayName *string
-		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID,
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt,
 			&ownerUserID, &ownerEmail, &ownerDisplayName, &totalCount); err != nil {
 			return nil, 0, fmt.Errorf("scanning flag: %w", err)
 		}
@@ -191,9 +201,9 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 
 // ListAllByProject returns all flags for a project without pagination.
 // Used by callers that need the complete set.
-func (s *FlagStore) ListAllByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string) ([]model.Flag, error) {
+func (s *FlagStore) ListAllByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string, unevaluatedDays string) ([]model.Flag, error) {
 	// Use a very high limit to get all results
-	flags, _, err := s.ListByProject(ctx, projectID, tag, search, lifecycleStatus, flagType, owner, 2147483647, 0)
+	flags, _, err := s.ListByProject(ctx, projectID, tag, search, lifecycleStatus, flagType, owner, unevaluatedDays, 2147483647, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -206,13 +216,13 @@ func (s *FlagStore) FindByKey(ctx context.Context, projectID, key string) (*mode
 	var ownerUserID, ownerEmail *string
 	var ownerDisplayName *string
 	err := s.pool.QueryRow(ctx,
-		`SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id,
+		`SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id, f.last_evaluated_at,
 		       u.id, u.email, u.display_name
 		 FROM flags f
 		 LEFT JOIN users u ON f.owner_id = u.id
 		 WHERE f.project_id = $1 AND f.key = $2`,
 		projectID, key,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID,
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt,
 		&ownerUserID, &ownerEmail, &ownerDisplayName)
 	if err != nil {
 		return nil, fmt.Errorf("finding flag by key: %w", err)
@@ -231,9 +241,9 @@ func (s *FlagStore) Update(ctx context.Context, flagID, name, description string
 	var f model.Flag
 	err := s.pool.QueryRow(ctx,
 		`UPDATE flags SET name=$2, description=$3, tags=$4, flag_type=$5, owner_id=$6, updated_at=NOW() WHERE id=$1
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id`,
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
 		flagID, name, description, tags, flagType, ownerID,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID)
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("updating flag: %w", err)
 	}
@@ -248,9 +258,9 @@ func (s *FlagStore) SetLifecycleStatus(ctx context.Context, flagID string, statu
 	var f model.Flag
 	err := s.pool.QueryRow(ctx,
 		`UPDATE flags SET lifecycle_status=$2, lifecycle_status_changed_at=NOW(), updated_at=NOW() WHERE id=$1
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id`,
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
 		flagID, status,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID)
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("setting flag lifecycle status: %w", err)
 	}
@@ -263,7 +273,7 @@ func (s *FlagStore) SetLifecycleStatus(ctx context.Context, flagID string, statu
 // ListNonArchived returns all flags that are not archived (for cache loading and staleness checks).
 func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id
+		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at
 		 FROM flags WHERE lifecycle_status != 'archived'`)
 	if err != nil {
 		return nil, fmt.Errorf("listing non-archived flags: %w", err)
@@ -273,7 +283,7 @@ func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	var flags []model.Flag
 	for rows.Next() {
 		var f model.Flag
-		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID); err != nil {
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt); err != nil {
 			return nil, fmt.Errorf("scanning flag: %w", err)
 		}
 		if f.Tags == nil {
@@ -285,6 +295,21 @@ func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 		return nil, fmt.Errorf("iterating flags: %w", err)
 	}
 	return flags, nil
+}
+
+// UpdateLastEvaluatedAt batch-updates the last_evaluated_at timestamp for the given flag IDs.
+func (s *FlagStore) UpdateLastEvaluatedAt(ctx context.Context, flagIDs []string) error {
+	if len(flagIDs) == 0 {
+		return nil
+	}
+	_, err := s.pool.Exec(ctx,
+		`UPDATE flags SET last_evaluated_at = NOW() WHERE id = ANY($1)`,
+		flagIDs,
+	)
+	if err != nil {
+		return fmt.Errorf("updating last_evaluated_at: %w", err)
+	}
+	return nil
 }
 
 // LifecycleCountsByProject returns flag counts grouped by project and lifecycle
