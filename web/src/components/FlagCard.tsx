@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { gravatarUrl } from '@/lib/gravatar'
+import { formatRelativeTime } from '@/lib/date'
 
 interface Props {
   flag: Flag
@@ -112,6 +113,18 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
           </div>
         ) : (
           <span />
+        )}
+        {!isArchived && (
+          <span className={cn(
+            'text-[11px]',
+            flag.last_evaluated_at
+              ? 'text-muted-foreground/50'
+              : 'text-amber-400/70',
+          )}>
+            {flag.last_evaluated_at
+              ? `Evaluated ${formatRelativeTime(flag.last_evaluated_at)}`
+              : 'Never evaluated'}
+          </span>
         )}
         <span className="text-[11px] text-muted-foreground/50 capitalize">{flag.flag_type}</span>
       </div>

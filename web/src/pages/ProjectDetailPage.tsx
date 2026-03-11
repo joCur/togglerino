@@ -19,22 +19,7 @@ import { useCanWrite } from '@/hooks/usePermissions'
 import { Plus } from 'lucide-react'
 import BulkActionBar from '../components/BulkActionBar.tsx'
 import BulkConfirmDialog from '../components/BulkConfirmDialog.tsx'
-
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffSecs = Math.floor(diffMs / 1000)
-  const diffMins = Math.floor(diffSecs / 60)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffSecs < 60) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 30) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
+import { formatRelativeTime } from '@/lib/date'
 
 export default function ProjectDetailPage() {
   const { key } = useParams<{ key: string }>()
