@@ -294,3 +294,157 @@ func TestTick_OperationalFlagShorterLifetime(t *testing.T) {
 		t.Errorf("expected potentially_stale, got %s", flags.promoted[0].status)
 	}
 }
+
+func TestTick_UnevaluatedFlag_PromotedWhenSettingEnabled(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	// Flag is only 5 days old (within 40-day release lifetime)
+	// But has never been evaluated, and project has unevaluated_stale_after_days=7
+	// 5 < 7, so should NOT be promoted yet
+	flags := &mockFlagStore{
+		flags: []model.Flag{
+			makeFlag("young-unused", "proj-eval", model.FlagTypeRelease, model.LifecycleActive, now.Add(-5*24*time.Hour), nil),
+		},
+	}
+	settings := &mockSettingsStore{
+		settings: map[string]*model.ProjectSettings{
+			"proj-eval": {
+				ProjectID:                 "proj-eval",
+				UnevaluatedStaleAfterDays: intPtr(7),
+			},
+		},
+	}
+	c := &Checker{
+		flags:    flags,
+		settings: settings,
+		audit:    &mockAudit{},
+		cache:    &mockCache{},
+		now:      func() time.Time { return now },
+	}
+
+	c.tick(context.Background())
+
+	if len(flags.promoted) != 0 {
+		t.Errorf("expected no promotion (flag younger than unevaluated threshold), got %d", len(flags.promoted))
+	}
+}
+
+func TestTick_UnevaluatedFlag_OlderThanThreshold_Promoted(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	// Flag is 10 days old, never evaluated, threshold is 7 days
+	flags := &mockFlagStore{
+		flags: []model.Flag{
+			makeFlag("old-unused", "proj-eval", model.FlagTypeRelease, model.LifecycleActive, now.Add(-10*24*time.Hour), nil),
+		},
+	}
+	settings := &mockSettingsStore{
+		settings: map[string]*model.ProjectSettings{
+			"proj-eval": {
+				ProjectID:                 "proj-eval",
+				UnevaluatedStaleAfterDays: intPtr(7),
+			},
+		},
+	}
+	c := &Checker{
+		flags:    flags,
+		settings: settings,
+		audit:    &mockAudit{},
+		cache:    &mockCache{},
+		now:      func() time.Time { return now },
+	}
+
+	c.tick(context.Background())
+
+	if len(flags.promoted) != 1 {
+		t.Fatalf("expected 1 promotion, got %d", len(flags.promoted))
+	}
+	if flags.promoted[0].status != model.LifecyclePotentiallyStale {
+		t.Errorf("expected potentially_stale, got %s", flags.promoted[0].status)
+	}
+}
+
+func TestTick_RecentlyEvaluatedFlag_NotPromoted(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	evaluated := now.Add(-3 * 24 * time.Hour) // evaluated 3 days ago
+	f := makeFlag("recently-used", "proj-eval", model.FlagTypeRelease, model.LifecycleActive, now.Add(-30*24*time.Hour), nil)
+	f.LastEvaluatedAt = &evaluated
+	flags := &mockFlagStore{flags: []model.Flag{f}}
+	settings := &mockSettingsStore{
+		settings: map[string]*model.ProjectSettings{
+			"proj-eval": {
+				ProjectID:                 "proj-eval",
+				UnevaluatedStaleAfterDays: intPtr(7),
+			},
+		},
+	}
+	c := &Checker{
+		flags:    flags,
+		settings: settings,
+		audit:    &mockAudit{},
+		cache:    &mockCache{},
+		now:      func() time.Time { return now },
+	}
+
+	c.tick(context.Background())
+
+	if len(flags.promoted) != 0 {
+		t.Errorf("expected no promotion for recently evaluated flag, got %d", len(flags.promoted))
+	}
+}
+
+func TestTick_PermanentFlagType_UnevaluatedSetting_StillPromoted(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	// Kill-switch has nil lifetime (permanent for age-based) but should still
+	// be promoted by evaluation-based staleness if setting is enabled
+	flags := &mockFlagStore{
+		flags: []model.Flag{
+			makeFlag("permanent-unused", "proj-eval", model.FlagTypeKillSwitch, model.LifecycleActive, now.Add(-30*24*time.Hour), nil),
+		},
+	}
+	settings := &mockSettingsStore{
+		settings: map[string]*model.ProjectSettings{
+			"proj-eval": {
+				ProjectID:                 "proj-eval",
+				UnevaluatedStaleAfterDays: intPtr(7),
+			},
+		},
+	}
+	c := &Checker{
+		flags:    flags,
+		settings: settings,
+		audit:    &mockAudit{},
+		cache:    &mockCache{},
+		now:      func() time.Time { return now },
+	}
+
+	c.tick(context.Background())
+
+	if len(flags.promoted) != 1 {
+		t.Fatalf("expected 1 promotion for permanent flag with unevaluated setting, got %d", len(flags.promoted))
+	}
+	if flags.promoted[0].status != model.LifecyclePotentiallyStale {
+		t.Errorf("expected potentially_stale, got %s", flags.promoted[0].status)
+	}
+}
+
+func TestTick_UnevaluatedSettingDisabled_NoPromotion(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	// Flag is old and never evaluated, but setting is not configured
+	flags := &mockFlagStore{
+		flags: []model.Flag{
+			makeFlag("unused-no-setting", "proj-nosetting", model.FlagTypeRelease, model.LifecycleActive, now.Add(-10*24*time.Hour), nil),
+		},
+	}
+	c := &Checker{
+		flags:    flags,
+		settings: &mockSettingsStore{},
+		audit:    &mockAudit{},
+		cache:    &mockCache{},
+		now:      func() time.Time { return now },
+	}
+
+	c.tick(context.Background())
+
+	if len(flags.promoted) != 0 {
+		t.Errorf("expected no promotion when unevaluated setting is disabled, got %d", len(flags.promoted))
+	}
+}

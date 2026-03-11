@@ -91,26 +91,38 @@ func (c *Checker) tick(ctx context.Context) {
 		}
 
 		lifetime := ps.GetLifetime(f.FlagType)
-		if lifetime == nil {
-			// Permanent flag type — skip
-			continue
+
+		// Age-based staleness (existing logic)
+		if lifetime != nil {
+			expectedEnd := f.CreatedAt.Add(time.Duration(*lifetime) * 24 * time.Hour)
+
+			switch f.LifecycleStatus {
+			case model.LifecycleActive:
+				if now.After(expectedEnd) {
+					c.promote(ctx, f, model.LifecyclePotentiallyStale)
+					promoted++
+					continue
+				}
+			case model.LifecyclePotentiallyStale:
+				if f.LifecycleStatusChangedAt != nil && now.After(f.LifecycleStatusChangedAt.Add(gracePeriod)) {
+					c.promote(ctx, f, model.LifecycleStale)
+					promoted++
+					continue
+				}
+			}
 		}
 
-		expectedEnd := f.CreatedAt.Add(time.Duration(*lifetime) * 24 * time.Hour)
-
-		switch f.LifecycleStatus {
-		case model.LifecycleActive:
-			if now.After(expectedEnd) {
-				c.promote(ctx, f, model.LifecyclePotentiallyStale)
-				promoted++
+		// Evaluation-based staleness (opt-in)
+		if f.LifecycleStatus == model.LifecycleActive && ps.UnevaluatedStaleAfterDays != nil && *ps.UnevaluatedStaleAfterDays > 0 {
+			threshold := time.Duration(*ps.UnevaluatedStaleAfterDays) * 24 * time.Hour
+			// Only apply to flags older than the threshold (don't flag brand-new flags)
+			if now.After(f.CreatedAt.Add(threshold)) {
+				unevaluated := f.LastEvaluatedAt == nil || now.After(f.LastEvaluatedAt.Add(threshold))
+				if unevaluated {
+					c.promote(ctx, f, model.LifecyclePotentiallyStale)
+					promoted++
+				}
 			}
-		case model.LifecyclePotentiallyStale:
-			if f.LifecycleStatusChangedAt != nil && now.After(f.LifecycleStatusChangedAt.Add(gracePeriod)) {
-				c.promote(ctx, f, model.LifecycleStale)
-				promoted++
-			}
-		case model.LifecycleStale:
-			// Already stale — nothing to do
 		}
 	}
 
