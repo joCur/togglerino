@@ -28,6 +28,8 @@ const (
 	EventSegmentUpdated     = "segment.updated"
 	EventSegmentDeleted     = "segment.deleted"
 	EventEnvironmentCreated = "environment.created"
+	EventFlagConfigLocked   = "flag_config.locked"
+	EventFlagConfigUnlocked = "flag_config.unlocked"
 	EventWebhookTest        = "webhook.test"
 )
 
@@ -41,4 +43,6 @@ var ValidEventTypes = map[string]bool{
 	EventSegmentUpdated:     true,
 	EventSegmentDeleted:     true,
 	EventEnvironmentCreated: true,
+	EventFlagConfigLocked:   true,
+	EventFlagConfigUnlocked: true,
 }

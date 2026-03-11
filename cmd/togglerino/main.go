@@ -286,6 +286,10 @@ func main() {
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/staleness", wrap(flagHandler.SetStaleness, sessionAuth, requireFlagsWrite))
 	mux.Handle("PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}", wrap(flagHandler.UpdateEnvironmentConfig, sessionAuth, requireFlagsWrite, checkEnvAccess))
 	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/promote", wrap(flagHandler.PromoteEnvironmentConfig, sessionAuth, requireFlagsWrite, checkEnvAccess))
+	mux.Handle("POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/lock", wrap(flagHandler.LockEnvironmentConfig, sessionAuth, requireProjectSettings))
+	mux.Handle("DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/lock", wrap(flagHandler.UnlockEnvironmentConfig, sessionAuth, requireProjectSettings))
+	mux.Handle("POST /api/v1/projects/{key}/flags/bulk-lock", wrap(flagHandler.BulkLockFlags, sessionAuth, requireProjectSettings))
+	mux.Handle("POST /api/v1/projects/{key}/flags/bulk-unlock", wrap(flagHandler.BulkUnlockFlags, sessionAuth, requireProjectSettings))
 
 	// Scheduled flag changes
 	mux.Handle("GET /api/v1/projects/{key}/flags/{flag}/environments/{env}/schedules", wrap(scheduleHandler.List, sessionAuth, requireFlagsRead))

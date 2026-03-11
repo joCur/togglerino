@@ -480,6 +480,19 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if flag is locked in any environment before archiving
+	if req.Archived {
+		locked, lockErr := h.flags.IsLockedInAnyEnvironment(r.Context(), flag.ID)
+		if lockErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check lock status")
+			return
+		}
+		if locked {
+			writeError(w, http.StatusConflict, "cannot archive flag that is locked in one or more environments")
+			return
+		}
+	}
+
 	var status model.LifecycleStatus
 	if req.Archived {
 		status = model.LifecycleArchived
@@ -599,11 +612,22 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		req.TargetingRules = json.RawMessage(`[]`)
 	}
 
-	// Fetch old config for audit logging
+	// Fetch old config for audit logging and lock check
 	oldConfig, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, env.ID)
 	if err != nil {
 		slog.Warn("failed to fetch old config for audit", "error", err)
 		// Continue — audit old_value will be nil, but the update should still proceed
+	}
+	if oldConfig != nil && oldConfig.Locked {
+		msg := "flag is locked in this environment"
+		if oldConfig.LockedByUser != nil {
+			msg += " by " + oldConfig.LockedByUser.Email
+		}
+		if oldConfig.LockReason != nil {
+			msg += ": " + *oldConfig.LockReason
+		}
+		writeError(w, http.StatusConflict, msg)
+		return
 	}
 
 	var updatedBy *string
@@ -873,6 +897,9 @@ func (h *FlagHandler) bulkEnableDisable(ctx context.Context, project *model.Proj
 	if err != nil {
 		return fmt.Errorf("failed to get environment config")
 	}
+	if oldConfig.Locked {
+		return fmt.Errorf("flag is locked in this environment")
+	}
 
 	var updatedBy *string
 	if user != nil {
@@ -913,6 +940,14 @@ func (h *FlagHandler) bulkEnableDisable(ctx context.Context, project *model.Proj
 func (h *FlagHandler) bulkArchive(ctx context.Context, project *model.Project, flag *model.Flag, user *model.User, batchID *string) error {
 	if flag.LifecycleStatus == model.LifecycleArchived {
 		return fmt.Errorf("flag is already archived")
+	}
+
+	locked, err := h.flags.IsLockedInAnyEnvironment(ctx, flag.ID)
+	if err != nil {
+		return fmt.Errorf("failed to check lock status")
+	}
+	if locked {
+		return fmt.Errorf("flag is locked in one or more environments")
 	}
 
 	updated, err := h.flags.SetLifecycleStatus(ctx, flag.ID, model.LifecycleArchived)
@@ -1096,6 +1131,20 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Check if target environment is locked
+	targetConfig, lockErr := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, targetEnv.ID)
+	if lockErr == nil && targetConfig.Locked {
+		msg := "flag is locked in target environment"
+		if targetConfig.LockedByUser != nil {
+			msg += " by " + targetConfig.LockedByUser.Email
+		}
+		if targetConfig.LockReason != nil {
+			msg += ": " + *targetConfig.LockReason
+		}
+		writeError(w, http.StatusConflict, msg)
+		return
+	}
+
 	// Get source config
 	sourceConfig, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, sourceEnv.ID)
 	if err != nil {
@@ -1183,4 +1232,378 @@ func marshalJSON(v any) json.RawMessage {
 		return json.RawMessage(`null`)
 	}
 	return b
+}
+
+// LockEnvironmentConfig handles POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/lock
+func (h *FlagHandler) LockEnvironmentConfig(w http.ResponseWriter, r *http.Request) {
+	projectKey := r.PathValue("key")
+	flagKey := r.PathValue("flag")
+	envKey := r.PathValue("env")
+	if projectKey == "" || flagKey == "" || envKey == "" {
+		writeError(w, http.StatusBadRequest, "missing required path parameters")
+		return
+	}
+
+	project, err := h.projects.FindByKey(r.Context(), projectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	flag, err := h.flags.FindByKey(r.Context(), project.ID, flagKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "flag not found")
+		return
+	}
+
+	env, err := h.environments.FindByKey(r.Context(), project.ID, envKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "environment not found")
+		return
+	}
+
+	var req struct {
+		Reason *string `json:"reason"`
+	}
+	if r.Body != nil {
+		if err := readJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+	}
+
+	if req.Reason != nil && len(*req.Reason) > 255 {
+		writeError(w, http.StatusBadRequest, "lock reason must be 255 characters or fewer")
+		return
+	}
+
+	// Check if already locked
+	existing, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, env.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get environment config")
+		return
+	}
+	if existing.Locked {
+		writeError(w, http.StatusConflict, "flag is already locked in this environment")
+		return
+	}
+
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	cfg, err := h.flags.LockEnvironmentConfig(r.Context(), flag.ID, env.ID, user.ID, req.Reason)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to lock environment config")
+		return
+	}
+
+	// Best-effort audit log
+	newVal, _ := json.Marshal(cfg)
+	if err := h.audit.Record(r.Context(), model.AuditEntry{
+		ProjectID:     &project.ID,
+		UserID:        &user.ID,
+		UserEmail:     &user.Email,
+		EnvironmentID: &env.ID,
+		Action:        "lock",
+		EntityType:    "flag_config",
+		EntityID:      flag.Key,
+		NewValue:      newVal,
+	}); err != nil {
+		slog.Warn("failed to record audit log", "error", err)
+	}
+
+	// Webhook dispatch
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventFlagConfigLocked,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    newVal,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, cfg)
+}
+
+// UnlockEnvironmentConfig handles DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/lock
+func (h *FlagHandler) UnlockEnvironmentConfig(w http.ResponseWriter, r *http.Request) {
+	projectKey := r.PathValue("key")
+	flagKey := r.PathValue("flag")
+	envKey := r.PathValue("env")
+	if projectKey == "" || flagKey == "" || envKey == "" {
+		writeError(w, http.StatusBadRequest, "missing required path parameters")
+		return
+	}
+
+	project, err := h.projects.FindByKey(r.Context(), projectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	flag, err := h.flags.FindByKey(r.Context(), project.ID, flagKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "flag not found")
+		return
+	}
+
+	env, err := h.environments.FindByKey(r.Context(), project.ID, envKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "environment not found")
+		return
+	}
+
+	// Check if actually locked
+	existing, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, env.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get environment config")
+		return
+	}
+	if !existing.Locked {
+		writeError(w, http.StatusConflict, "flag is not locked in this environment")
+		return
+	}
+
+	cfg, err := h.flags.UnlockEnvironmentConfig(r.Context(), flag.ID, env.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to unlock environment config")
+		return
+	}
+
+	// Best-effort audit log
+	user := auth.UserFromContext(r.Context())
+	oldVal, _ := json.Marshal(existing)
+	newVal, _ := json.Marshal(cfg)
+	if user != nil {
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:     &project.ID,
+			UserID:        &user.ID,
+			UserEmail:     &user.Email,
+			EnvironmentID: &env.ID,
+			Action:        "unlock",
+			EntityType:    "flag_config",
+			EntityID:      flag.Key,
+			OldValue:      oldVal,
+			NewValue:      newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+	}
+
+	// Webhook dispatch
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventFlagConfigUnlocked,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    newVal,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, cfg)
+}
+
+// BulkLockFlags handles POST /api/v1/projects/{key}/flags/bulk-lock
+func (h *FlagHandler) BulkLockFlags(w http.ResponseWriter, r *http.Request) {
+	projectKey := r.PathValue("key")
+	if projectKey == "" {
+		writeError(w, http.StatusBadRequest, "missing project key")
+		return
+	}
+
+	project, err := h.projects.FindByKey(r.Context(), projectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	var req struct {
+		FlagKeys       []string `json:"flag_keys"`
+		EnvironmentKey string   `json:"environment_key"`
+		Reason         *string  `json:"reason"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.FlagKeys) == 0 {
+		writeError(w, http.StatusBadRequest, "flag_keys is required")
+		return
+	}
+	if req.EnvironmentKey == "" {
+		writeError(w, http.StatusBadRequest, "environment_key is required")
+		return
+	}
+	if req.Reason != nil && len(*req.Reason) > 255 {
+		writeError(w, http.StatusBadRequest, "lock reason must be 255 characters or fewer")
+		return
+	}
+
+	env, err := h.environments.FindByKey(r.Context(), project.ID, req.EnvironmentKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "environment not found")
+		return
+	}
+
+	user := auth.UserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var locked, alreadyLocked int
+	errors := make([]string, 0)
+	for _, flagKey := range req.FlagKeys {
+		f, err := h.flags.FindByKey(r.Context(), project.ID, flagKey)
+		if err != nil {
+			errors = append(errors, flagKey+": not found")
+			continue
+		}
+		cfg, err := h.flags.GetEnvironmentConfig(r.Context(), f.ID, env.ID)
+		if err != nil {
+			errors = append(errors, flagKey+": config not found")
+			continue
+		}
+		if cfg.Locked {
+			alreadyLocked++
+			continue
+		}
+		_, err = h.flags.LockEnvironmentConfig(r.Context(), f.ID, env.ID, user.ID, req.Reason)
+		if err != nil {
+			errors = append(errors, flagKey+": "+err.Error())
+			continue
+		}
+		locked++
+
+		// Best-effort audit + webhook per flag
+		newVal, _ := json.Marshal(cfg)
+		if err := h.audit.Record(r.Context(), model.AuditEntry{
+			ProjectID:     &project.ID,
+			UserID:        &user.ID,
+			UserEmail:     &user.Email,
+			EnvironmentID: &env.ID,
+			Action:        "lock",
+			EntityType:    "flag_config",
+			EntityID:      flagKey,
+			NewValue:      newVal,
+		}); err != nil {
+			slog.Warn("failed to record audit log", "error", err)
+		}
+		if h.webhooks != nil {
+			h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+				Type:      webhook.EventFlagConfigLocked,
+				Timestamp: time.Now().UTC(),
+				ProjectID: project.ID,
+				Actor:     webhookActorFromContext(r.Context()),
+				Entity:    newVal,
+			})
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"locked":         locked,
+		"already_locked": alreadyLocked,
+		"errors":         errors,
+	})
+}
+
+// BulkUnlockFlags handles POST /api/v1/projects/{key}/flags/bulk-unlock
+func (h *FlagHandler) BulkUnlockFlags(w http.ResponseWriter, r *http.Request) {
+	projectKey := r.PathValue("key")
+	if projectKey == "" {
+		writeError(w, http.StatusBadRequest, "missing project key")
+		return
+	}
+
+	project, err := h.projects.FindByKey(r.Context(), projectKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+
+	var req struct {
+		FlagKeys       []string `json:"flag_keys"`
+		EnvironmentKey string   `json:"environment_key"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.FlagKeys) == 0 {
+		writeError(w, http.StatusBadRequest, "flag_keys is required")
+		return
+	}
+	if req.EnvironmentKey == "" {
+		writeError(w, http.StatusBadRequest, "environment_key is required")
+		return
+	}
+
+	env, err := h.environments.FindByKey(r.Context(), project.ID, req.EnvironmentKey)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "environment not found")
+		return
+	}
+
+	user := auth.UserFromContext(r.Context())
+
+	var unlocked, alreadyUnlocked int
+	errors := make([]string, 0)
+	for _, flagKey := range req.FlagKeys {
+		f, err := h.flags.FindByKey(r.Context(), project.ID, flagKey)
+		if err != nil {
+			errors = append(errors, flagKey+": not found")
+			continue
+		}
+		cfg, err := h.flags.GetEnvironmentConfig(r.Context(), f.ID, env.ID)
+		if err != nil {
+			errors = append(errors, flagKey+": config not found")
+			continue
+		}
+		if !cfg.Locked {
+			alreadyUnlocked++
+			continue
+		}
+		_, err = h.flags.UnlockEnvironmentConfig(r.Context(), f.ID, env.ID)
+		if err != nil {
+			errors = append(errors, flagKey+": "+err.Error())
+			continue
+		}
+		unlocked++
+
+		// Best-effort audit + webhook per flag
+		if user != nil {
+			if err := h.audit.Record(r.Context(), model.AuditEntry{
+				ProjectID:     &project.ID,
+				UserID:        &user.ID,
+				UserEmail:     &user.Email,
+				EnvironmentID: &env.ID,
+				Action:        "unlock",
+				EntityType:    "flag_config",
+				EntityID:      flagKey,
+			}); err != nil {
+				slog.Warn("failed to record audit log", "error", err)
+			}
+		}
+		if h.webhooks != nil {
+			newVal, _ := json.Marshal(cfg)
+			h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+				Type:      webhook.EventFlagConfigUnlocked,
+				Timestamp: time.Now().UTC(),
+				ProjectID: project.ID,
+				Actor:     webhookActorFromContext(r.Context()),
+				Entity:    newVal,
+			})
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"unlocked":         unlocked,
+		"already_unlocked": alreadyUnlocked,
+		"errors":           errors,
+	})
 }
