@@ -1,5 +1,7 @@
 # Togglerino .NET SDK
 
+[![NuGet](https://img.shields.io/nuget/v/Togglerino.Sdk)](https://www.nuget.org/packages/Togglerino.Sdk)
+
 Official .NET SDK for [Togglerino](https://github.com/joCur/togglerino) feature flag management.
 
 ## Installation

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.15.1](https://github.com/joCur/togglerino/compare/v0.15.0...v0.15.1) (2026-03-10)
+
+
+### Bug Fixes
+
+* rename release workflow output aliases for consistency ([#89](https://github.com/joCur/togglerino/issues/89)) ([#116](https://github.com/joCur/togglerino/issues/116)) ([64c6763](https://github.com/joCur/togglerino/commit/64c6763a2e0b62e0cc3e18f284380db1a8a09b93))
+
+## [0.15.0](https://github.com/joCur/togglerino/compare/v0.14.1...v0.15.0) (2026-03-10)
+
+
+### Features
+
+* add skip_email_verification admin toggle for OIDC ([#113](https://github.com/joCur/togglerino/issues/113)) ([d297a72](https://github.com/joCur/togglerino/commit/d297a72df7bce4a91d0fb1a66bc335c21e7fb698))
+* Prometheus metrics endpoint ([#114](https://github.com/joCur/togglerino/issues/114)) ([783f59e](https://github.com/joCur/togglerino/commit/783f59e3277f069cc4f1cead63ec0a778df43a73))
+
+
+### Bug Fixes
+
+* OIDC security improvements ([#110](https://github.com/joCur/togglerino/issues/110)) ([ade9379](https://github.com/joCur/togglerino/commit/ade93798de1c71c4e10db3dd7f175cbe4b28eeea))
+* use path-based output keys for dotnet-sdk release-please outputs ([#89](https://github.com/joCur/togglerino/issues/89)) ([#115](https://github.com/joCur/togglerino/issues/115)) ([0fcd5be](https://github.com/joCur/togglerino/commit/0fcd5be1f5daba4aa615c4711a6f015a76e74d90))
+
 ## [0.14.1](https://github.com/joCur/togglerino/compare/v0.14.0...v0.14.1) (2026-03-09)
 
 
