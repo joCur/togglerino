@@ -64,6 +64,7 @@ export interface Flag {
   tags: string[]
   lifecycle_status: LifecycleStatus
   lifecycle_status_changed_at: string | null
+  last_evaluated_at: string | null
   created_at: string
   updated_at: string
   owner_id?: string
@@ -73,6 +74,7 @@ export interface Flag {
 
 export interface ProjectFlagSettings {
   flag_lifetimes: Record<FlagPurpose, number | null>
+  unevaluated_stale_after_days?: number | null
 }
 
 export interface Variant {
