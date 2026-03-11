@@ -195,9 +195,10 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 	lifecycleStatus := r.URL.Query().Get("lifecycle_status")
 	flagType := r.URL.Query().Get("flag_type")
 	owner := r.URL.Query().Get("owner")
+	unevaluatedDays := r.URL.Query().Get("unevaluated_days")
 	limit, offset := parsePagination(r)
 
-	flags, totalCount, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType, owner, "", limit, offset)
+	flags, totalCount, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType, owner, unevaluatedDays, limit, offset)
 	if err != nil {
 		slog.Error("failed to list flags", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list flags")
