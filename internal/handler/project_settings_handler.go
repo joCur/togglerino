@@ -47,9 +47,13 @@ func (h *ProjectSettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"flag_lifetimes": merged,
-	})
+	}
+	if settings != nil && settings.UnevaluatedStaleAfterDays != nil {
+		resp["unevaluated_stale_after_days"] = *settings.UnevaluatedStaleAfterDays
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // Update handles PUT /api/v1/projects/{key}/settings/flags
@@ -67,7 +71,8 @@ func (h *ProjectSettingsHandler) Update(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req struct {
-		FlagLifetimes map[model.FlagType]*int `json:"flag_lifetimes"`
+		FlagLifetimes             map[model.FlagType]*int `json:"flag_lifetimes"`
+		UnevaluatedStaleAfterDays *int                    `json:"unevaluated_stale_after_days"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -85,16 +90,26 @@ func (h *ProjectSettingsHandler) Update(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	settings, err := h.settings.Upsert(r.Context(), project.ID, req.FlagLifetimes)
+	// Normalize: 0 or negative means disabled (nil)
+	unevalDays := req.UnevaluatedStaleAfterDays
+	if unevalDays != nil && *unevalDays <= 0 {
+		unevalDays = nil
+	}
+
+	settings, err := h.settings.UpsertFlagSettings(r.Context(), project.ID, req.FlagLifetimes, unevalDays)
 	if err != nil {
 		slog.Error("failed to update project settings", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update project settings")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"flag_lifetimes": settings.FlagLifetimes,
-	})
+	}
+	if settings.UnevaluatedStaleAfterDays != nil {
+		resp["unevaluated_stale_after_days"] = *settings.UnevaluatedStaleAfterDays
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // GetEnvironmentDefaults handles GET /api/v1/projects/{key}/settings/environments
