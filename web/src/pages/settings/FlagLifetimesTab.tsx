@@ -34,6 +34,7 @@ export default function FlagLifetimesTab() {
   }
 
   const updateMutation = useMutation({
+    // unevaluated_stale_after_days: 0 means disabled — backend normalizes 0 to nil/null
     mutationFn: (payload: { flag_lifetimes: Record<string, number | null>; unevaluated_stale_after_days: number }) =>
       api.put(`/projects/${key}/settings/flags`, payload),
     onSuccess: () => {

@@ -99,13 +99,13 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
       </div>
 
       {/* Row 4: Owner + Purpose */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between min-w-0">
         {flag.owner ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0 shrink">
             <img
               src={gravatarUrl(flag.owner.email, 20)}
               alt=""
-              className="w-5 h-5 rounded-full"
+              className="w-5 h-5 rounded-full shrink-0"
             />
             <span className="text-[11px] text-muted-foreground/60 truncate max-w-[140px]">
               {flag.owner.display_name ?? flag.owner.email}
@@ -116,7 +116,7 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
         )}
         {!isArchived && (
           <span className={cn(
-            'text-[11px]',
+            'text-[11px] truncate shrink-0',
             flag.last_evaluated_at
               ? 'text-muted-foreground/50'
               : 'text-amber-400/70',
@@ -126,7 +126,7 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
               : 'Never evaluated'}
           </span>
         )}
-        <span className="text-[11px] text-muted-foreground/50 capitalize">{flag.flag_type}</span>
+        <span className="text-[11px] text-muted-foreground/50 capitalize shrink-0">{flag.flag_type}</span>
       </div>
     </div>
   )

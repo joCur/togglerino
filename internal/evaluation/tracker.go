@@ -47,6 +47,7 @@ func (t *Tracker) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			t.flush()
 			slog.Info("evaluation tracker stopped")
 			return
 		case <-ticker.C:
