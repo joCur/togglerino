@@ -157,7 +157,7 @@ export interface Segment {
   updated_at: string
 }
 
-export type ScheduleStatus = 'pending' | 'executed' | 'cancelled'
+export type ScheduleStatus = 'pending' | 'executed' | 'cancelled' | 'failed'
 
 export interface ScheduledFlagChange {
   id: string

@@ -496,7 +496,7 @@ func (s *FlagStore) FlagKeyByID(ctx context.Context, flagID string) (string, err
 
 // LockEnvironmentConfig locks a flag's config in a specific environment.
 func (s *FlagStore) LockEnvironmentConfig(ctx context.Context, flagID, environmentID, userID string, reason *string) (*model.FlagEnvironmentConfig, error) {
-	_, err := s.pool.Exec(ctx,
+	tag, err := s.pool.Exec(ctx,
 		`UPDATE flag_environment_configs
 		 SET locked = true, locked_by = $3, locked_at = NOW(), lock_reason = $4
 		 WHERE flag_id = $1 AND environment_id = $2`,
@@ -505,12 +505,15 @@ func (s *FlagStore) LockEnvironmentConfig(ctx context.Context, flagID, environme
 	if err != nil {
 		return nil, fmt.Errorf("locking environment config: %w", err)
 	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrNotFound
+	}
 	return s.GetEnvironmentConfig(ctx, flagID, environmentID)
 }
 
 // UnlockEnvironmentConfig unlocks a flag's config in a specific environment.
 func (s *FlagStore) UnlockEnvironmentConfig(ctx context.Context, flagID, environmentID string) (*model.FlagEnvironmentConfig, error) {
-	_, err := s.pool.Exec(ctx,
+	tag, err := s.pool.Exec(ctx,
 		`UPDATE flag_environment_configs
 		 SET locked = false, locked_by = NULL, locked_at = NULL, lock_reason = NULL
 		 WHERE flag_id = $1 AND environment_id = $2`,
@@ -518,6 +521,9 @@ func (s *FlagStore) UnlockEnvironmentConfig(ctx context.Context, flagID, environ
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unlocking environment config: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrNotFound
 	}
 	return s.GetEnvironmentConfig(ctx, flagID, environmentID)
 }

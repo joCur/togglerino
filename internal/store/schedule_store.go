@@ -119,6 +119,23 @@ func (s *ScheduleStore) Cancel(ctx context.Context, id, flagID, environmentID st
 	return nil
 }
 
+// Fail marks a pending schedule as failed with a reason.
+func (s *ScheduleStore) Fail(ctx context.Context, id string, reason string) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE scheduled_flag_changes
+		 SET status = 'failed', cancelled_at = NOW(), cancel_reason = $2
+		 WHERE id = $1 AND status = 'pending'`,
+		id, reason,
+	)
+	if err != nil {
+		return fmt.Errorf("failing schedule: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // CancelByFlag cancels all pending schedules for a flag (used on archive/delete).
 func (s *ScheduleStore) CancelByFlag(ctx context.Context, flagID string, reason string) error {
 	_, err := s.pool.Exec(ctx,

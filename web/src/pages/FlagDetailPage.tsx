@@ -160,6 +160,7 @@ export default function FlagDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
     },
+    onError: () => {},
   })
 
   const unlockMutation = useMutation({
@@ -168,6 +169,7 @@ export default function FlagDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
     },
+    onError: () => {},
   })
 
   // Sort environments by sort_order for promotion targets
@@ -402,6 +404,20 @@ export default function FlagDetailPage() {
               </AlertDescription>
             </Alert>
           )}
+          {lockMutation.error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Failed to lock flag: {lockMutation.error instanceof Error ? lockMutation.error.message : 'Unknown error'}
+              </AlertDescription>
+            </Alert>
+          )}
+          {unlockMutation.error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Failed to unlock flag: {unlockMutation.error instanceof Error ? unlockMutation.error.message : 'Unknown error'}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Environment Configuration section */}
           {environments && environments.length > 0 && (
@@ -488,14 +504,20 @@ export default function FlagDetailPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  {promoteTargets.map((target) => (
-                                    <DropdownMenuItem
-                                      key={target.id}
-                                      onClick={() => setPromoteState({ sourceEnvKey: env.key, targetEnvKey: target.key })}
-                                    >
-                                      Promote to {target.name}
-                                    </DropdownMenuItem>
-                                  ))}
+                                  {promoteTargets.map((target) => {
+                                    const targetConfig = data.environment_configs.find((c) => c.environment_id === target.id)
+                                    const isLocked = targetConfig?.locked ?? false
+                                    return (
+                                      <DropdownMenuItem
+                                        key={target.id}
+                                        disabled={isLocked}
+                                        onClick={() => setPromoteState({ sourceEnvKey: env.key, targetEnvKey: target.key })}
+                                      >
+                                        {isLocked && <Lock className="h-3 w-3 mr-1" />}
+                                        Promote to {target.name}
+                                      </DropdownMenuItem>
+                                    )
+                                  })}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}

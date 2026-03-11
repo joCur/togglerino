@@ -1133,7 +1133,11 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 
 	// Check if target environment is locked
 	targetConfig, lockErr := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, targetEnv.ID)
-	if lockErr == nil && targetConfig.Locked {
+	if lockErr != nil {
+		writeError(w, http.StatusInternalServerError, "failed to check target environment lock status")
+		return
+	}
+	if targetConfig.Locked {
 		msg := "flag is locked in target environment"
 		if targetConfig.LockedByUser != nil {
 			msg += " by " + targetConfig.LockedByUser.Email
@@ -1152,11 +1156,8 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Get old target config for audit
-	oldTargetConfig, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, targetEnv.ID)
-	if err != nil {
-		slog.Warn("failed to fetch old target config for audit", "error", err)
-	}
+	// Reuse target config from lock check for audit
+	oldTargetConfig := targetConfig
 
 	// Copy source config to target, preserving target's enabled state
 	targetEnabled := false
@@ -1265,7 +1266,7 @@ func (h *FlagHandler) LockEnvironmentConfig(w http.ResponseWriter, r *http.Reque
 	var req struct {
 		Reason *string `json:"reason"`
 	}
-	if r.Body != nil {
+	if r.ContentLength > 0 {
 		if err := readJSON(r, &req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
@@ -1473,7 +1474,7 @@ func (h *FlagHandler) BulkLockFlags(w http.ResponseWriter, r *http.Request) {
 			alreadyLocked++
 			continue
 		}
-		_, err = h.flags.LockEnvironmentConfig(r.Context(), f.ID, env.ID, user.ID, req.Reason)
+		lockedCfg, err := h.flags.LockEnvironmentConfig(r.Context(), f.ID, env.ID, user.ID, req.Reason)
 		if err != nil {
 			errors = append(errors, flagKey+": "+err.Error())
 			continue
@@ -1481,7 +1482,7 @@ func (h *FlagHandler) BulkLockFlags(w http.ResponseWriter, r *http.Request) {
 		locked++
 
 		// Best-effort audit + webhook per flag
-		newVal, _ := json.Marshal(cfg)
+		newVal, _ := json.Marshal(lockedCfg)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:     &project.ID,
 			UserID:        &user.ID,
@@ -1568,7 +1569,7 @@ func (h *FlagHandler) BulkUnlockFlags(w http.ResponseWriter, r *http.Request) {
 			alreadyUnlocked++
 			continue
 		}
-		_, err = h.flags.UnlockEnvironmentConfig(r.Context(), f.ID, env.ID)
+		unlockedCfg, err := h.flags.UnlockEnvironmentConfig(r.Context(), f.ID, env.ID)
 		if err != nil {
 			errors = append(errors, flagKey+": "+err.Error())
 			continue
@@ -1590,7 +1591,7 @@ func (h *FlagHandler) BulkUnlockFlags(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if h.webhooks != nil {
-			newVal, _ := json.Marshal(cfg)
+			newVal, _ := json.Marshal(unlockedCfg)
 			h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
 				Type:      webhook.EventFlagConfigUnlocked,
 				Timestamp: time.Now().UTC(),

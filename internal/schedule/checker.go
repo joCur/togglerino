@@ -49,6 +49,11 @@ type LockChecker interface {
 	IsEnvironmentConfigLocked(ctx context.Context, flagID, environmentID string) (bool, error)
 }
 
+// ScheduleFailer marks a schedule as failed.
+type ScheduleFailer interface {
+	Fail(ctx context.Context, id string, reason string) error
+}
+
 // Checker periodically executes due scheduled flag changes.
 type Checker struct {
 	schedules   ScheduleStore
@@ -58,6 +63,7 @@ type Checker struct {
 	broadcaster EventBroadcaster
 	audit       AuditRecorder
 	locks       LockChecker
+	failer      ScheduleFailer
 	interval    time.Duration
 	now         func() time.Time // injectable for testing
 }
@@ -71,6 +77,7 @@ func NewChecker(
 	broadcaster EventBroadcaster,
 	audit AuditRecorder,
 	locks LockChecker,
+	failer ScheduleFailer,
 	interval time.Duration,
 ) *Checker {
 	return &Checker{
@@ -81,6 +88,7 @@ func NewChecker(
 		broadcaster: broadcaster,
 		audit:       audit,
 		locks:       locks,
+		failer:      failer,
 		interval:    interval,
 		now:         time.Now,
 	}
@@ -130,6 +138,12 @@ func (c *Checker) execute(ctx context.Context, sc model.ScheduledFlagChange) {
 		if locked {
 			slog.Warn("schedule checker: flag is locked, skipping scheduled change",
 				"schedule_id", sc.ID, "flag_id", sc.FlagID, "env_id", sc.EnvironmentID)
+			if c.failer != nil {
+				if err := c.failer.Fail(ctx, sc.ID, "flag is locked in target environment"); err != nil {
+					slog.Warn("schedule checker: failed to mark schedule as failed",
+						"schedule_id", sc.ID, "error", err)
+				}
+			}
 			return
 		}
 	}
