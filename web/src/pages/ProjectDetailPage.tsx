@@ -32,6 +32,7 @@ export default function ProjectDetailPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [createFromKey, setCreateFromKey] = useState('')
   const [ownerFilter, setOwnerFilter] = useState('')
+  const [evaluationFilter, setEvaluationFilter] = useState('')
   const [selectedFlags, setSelectedFlags] = useState<Set<string>>(new Set())
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
   const [bulkAction, setBulkAction] = useState<{
@@ -54,13 +55,14 @@ export default function ProjectDetailPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['projects', key, 'flags', { search, tag: tagFilter, lifecycle_status: statusFilter, flag_type: purposeFilter }],
+    queryKey: ['projects', key, 'flags', { search, tag: tagFilter, lifecycle_status: statusFilter, flag_type: purposeFilter, unevaluated_days: evaluationFilter }],
     queryFn: ({ pageParam }) =>
       api.flags.list(key!, {
         search: search || undefined,
         tag: tagFilter || undefined,
         lifecycle_status: statusFilter || undefined,
         flag_type: purposeFilter || undefined,
+        unevaluated_days: evaluationFilter || undefined,
         limit: PAGE_SIZE,
         offset: pageParam,
       }),
@@ -303,6 +305,18 @@ export default function ProjectDetailPage() {
               {users?.map((u) => (
                 <option key={u.id} value={u.id}>{u.display_name ?? u.email}</option>
               ))}
+            </select>
+            <select
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
+              value={evaluationFilter}
+              onChange={(e) => { setEvaluationFilter(e.target.value === 'all' ? '' : e.target.value); setSelectedFlags(new Set()) }}
+            >
+              <option value="">Evaluation</option>
+              <option value="all">All</option>
+              <option value="never">Never evaluated</option>
+              <option value="7">Not in 7 days</option>
+              <option value="30">Not in 30 days</option>
+              <option value="90">Not in 90 days</option>
             </select>
           </div>
 
