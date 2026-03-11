@@ -972,7 +972,12 @@ Returns the flag and all its environment configurations.
       "enabled": true,
       "default_variant": "enabled",
       "variants": [...],
-      "targeting_rules": [...]
+      "targeting_rules": [...],
+      "locked": false,
+      "locked_by": null,
+      "locked_by_user": null,
+      "locked_at": null,
+      "lock_reason": null
     }
   ]
 }
@@ -1060,6 +1065,10 @@ Updates the flag configuration for a specific environment, including enabled sta
 
 **Response** (200): Updated environment config object.
 
+| Status | Description |
+|--------|-------------|
+| 409    | Flag is locked in this environment |
+
 ### Promote Environment Config
 
 ```
@@ -1083,6 +1092,7 @@ Copies a flag's configuration (variants and targeting rules) from a source envir
 | Status | Description |
 |--------|-------------|
 | 400    | Target environment must come after source in sort order |
+| 409    | Target environment's flag config is locked |
 
 ### Archive / Unarchive Flag
 
@@ -1104,6 +1114,10 @@ Archives or unarchives a flag. Archived flags return `"archived"` as the evaluat
 
 **Response** (200): Updated flag object.
 
+| Status | Description |
+|--------|-------------|
+| 409    | Flag is locked in one or more environments |
+
 ### Override Staleness Status
 
 ```
@@ -1123,6 +1137,107 @@ Manually marks a flag as stale. Only accepts `"stale"` as the status value.
 ```
 
 **Response** (200): Updated flag object.
+
+### Lock Environment Config
+
+```
+POST /api/v1/projects/{key}/flags/{flag}/environments/{env}/lock
+```
+
+**Permission:** `project:settings`
+
+Locks a flag's configuration in a specific environment, preventing any changes (config updates, toggle, promote, archive) until unlocked.
+
+**Request:**
+
+```json
+{
+  "reason": "Production freeze for launch"
+}
+```
+
+`reason` is optional (max 255 characters).
+
+**Response** (200): Updated environment config object with lock fields populated.
+
+| Status | Description |
+|--------|-------------|
+| 409    | Flag is already locked in this environment |
+
+### Unlock Environment Config
+
+```
+DELETE /api/v1/projects/{key}/flags/{flag}/environments/{env}/lock
+```
+
+**Permission:** `project:settings`
+
+Removes the lock on a flag's environment configuration, allowing changes again.
+
+**Response** (200): Updated environment config object with lock fields cleared.
+
+| Status | Description |
+|--------|-------------|
+| 409    | Flag is not locked in this environment |
+
+### Bulk Lock Flags
+
+```
+POST /api/v1/projects/{key}/flags/bulk-lock
+```
+
+**Permission:** `project:settings`
+
+Locks multiple flags in a specific environment at once.
+
+**Request:**
+
+```json
+{
+  "flag_keys": ["flag-1", "flag-2", "flag-3"],
+  "environment_key": "production",
+  "reason": "Sprint freeze"
+}
+```
+
+**Response** (200):
+
+```json
+{
+  "locked": 2,
+  "already_locked": 1,
+  "errors": []
+}
+```
+
+### Bulk Unlock Flags
+
+```
+POST /api/v1/projects/{key}/flags/bulk-unlock
+```
+
+**Permission:** `project:settings`
+
+Unlocks multiple flags in a specific environment at once.
+
+**Request:**
+
+```json
+{
+  "flag_keys": ["flag-1", "flag-2", "flag-3"],
+  "environment_key": "production"
+}
+```
+
+**Response** (200):
+
+```json
+{
+  "unlocked": 2,
+  "already_unlocked": 1,
+  "errors": []
+}
+```
 
 ### Bulk Flag Actions
 
@@ -1543,6 +1658,8 @@ Project-scoped HTTP webhooks that notify external services when management event
 | `flag.deleted` | A flag was deleted |
 | `flag.archived` | A flag was archived or unarchived |
 | `flag_config.updated` | A flag's per-environment config was updated |
+| `flag_config.locked` | A flag's environment config was locked |
+| `flag_config.unlocked` | A flag's environment config was unlocked |
 | `segment.created` | A new segment was created |
 | `segment.updated` | A segment was updated |
 | `segment.deleted` | A segment was deleted |

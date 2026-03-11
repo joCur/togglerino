@@ -12,6 +12,7 @@ const (
 	ScheduleStatusPending   ScheduleStatus = "pending"
 	ScheduleStatusExecuted  ScheduleStatus = "executed"
 	ScheduleStatusCancelled ScheduleStatus = "cancelled"
+	ScheduleStatusFailed    ScheduleStatus = "failed"
 )
 
 // ScheduledFlagChange represents a future flag environment config change.

@@ -60,6 +60,25 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    lock: (projectKey: string, flagKey: string, envKey: string, reason?: string) =>
+      request<FlagEnvironmentConfig>(`/projects/${projectKey}/flags/${flagKey}/environments/${envKey}/lock`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }),
+    unlock: (projectKey: string, flagKey: string, envKey: string) =>
+      request<FlagEnvironmentConfig>(`/projects/${projectKey}/flags/${flagKey}/environments/${envKey}/lock`, {
+        method: 'DELETE',
+      }),
+    bulkLock: (projectKey: string, flagKeys: string[], environmentKey: string, reason?: string) =>
+      request<{ locked: number; already_locked: number; errors: string[] }>(`/projects/${projectKey}/flags/bulk-lock`, {
+        method: 'POST',
+        body: JSON.stringify({ flag_keys: flagKeys, environment_key: environmentKey, reason }),
+      }),
+    bulkUnlock: (projectKey: string, flagKeys: string[], environmentKey: string) =>
+      request<{ unlocked: number; already_unlocked: number; errors: string[] }>(`/projects/${projectKey}/flags/bulk-unlock`, {
+        method: 'POST',
+        body: JSON.stringify({ flag_keys: flagKeys, environment_key: environmentKey }),
+      }),
   },
 
   environments: {

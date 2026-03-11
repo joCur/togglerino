@@ -105,6 +105,11 @@ export interface FlagEnvironmentConfig {
   updated_at: string
   updated_by?: string
   updated_by_user?: FlagOwner
+  locked: boolean
+  locked_by?: string
+  locked_by_user?: FlagOwner
+  locked_at?: string
+  lock_reason?: string
 }
 
 export interface AuditEntry {
@@ -152,7 +157,7 @@ export interface Segment {
   updated_at: string
 }
 
-export type ScheduleStatus = 'pending' | 'executed' | 'cancelled'
+export type ScheduleStatus = 'pending' | 'executed' | 'cancelled' | 'failed'
 
 export interface ScheduledFlagChange {
   id: string

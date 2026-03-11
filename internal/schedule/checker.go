@@ -44,16 +44,28 @@ type AuditRecorder interface {
 	Record(ctx context.Context, entry model.AuditEntry) error
 }
 
+// LockChecker checks if a flag is locked in an environment.
+type LockChecker interface {
+	IsEnvironmentConfigLocked(ctx context.Context, flagID, environmentID string) (bool, error)
+}
+
+// ScheduleFailer marks a schedule as failed.
+type ScheduleFailer interface {
+	Fail(ctx context.Context, id string, reason string) error
+}
+
 // Checker periodically executes due scheduled flag changes.
 type Checker struct {
-	schedules ScheduleStore
-	lookup    FlagEnvLookup
-	db        TxBeginner
-	cache     CacheRefresher
+	schedules   ScheduleStore
+	lookup      FlagEnvLookup
+	db          TxBeginner
+	cache       CacheRefresher
 	broadcaster EventBroadcaster
-	audit     AuditRecorder
-	interval  time.Duration
-	now       func() time.Time // injectable for testing
+	audit       AuditRecorder
+	locks       LockChecker
+	failer      ScheduleFailer
+	interval    time.Duration
+	now         func() time.Time // injectable for testing
 }
 
 // NewChecker creates a new schedule checker.
@@ -64,17 +76,21 @@ func NewChecker(
 	cache CacheRefresher,
 	broadcaster EventBroadcaster,
 	audit AuditRecorder,
+	locks LockChecker,
+	failer ScheduleFailer,
 	interval time.Duration,
 ) *Checker {
 	return &Checker{
-		schedules: schedules,
-		lookup:    lookup,
-		db:        db,
-		cache:     cache,
+		schedules:   schedules,
+		lookup:      lookup,
+		db:          db,
+		cache:       cache,
 		broadcaster: broadcaster,
-		audit:     audit,
-		interval:  interval,
-		now:       time.Now,
+		audit:       audit,
+		locks:       locks,
+		failer:      failer,
+		interval:    interval,
+		now:         time.Now,
 	}
 }
 
@@ -111,6 +127,27 @@ func (c *Checker) tick(ctx context.Context) {
 }
 
 func (c *Checker) execute(ctx context.Context, sc model.ScheduledFlagChange) {
+	// Check if flag is locked in target environment
+	if c.locks != nil {
+		locked, err := c.locks.IsEnvironmentConfigLocked(ctx, sc.FlagID, sc.EnvironmentID)
+		if err != nil {
+			slog.Warn("schedule checker: failed to check lock status, skipping",
+				"schedule_id", sc.ID, "error", err)
+			return
+		}
+		if locked {
+			slog.Warn("schedule checker: flag is locked, skipping scheduled change",
+				"schedule_id", sc.ID, "flag_id", sc.FlagID, "env_id", sc.EnvironmentID)
+			if c.failer != nil {
+				if err := c.failer.Fail(ctx, sc.ID, "flag is locked in target environment"); err != nil {
+					slog.Warn("schedule checker: failed to mark schedule as failed",
+						"schedule_id", sc.ID, "error", err)
+				}
+			}
+			return
+		}
+	}
+
 	var snapshot model.ConfigSnapshotPayload
 	if err := json.Unmarshal(sc.ConfigSnapshot, &snapshot); err != nil {
 		slog.Error("schedule checker: failed to unmarshal config snapshot",
