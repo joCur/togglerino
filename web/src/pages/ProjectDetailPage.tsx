@@ -19,22 +19,7 @@ import { useCanWrite } from '@/hooks/usePermissions'
 import { Plus } from 'lucide-react'
 import BulkActionBar from '../components/BulkActionBar.tsx'
 import BulkConfirmDialog from '../components/BulkConfirmDialog.tsx'
-
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffSecs = Math.floor(diffMs / 1000)
-  const diffMins = Math.floor(diffSecs / 60)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffSecs < 60) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 30) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
+import { formatRelativeTime } from '@/lib/date'
 
 export default function ProjectDetailPage() {
   const { key } = useParams<{ key: string }>()
@@ -47,6 +32,7 @@ export default function ProjectDetailPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [createFromKey, setCreateFromKey] = useState('')
   const [ownerFilter, setOwnerFilter] = useState('')
+  const [evaluationFilter, setEvaluationFilter] = useState('')
   const [selectedFlags, setSelectedFlags] = useState<Set<string>>(new Set())
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
   const [bulkAction, setBulkAction] = useState<{
@@ -69,13 +55,14 @@ export default function ProjectDetailPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['projects', key, 'flags', { search, tag: tagFilter, lifecycle_status: statusFilter, flag_type: purposeFilter }],
+    queryKey: ['projects', key, 'flags', { search, tag: tagFilter, lifecycle_status: statusFilter, flag_type: purposeFilter, unevaluated_days: evaluationFilter }],
     queryFn: ({ pageParam }) =>
       api.flags.list(key!, {
         search: search || undefined,
         tag: tagFilter || undefined,
         lifecycle_status: statusFilter || undefined,
         flag_type: purposeFilter || undefined,
+        unevaluated_days: evaluationFilter || undefined,
         limit: PAGE_SIZE,
         offset: pageParam,
       }),
@@ -318,6 +305,18 @@ export default function ProjectDetailPage() {
               {users?.map((u) => (
                 <option key={u.id} value={u.id}>{u.display_name ?? u.email}</option>
               ))}
+            </select>
+            <select
+              className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:w-auto md:min-w-[130px]"
+              value={evaluationFilter}
+              onChange={(e) => { setEvaluationFilter(e.target.value === 'all' ? '' : e.target.value); setSelectedFlags(new Set()) }}
+            >
+              <option value="">Evaluation</option>
+              <option value="all">All</option>
+              <option value="never">Never evaluated</option>
+              <option value="7">Not in 7 days</option>
+              <option value="30">Not in 30 days</option>
+              <option value="90">Not in 90 days</option>
             </select>
           </div>
 

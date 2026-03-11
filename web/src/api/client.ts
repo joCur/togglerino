@@ -42,7 +42,7 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 
   flags: {
-    list: (projectKey: string, params?: { search?: string; tag?: string; lifecycle_status?: string; flag_type?: string; include?: string; limit?: number; offset?: number }) => {
+    list: (projectKey: string, params?: { search?: string; tag?: string; lifecycle_status?: string; flag_type?: string; include?: string; limit?: number; offset?: number; unevaluated_days?: string }) => {
       const search = new URLSearchParams()
       if (params?.search) search.set('search', params.search)
       if (params?.tag) search.set('tag', params.tag)
@@ -51,6 +51,7 @@ export const api = {
       if (params?.include) search.set('include', params.include)
       if (params?.limit !== undefined) search.set('limit', String(params.limit))
       if (params?.offset !== undefined) search.set('offset', String(params.offset))
+      if (params?.unevaluated_days) search.set('unevaluated_days', params.unevaluated_days)
       const qs = search.toString()
       return request<PaginatedResponse<Flag>>(`/projects/${projectKey}/flags${qs ? `?${qs}` : ''}`)
     },

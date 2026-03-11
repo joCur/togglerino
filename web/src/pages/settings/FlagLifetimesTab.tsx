@@ -19,21 +19,24 @@ export default function FlagLifetimesTab() {
   const queryClient = useQueryClient()
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [lifetimes, setLifetimes] = useState<Record<string, number | null>>({})
+  const [unevaluatedDays, setUnevaluatedDays] = useState<number | null>(null)
   const [initialized, setInitialized] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects', key, 'settings', 'flags'],
-    queryFn: () => api.get<{ flag_lifetimes: Record<string, number | null> }>(`/projects/${key}/settings/flags`),
+    queryFn: () => api.get<{ flag_lifetimes: Record<string, number | null>; unevaluated_stale_after_days?: number | null }>(`/projects/${key}/settings/flags`),
   })
 
   if (data && !initialized) {
     setLifetimes(data.flag_lifetimes)
+    setUnevaluatedDays(data.unevaluated_stale_after_days ?? null)
     setInitialized(true)
   }
 
   const updateMutation = useMutation({
-    mutationFn: (flagLifetimes: Record<string, number | null>) =>
-      api.put(`/projects/${key}/settings/flags`, { flag_lifetimes: flagLifetimes }),
+    // unevaluated_stale_after_days: 0 means disabled — backend normalizes 0 to nil/null
+    mutationFn: (payload: { flag_lifetimes: Record<string, number | null>; unevaluated_stale_after_days: number }) =>
+      api.put(`/projects/${key}/settings/flags`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'settings', 'flags'] })
       setSaveSuccess(true)
@@ -41,7 +44,10 @@ export default function FlagLifetimesTab() {
     },
   })
 
-  const handleSave = () => updateMutation.mutate(lifetimes)
+  const handleSave = () => updateMutation.mutate({
+    flag_lifetimes: lifetimes,
+    unevaluated_stale_after_days: unevaluatedDays ?? 0,
+  })
 
   const handleChange = (purpose: string, value: string) => {
     if (value === '' || value === 'permanent') {
@@ -100,9 +106,50 @@ export default function FlagLifetimesTab() {
           ))}
         </div>
 
+        <div className="border-t border-border mt-4 pt-4">
+          <div className="text-sm font-semibold text-foreground mb-1">
+            Evaluation-Based Staleness
+          </div>
+          <div className="text-xs text-muted-foreground mb-3">
+            Optionally mark flags as potentially stale if they haven't been evaluated by any SDK within a time window.
+          </div>
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+            <div className="md:w-[200px]">
+              <div className="text-[13px] font-medium text-foreground">Unevaluated threshold</div>
+              <div className="text-[11px] text-muted-foreground">Flags not evaluated within this window are marked potentially stale</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {unevaluatedDays === null ? (
+                <Input className="w-full md:w-[120px]" value="Disabled" disabled />
+              ) : (
+                <Input
+                  className="w-full md:w-[120px]"
+                  type="number"
+                  min={1}
+                  value={unevaluatedDays}
+                  onChange={(e) => {
+                    const num = parseInt(e.target.value, 10)
+                    if (!isNaN(num) && num > 0) setUnevaluatedDays(num)
+                  }}
+                />
+              )}
+              <span className="text-xs text-muted-foreground">
+                {unevaluatedDays === null ? '' : 'days'}
+              </span>
+              <button
+                type="button"
+                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setUnevaluatedDays(unevaluatedDays === null ? 30 : null)}
+              >
+                {unevaluatedDays === null ? 'Enable' : 'Disable'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center gap-3 mt-4">
           <Button onClick={handleSave} disabled={updateMutation.isPending}>
-            {updateMutation.isPending ? 'Saving...' : 'Save Lifetimes'}
+            {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
           </Button>
           {saveSuccess && (
             <span className="text-[13px] text-emerald-400 animate-[fadeIn_200ms_ease]">Saved</span>

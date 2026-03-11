@@ -21,11 +21,12 @@ type EvaluateHandler struct {
 	unknownFlags *store.UnknownFlagStore
 	contextAttrs *store.ContextAttributeStore
 	metrics      *metrics.Registry
+	tracker      *evaluation.Tracker
 }
 
 // NewEvaluateHandler creates a new EvaluateHandler.
-func NewEvaluateHandler(cache *evaluation.Cache, engine *evaluation.Engine, unknownFlags *store.UnknownFlagStore, contextAttrs *store.ContextAttributeStore, metricsReg *metrics.Registry) *EvaluateHandler {
-	return &EvaluateHandler{cache: cache, engine: engine, unknownFlags: unknownFlags, contextAttrs: contextAttrs, metrics: metricsReg}
+func NewEvaluateHandler(cache *evaluation.Cache, engine *evaluation.Engine, unknownFlags *store.UnknownFlagStore, contextAttrs *store.ContextAttributeStore, metricsReg *metrics.Registry, tracker *evaluation.Tracker) *EvaluateHandler {
+	return &EvaluateHandler{cache: cache, engine: engine, unknownFlags: unknownFlags, contextAttrs: contextAttrs, metrics: metricsReg, tracker: tracker}
 }
 
 type evaluateRequest struct {
@@ -89,6 +90,12 @@ func (h *EvaluateHandler) EvaluateAll(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if h.tracker != nil {
+		for _, fd := range flags {
+			h.tracker.Track(fd.Flag.ID)
+		}
+	}
+
 	if h.metrics != nil {
 		h.metrics.ObserveEvaluationDuration(time.Since(start).Seconds())
 	}
@@ -116,6 +123,10 @@ func (h *EvaluateHandler) EvaluateSingle(w http.ResponseWriter, r *http.Request)
 		}()
 		writeError(w, http.StatusNotFound, "flag not found")
 		return
+	}
+
+	if h.tracker != nil {
+		h.tracker.Track(fd.Flag.ID)
 	}
 
 	// Personal overrides bypass disabled flags (by design) but respect archived flags.
