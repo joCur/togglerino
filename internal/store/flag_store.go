@@ -356,9 +356,12 @@ func (s *FlagStore) GetEnvironmentConfig(ctx context.Context, flagID, environmen
 	row := s.pool.QueryRow(ctx,
 		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
 		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
-		        u.id, u.email, u.display_name
+		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
+		        u.id, u.email, u.display_name,
+		        lu.id, lu.email, lu.display_name
 		 FROM flag_environment_configs fec
 		 LEFT JOIN users u ON fec.updated_by = u.id
+		 LEFT JOIN users lu ON fec.locked_by = lu.id
 		 WHERE fec.flag_id = $1 AND fec.environment_id = $2`,
 		flagID, environmentID,
 	)
@@ -370,9 +373,12 @@ func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string)
 	rows, err := s.pool.Query(ctx,
 		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
 		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
-		        u.id, u.email, u.display_name
+		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
+		        u.id, u.email, u.display_name,
+		        lu.id, lu.email, lu.display_name
 		 FROM flag_environment_configs fec
 		 LEFT JOIN users u ON fec.updated_by = u.id
+		 LEFT JOIN users lu ON fec.locked_by = lu.id
 		 WHERE fec.flag_id = $1 ORDER BY fec.updated_at`,
 		flagID,
 	)
@@ -406,9 +412,12 @@ func (s *FlagStore) GetEnvironmentConfigsByFlagIDs(ctx context.Context, flagIDs 
 	rows, err := s.pool.Query(ctx,
 		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
 		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
-		        u.id, u.email, u.display_name
+		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
+		        u.id, u.email, u.display_name,
+		        lu.id, lu.email, lu.display_name
 		 FROM flag_environment_configs fec
 		 LEFT JOIN users u ON fec.updated_by = u.id
+		 LEFT JOIN users lu ON fec.locked_by = lu.id
 		 WHERE fec.flag_id = ANY($1)
 		 ORDER BY fec.flag_id, fec.updated_at`,
 		flagIDs,
@@ -439,7 +448,8 @@ func (s *FlagStore) UpdateEnvironmentConfig(ctx context.Context, flagID, environ
 		`UPDATE flag_environment_configs
 		 SET enabled=$3, default_variant=$4, variants=$5, targeting_rules=$6, updated_at=NOW(), updated_by=$7
 		 WHERE flag_id=$1 AND environment_id=$2
-		 RETURNING id, flag_id, environment_id, enabled, default_variant, variants, targeting_rules, updated_at, updated_by`,
+		 RETURNING id, flag_id, environment_id, enabled, default_variant, variants, targeting_rules, updated_at, updated_by,
+		           locked, locked_by, locked_at, lock_reason`,
 		flagID, environmentID, enabled, defaultVariant, variants, targetingRules, updatedBy,
 	)
 	return scanFlagEnvConfig(row)
@@ -484,11 +494,69 @@ func (s *FlagStore) FlagKeyByID(ctx context.Context, flagID string) (string, err
 	return key, nil
 }
 
+// LockEnvironmentConfig locks a flag's config in a specific environment.
+func (s *FlagStore) LockEnvironmentConfig(ctx context.Context, flagID, environmentID, userID string, reason *string) (*model.FlagEnvironmentConfig, error) {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE flag_environment_configs
+		 SET locked = true, locked_by = $3, locked_at = NOW(), lock_reason = $4
+		 WHERE flag_id = $1 AND environment_id = $2`,
+		flagID, environmentID, userID, reason,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("locking environment config: %w", err)
+	}
+	return s.GetEnvironmentConfig(ctx, flagID, environmentID)
+}
+
+// UnlockEnvironmentConfig unlocks a flag's config in a specific environment.
+func (s *FlagStore) UnlockEnvironmentConfig(ctx context.Context, flagID, environmentID string) (*model.FlagEnvironmentConfig, error) {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE flag_environment_configs
+		 SET locked = false, locked_by = NULL, locked_at = NULL, lock_reason = NULL
+		 WHERE flag_id = $1 AND environment_id = $2`,
+		flagID, environmentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("unlocking environment config: %w", err)
+	}
+	return s.GetEnvironmentConfig(ctx, flagID, environmentID)
+}
+
+// IsLockedInAnyEnvironment returns true if the flag is locked in any environment.
+func (s *FlagStore) IsLockedInAnyEnvironment(ctx context.Context, flagID string) (bool, error) {
+	var locked bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM flag_environment_configs
+			WHERE flag_id = $1 AND locked = true
+		)`,
+		flagID,
+	).Scan(&locked)
+	if err != nil {
+		return false, fmt.Errorf("checking lock status: %w", err)
+	}
+	return locked, nil
+}
+
+// IsEnvironmentConfigLocked returns true if a flag is locked in a specific environment.
+func (s *FlagStore) IsEnvironmentConfigLocked(ctx context.Context, flagID, environmentID string) (bool, error) {
+	var locked bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT locked FROM flag_environment_configs WHERE flag_id = $1 AND environment_id = $2`,
+		flagID, environmentID,
+	).Scan(&locked)
+	if err != nil {
+		return false, fmt.Errorf("checking lock status: %w", err)
+	}
+	return locked, nil
+}
+
 func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	var cfg model.FlagEnvironmentConfig
 	var variantsJSON, rulesJSON json.RawMessage
 	err := row.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy)
+		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason)
 	if err != nil {
 		return nil, fmt.Errorf("scanning flag environment config: %w", err)
 	}
@@ -512,9 +580,13 @@ func scanFlagEnvConfigWithUser(row pgx.Row) (*model.FlagEnvironmentConfig, error
 	var variantsJSON, rulesJSON json.RawMessage
 	var updatedByUserID, updatedByEmail *string
 	var updatedByDisplayName *string
+	var lockedByUserID, lockedByEmail *string
+	var lockedByDisplayName *string
 	err := row.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
 		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
-		&updatedByUserID, &updatedByEmail, &updatedByDisplayName)
+		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason,
+		&updatedByUserID, &updatedByEmail, &updatedByDisplayName,
+		&lockedByUserID, &lockedByEmail, &lockedByDisplayName)
 	if err != nil {
 		return nil, fmt.Errorf("scanning flag environment config: %w", err)
 	}
@@ -533,6 +605,9 @@ func scanFlagEnvConfigWithUser(row pgx.Row) (*model.FlagEnvironmentConfig, error
 	if updatedByUserID != nil {
 		cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
 	}
+	if lockedByUserID != nil {
+		cfg.LockedByUser = &model.FlagOwner{ID: *lockedByUserID, Email: *lockedByEmail, DisplayName: lockedByDisplayName}
+	}
 	return &cfg, nil
 }
 
@@ -543,9 +618,13 @@ func scanEnvironmentConfigRowWithUser(rows pgx.Rows) (model.FlagEnvironmentConfi
 	var variantsJSON, rulesJSON json.RawMessage
 	var updatedByUserID, updatedByEmail *string
 	var updatedByDisplayName *string
+	var lockedByUserID, lockedByEmail *string
+	var lockedByDisplayName *string
 	if err := rows.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
 		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
-		&updatedByUserID, &updatedByEmail, &updatedByDisplayName); err != nil {
+		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason,
+		&updatedByUserID, &updatedByEmail, &updatedByDisplayName,
+		&lockedByUserID, &lockedByEmail, &lockedByDisplayName); err != nil {
 		return cfg, fmt.Errorf("scanning environment config: %w", err)
 	}
 	if err := json.Unmarshal(variantsJSON, &cfg.Variants); err != nil {
@@ -562,6 +641,9 @@ func scanEnvironmentConfigRowWithUser(rows pgx.Rows) (model.FlagEnvironmentConfi
 	}
 	if updatedByUserID != nil {
 		cfg.UpdatedByUser = &model.FlagOwner{ID: *updatedByUserID, Email: *updatedByEmail, DisplayName: updatedByDisplayName}
+	}
+	if lockedByUserID != nil {
+		cfg.LockedByUser = &model.FlagOwner{ID: *lockedByUserID, Email: *lockedByEmail, DisplayName: lockedByDisplayName}
 	}
 	return cfg, nil
 }

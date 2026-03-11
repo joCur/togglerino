@@ -1070,3 +1070,191 @@ func TestFlagStore_GetEnvironmentConfigsByFlagIDs(t *testing.T) {
 		t.Errorf("expected empty map for empty input, got %d entries", len(emptyMap))
 	}
 }
+
+func TestFlagStore_LockEnvironmentConfig(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("flaglock")
+	project, err := ps.Create(ctx, projKey, "Lock Test Project", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := es.Create(ctx, project.ID, "development", "Development")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, uniqueKey("lockflag"), "Lock Flag", "", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user, err := us.Create(ctx, uniqueEmail("locker"), "password123", model.RoleAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reason := "Holiday code freeze"
+	cfg, err := fs.LockEnvironmentConfig(ctx, flag.ID, env.ID, user.ID, &reason)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !cfg.Locked {
+		t.Error("expected locked to be true")
+	}
+	if cfg.LockedBy == nil || *cfg.LockedBy != user.ID {
+		t.Error("expected locked_by to match user ID")
+	}
+	if cfg.LockedAt == nil {
+		t.Error("expected locked_at to be set")
+	}
+	if cfg.LockReason == nil || *cfg.LockReason != reason {
+		t.Error("expected lock_reason to match")
+	}
+	if cfg.LockedByUser == nil || cfg.LockedByUser.Email == "" {
+		t.Error("expected locked_by_user to be populated")
+	}
+
+	// Verify persistence via GetEnvironmentConfig
+	fetched, err := fs.GetEnvironmentConfig(ctx, flag.ID, env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fetched.Locked {
+		t.Error("expected fetched config to be locked")
+	}
+	if fetched.LockedByUser == nil {
+		t.Error("expected fetched locked_by_user to be populated")
+	}
+}
+
+func TestFlagStore_UnlockEnvironmentConfig(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("flagunlock")
+	project, err := ps.Create(ctx, projKey, "Unlock Test Project", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := es.Create(ctx, project.ID, "development", "Development")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, uniqueKey("unlockflag"), "Unlock Flag", "", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user, err := us.Create(ctx, uniqueEmail("unlocker"), "password123", model.RoleAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Lock first
+	reason := "test"
+	_, err = fs.LockEnvironmentConfig(ctx, flag.ID, env.ID, user.ID, &reason)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Unlock
+	cfg, err := fs.UnlockEnvironmentConfig(ctx, flag.ID, env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.Locked {
+		t.Error("expected locked to be false")
+	}
+	if cfg.LockedBy != nil {
+		t.Error("expected locked_by to be nil")
+	}
+	if cfg.LockedAt != nil {
+		t.Error("expected locked_at to be nil")
+	}
+	if cfg.LockReason != nil {
+		t.Error("expected lock_reason to be nil")
+	}
+}
+
+func TestFlagStore_IsLockedInAnyEnvironment(t *testing.T) {
+	pool := testPool(t)
+	ps := store.NewProjectStore(pool)
+	es := store.NewEnvironmentStore(pool)
+	fs := store.NewFlagStore(pool)
+	us := store.NewUserStore(pool)
+	ctx := context.Background()
+
+	projKey := uniqueKey("anylocked")
+	project, err := ps.Create(ctx, projKey, "Any Lock Test", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := es.Create(ctx, project.ID, "development", "Development")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	flag, err := fs.Create(ctx, project.ID, uniqueKey("anylock"), "Any Lock Flag", "", model.ValueTypeBoolean, model.FlagTypeRelease, json.RawMessage(`false`), []string{}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user, err := us.Create(ctx, uniqueEmail("anylocker"), "password123", model.RoleAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Not locked in any env
+	locked, err := fs.IsLockedInAnyEnvironment(ctx, flag.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if locked {
+		t.Error("expected not locked initially")
+	}
+
+	// Lock in one env
+	reason := "freeze"
+	_, err = fs.LockEnvironmentConfig(ctx, flag.ID, env.ID, user.ID, &reason)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	locked, err = fs.IsLockedInAnyEnvironment(ctx, flag.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !locked {
+		t.Error("expected locked after locking one env")
+	}
+
+	// Unlock it
+	_, err = fs.UnlockEnvironmentConfig(ctx, flag.ID, env.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	locked, err = fs.IsLockedInAnyEnvironment(ctx, flag.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if locked {
+		t.Error("expected not locked after unlock")
+	}
+}

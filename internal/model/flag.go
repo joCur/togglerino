@@ -98,6 +98,11 @@ type FlagEnvironmentConfig struct {
 	UpdatedAt      time.Time       `json:"updated_at"`
 	UpdatedBy      *string         `json:"updated_by,omitempty"`
 	UpdatedByUser  *FlagOwner      `json:"updated_by_user,omitempty"`
+	Locked         bool            `json:"locked"`
+	LockedBy       *string         `json:"locked_by,omitempty"`
+	LockedByUser   *FlagOwner      `json:"locked_by_user,omitempty"`
+	LockedAt       *time.Time      `json:"locked_at,omitempty"`
+	LockReason     *string         `json:"lock_reason,omitempty"`
 }
 
 type Variant struct {
