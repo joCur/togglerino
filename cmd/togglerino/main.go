@@ -118,7 +118,7 @@ func main() {
 	})
 	flagEnvLookup := &combinedLookup{flags: flagStore, environments: environmentStore}
 	schedBroadcaster := scheduleEventBroadcaster{hub: hub}
-	scheduleChecker := schedule.NewChecker(scheduleStore, flagEnvLookup, pool, schedCacheRefresher, schedBroadcaster, auditStore, 30*time.Second)
+	scheduleChecker := schedule.NewChecker(scheduleStore, flagEnvLookup, pool, schedCacheRefresher, schedBroadcaster, auditStore, flagStore, 30*time.Second)
 
 	// 6. Load all flags into cache
 	if err := cache.LoadAll(ctx, pool); err != nil {
