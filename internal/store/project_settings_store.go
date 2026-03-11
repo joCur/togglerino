@@ -34,8 +34,9 @@ func (s *ProjectSettingsStore) Get(ctx context.Context, projectID string) (*mode
 	}
 
 	var raw struct {
-		FlagLifetimes       map[model.FlagType]*int            `json:"flag_lifetimes"`
-		EnvironmentDefaults map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+		FlagLifetimes             map[model.FlagType]*int            `json:"flag_lifetimes"`
+		EnvironmentDefaults       map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+		UnevaluatedStaleAfterDays *int                                `json:"unevaluated_stale_after_days,omitempty"`
 	}
 	if len(settingsJSON) > 0 {
 		if err := json.Unmarshal(settingsJSON, &raw); err != nil {
@@ -44,6 +45,7 @@ func (s *ProjectSettingsStore) Get(ctx context.Context, projectID string) (*mode
 	}
 	ps.FlagLifetimes = raw.FlagLifetimes
 	ps.EnvironmentDefaults = raw.EnvironmentDefaults
+	ps.UnevaluatedStaleAfterDays = raw.UnevaluatedStaleAfterDays
 	return &ps, nil
 }
 
@@ -95,14 +97,16 @@ func (s *ProjectSettingsStore) Upsert(ctx context.Context, projectID string, fla
 	}
 
 	var raw struct {
-		FlagLifetimes       map[model.FlagType]*int            `json:"flag_lifetimes"`
-		EnvironmentDefaults map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+		FlagLifetimes             map[model.FlagType]*int            `json:"flag_lifetimes"`
+		EnvironmentDefaults       map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+		UnevaluatedStaleAfterDays *int                                `json:"unevaluated_stale_after_days,omitempty"`
 	}
 	if err := json.Unmarshal(returnedJSON, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshaling upserted settings: %w", err)
 	}
 	ps.FlagLifetimes = raw.FlagLifetimes
 	ps.EnvironmentDefaults = raw.EnvironmentDefaults
+	ps.UnevaluatedStaleAfterDays = raw.UnevaluatedStaleAfterDays
 	return &ps, nil
 }
 
@@ -122,14 +126,16 @@ func (s *ProjectSettingsStore) GetAll(ctx context.Context) (map[string]*model.Pr
 			return nil, fmt.Errorf("scanning project settings: %w", err)
 		}
 		var raw struct {
-			FlagLifetimes       map[model.FlagType]*int            `json:"flag_lifetimes"`
-			EnvironmentDefaults map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+			FlagLifetimes             map[model.FlagType]*int            `json:"flag_lifetimes"`
+			EnvironmentDefaults       map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+			UnevaluatedStaleAfterDays *int                                `json:"unevaluated_stale_after_days,omitempty"`
 		}
 		if err := json.Unmarshal(settingsJSON, &raw); err != nil {
 			return nil, fmt.Errorf("unmarshaling project settings row: %w", err)
 		}
 		ps.FlagLifetimes = raw.FlagLifetimes
 		ps.EnvironmentDefaults = raw.EnvironmentDefaults
+		ps.UnevaluatedStaleAfterDays = raw.UnevaluatedStaleAfterDays
 		result[ps.ProjectID] = &ps
 	}
 	return result, rows.Err()
@@ -183,13 +189,82 @@ func (s *ProjectSettingsStore) UpsertEnvironmentDefaults(ctx context.Context, pr
 	}
 
 	var raw struct {
-		FlagLifetimes       map[model.FlagType]*int            `json:"flag_lifetimes"`
-		EnvironmentDefaults map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+		FlagLifetimes             map[model.FlagType]*int            `json:"flag_lifetimes"`
+		EnvironmentDefaults       map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+		UnevaluatedStaleAfterDays *int                                `json:"unevaluated_stale_after_days,omitempty"`
 	}
 	if err := json.Unmarshal(returnedJSON, &raw); err != nil {
 		return nil, fmt.Errorf("unmarshaling upserted settings: %w", err)
 	}
 	ps.FlagLifetimes = raw.FlagLifetimes
 	ps.EnvironmentDefaults = raw.EnvironmentDefaults
+	ps.UnevaluatedStaleAfterDays = raw.UnevaluatedStaleAfterDays
+	return &ps, nil
+}
+
+// UpsertFlagSettings creates or updates the flag_lifetimes and unevaluated_stale_after_days settings,
+// preserving other settings (environment_defaults).
+func (s *ProjectSettingsStore) UpsertFlagSettings(ctx context.Context, projectID string, flagLifetimes map[model.FlagType]*int, unevaluatedDays *int) (*model.ProjectSettings, error) {
+	var existingJSON []byte
+	err := s.pool.QueryRow(ctx,
+		`SELECT settings FROM project_settings WHERE project_id = $1`,
+		projectID,
+	).Scan(&existingJSON)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, fmt.Errorf("reading existing settings: %w", err)
+	}
+
+	var full map[string]json.RawMessage
+	if len(existingJSON) > 0 {
+		if err := json.Unmarshal(existingJSON, &full); err != nil {
+			return nil, fmt.Errorf("unmarshaling existing settings: %w", err)
+		}
+	}
+	if full == nil {
+		full = make(map[string]json.RawMessage)
+	}
+
+	lifetimesJSON, err := json.Marshal(flagLifetimes)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling flag lifetimes: %w", err)
+	}
+	full["flag_lifetimes"] = lifetimesJSON
+
+	if unevaluatedDays != nil {
+		daysJSON, _ := json.Marshal(unevaluatedDays)
+		full["unevaluated_stale_after_days"] = daysJSON
+	} else {
+		delete(full, "unevaluated_stale_after_days")
+	}
+
+	mergedJSON, err := json.Marshal(full)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling merged settings: %w", err)
+	}
+
+	var ps model.ProjectSettings
+	var returnedJSON []byte
+	err = s.pool.QueryRow(ctx,
+		`INSERT INTO project_settings (project_id, settings)
+		 VALUES ($1, $2)
+		 ON CONFLICT (project_id) DO UPDATE SET settings = $2, updated_at = NOW()
+		 RETURNING id, project_id, settings, updated_at`,
+		projectID, mergedJSON,
+	).Scan(&ps.ID, &ps.ProjectID, &returnedJSON, &ps.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("upserting flag settings: %w", err)
+	}
+
+	var raw struct {
+		FlagLifetimes             map[model.FlagType]*int            `json:"flag_lifetimes"`
+		EnvironmentDefaults       map[string]model.EnvironmentDefault `json:"environment_defaults,omitempty"`
+		UnevaluatedStaleAfterDays *int                                `json:"unevaluated_stale_after_days,omitempty"`
+	}
+	if err := json.Unmarshal(returnedJSON, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshaling upserted settings: %w", err)
+	}
+	ps.FlagLifetimes = raw.FlagLifetimes
+	ps.EnvironmentDefaults = raw.EnvironmentDefaults
+	ps.UnevaluatedStaleAfterDays = raw.UnevaluatedStaleAfterDays
 	return &ps, nil
 }
