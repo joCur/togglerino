@@ -107,3 +107,16 @@ Tags are string labels for organizing and filtering flags. A flag can have multi
 - `q1-initiative` — flags tied to a quarterly initiative
 
 You can filter flags by tag in the dashboard and through the API query parameter `?tag=`.
+
+## Environment Locking
+
+A flag's per-environment configuration can be locked to prevent changes. This is useful during production freezes, incident response, or any time you want to ensure a flag's behavior remains stable.
+
+When locked:
+
+- Config updates, toggle changes, and promotions into the locked environment are rejected with a **409 Conflict** error.
+- Archiving is blocked if the flag is locked in any environment.
+- Scheduled changes for the locked environment are skipped by the schedule checker.
+- SDK evaluation is **not affected** — the flag continues to serve its current value normally.
+
+Locking requires the `project:settings` permission. See [Managing Flags](/dashboard/managing-flags#locking-a-flag) for dashboard instructions and the [Management API](/api-reference/management-api#lock-environment-config) for the API reference.

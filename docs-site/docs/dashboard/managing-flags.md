@@ -59,6 +59,29 @@ Targeting rules are an ordered list evaluated top-to-bottom — the first matchi
 
 Drag rules to reorder their priority. Since the first matching rule wins, rule order matters.
 
+## Locking a Flag
+
+You can lock a flag's configuration in a specific environment to prevent accidental changes during critical periods like production freezes or incident response.
+
+1. Open the flag detail page.
+2. Expand the environment you want to lock.
+3. Click the **Lock** button (visible to project admins only).
+4. Optionally enter a reason (e.g., "Production freeze for launch").
+5. Click **Confirm Lock**.
+
+When a flag is locked:
+
+- The environment's toggle, config editor, and promote actions are disabled.
+- A lock banner shows who locked it, when, and the reason.
+- Bulk enable/disable and archive operations skip locked flags and report errors.
+- Scheduled changes for the locked environment are skipped until unlocked.
+
+To unlock, click the **Unlock** button on the same environment.
+
+:::note
+Locking requires the `project:settings` permission (project admin role). The lock prevents changes to the flag's environment configuration but does not affect evaluation — SDKs continue to receive the current flag value.
+:::
+
 ## Filtering Flags
 
 The flag list supports two filtering mechanisms:
