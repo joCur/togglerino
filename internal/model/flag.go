@@ -75,6 +75,7 @@ type Flag struct {
 	LifecycleStatusChangedAt *time.Time      `json:"lifecycle_status_changed_at"`
 	CreatedAt                time.Time       `json:"created_at"`
 	UpdatedAt                time.Time       `json:"updated_at"`
+	LastEvaluatedAt          *time.Time      `json:"last_evaluated_at"`
 	OwnerID                  *string         `json:"owner_id,omitempty"`
 	Owner                    *FlagOwner      `json:"owner,omitempty"`
 	EnvironmentConfigs       []FlagEnvironmentConfig `json:"environment_configs,omitempty"`

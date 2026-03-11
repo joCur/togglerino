@@ -41,9 +41,10 @@ func DefaultEnvironmentDefaults() map[string]EnvironmentDefault {
 type ProjectSettings struct {
 	ID                  string                         `json:"id"`
 	ProjectID           string                         `json:"project_id"`
-	FlagLifetimes       map[FlagType]*int              `json:"flag_lifetimes"`
-	EnvironmentDefaults map[string]EnvironmentDefault  `json:"environment_defaults,omitempty"`
-	UpdatedAt           time.Time                      `json:"updated_at"`
+	FlagLifetimes             map[FlagType]*int              `json:"flag_lifetimes"`
+	EnvironmentDefaults       map[string]EnvironmentDefault  `json:"environment_defaults,omitempty"`
+	UnevaluatedStaleAfterDays *int                           `json:"unevaluated_stale_after_days,omitempty"`
+	UpdatedAt                 time.Time                      `json:"updated_at"`
 }
 
 // GetLifetime returns the expected lifetime in days for a flag type,

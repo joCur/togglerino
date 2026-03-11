@@ -1,0 +1,1 @@
+ALTER TABLE flags ADD COLUMN last_evaluated_at TIMESTAMPTZ NULL;
