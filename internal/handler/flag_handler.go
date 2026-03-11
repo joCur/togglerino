@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/togglerino/togglerino/internal/auth"
@@ -15,6 +16,7 @@ import (
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 	"github.com/togglerino/togglerino/internal/stream"
+	"github.com/togglerino/togglerino/internal/webhook"
 )
 
 type FlagHandler struct {
@@ -28,10 +30,11 @@ type FlagHandler struct {
 	unknownFlags *store.UnknownFlagStore
 	schedules    *store.ScheduleStore
 	settings     *store.ProjectSettingsStore
+	webhooks     *webhook.Dispatcher
 }
 
-func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool, unknownFlags *store.UnknownFlagStore, schedules *store.ScheduleStore, settings *store.ProjectSettingsStore) *FlagHandler {
-	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool, unknownFlags: unknownFlags, schedules: schedules, settings: settings}
+func NewFlagHandler(flags *store.FlagStore, projects *store.ProjectStore, environments *store.EnvironmentStore, audit *store.AuditStore, hub *stream.Hub, cache *evaluation.Cache, pool *pgxpool.Pool, unknownFlags *store.UnknownFlagStore, schedules *store.ScheduleStore, settings *store.ProjectSettingsStore, webhooks *webhook.Dispatcher) *FlagHandler {
+	return &FlagHandler{flags: flags, projects: projects, environments: environments, audit: audit, hub: hub, cache: cache, pool: pool, unknownFlags: unknownFlags, schedules: schedules, settings: settings, webhooks: webhooks}
 }
 
 // refreshAllEnvironments refreshes the evaluation cache and broadcasts SSE events
@@ -140,8 +143,8 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Best-effort audit logging
+	newVal, _ := json.Marshal(flag)
 	if user := auth.UserFromContext(r.Context()); user != nil {
-		newVal, _ := json.Marshal(flag)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
@@ -153,6 +156,16 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
+	}
+
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventFlagCreated,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    newVal,
+		})
 	}
 
 	// Refresh cache for all environments so the new flag is immediately available
@@ -318,9 +331,9 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Best-effort audit logging
+	newVal, _ := json.Marshal(updated)
 	if user := auth.UserFromContext(r.Context()); user != nil {
 		oldVal, _ := json.Marshal(flag)
-		newVal, _ := json.Marshal(updated)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
@@ -333,6 +346,16 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
+	}
+
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventFlagUpdated,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    newVal,
+		})
 	}
 
 	writeJSON(w, http.StatusOK, updated)
@@ -382,8 +405,8 @@ func (h *FlagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Best-effort audit logging
+	oldVal, _ := json.Marshal(flag)
 	if user := auth.UserFromContext(r.Context()); user != nil {
-		oldVal, _ := json.Marshal(flag)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
@@ -395,6 +418,16 @@ func (h *FlagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
+	}
+
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventFlagDeleted,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    oldVal,
+		})
 	}
 
 	// Refresh cache and broadcast deletion for all environments
@@ -465,9 +498,9 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	if !req.Archived {
 		action = "unarchive"
 	}
+	newVal, _ := json.Marshal(updated)
 	if user := auth.UserFromContext(r.Context()); user != nil {
 		oldVal, _ := json.Marshal(flag)
-		newVal, _ := json.Marshal(updated)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:  &project.ID,
 			UserID:     &user.ID,
@@ -480,6 +513,16 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
+	}
+
+	if h.webhooks != nil && req.Archived {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventFlagArchived,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    newVal,
+		})
 	}
 
 	// Refresh cache and broadcast for all environments
@@ -568,12 +611,12 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 	}
 
 	// Best-effort audit logging
+	newVal, _ := json.Marshal(cfg)
 	if user := auth.UserFromContext(r.Context()); user != nil {
 		var oldVal json.RawMessage
 		if oldConfig != nil {
 			oldVal, _ = json.Marshal(oldConfig)
 		}
-		newVal, _ := json.Marshal(cfg)
 		if err := h.audit.Record(r.Context(), model.AuditEntry{
 			ProjectID:     &project.ID,
 			UserID:        &user.ID,
@@ -587,6 +630,16 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		}); err != nil {
 			slog.Warn("failed to record audit log", "error", err)
 		}
+	}
+
+	if h.webhooks != nil {
+		h.webhooks.Dispatch(r.Context(), project.ID, webhook.Event{
+			Type:      webhook.EventFlagConfigUpdated,
+			Timestamp: time.Now().UTC(),
+			ProjectID: project.ID,
+			Actor:     webhookActorFromContext(r.Context()),
+			Entity:    newVal,
+		})
 	}
 
 	// Refresh cache and broadcast SSE event

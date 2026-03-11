@@ -45,7 +45,7 @@ func TestFlagHandler_List_IncludeEnvironmentConfigs(t *testing.T) {
 	cache := evaluation.NewCache()
 	pss := store.NewProjectSettingsStore(pool)
 
-	h := handler.NewFlagHandler(fs, ps, es, as, hub, cache, pool, ufs, nil, pss)
+	h := handler.NewFlagHandler(fs, ps, es, as, hub, cache, pool, ufs, nil, pss, nil)
 
 	// Create project with environments
 	projKey := fmt.Sprintf("incltest-%d", time.Now().UnixNano())

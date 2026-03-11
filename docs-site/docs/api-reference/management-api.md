@@ -1527,3 +1527,208 @@ POST /api/v1/projects/{key}/playground
 **Permission:** `flags:read`
 
 Evaluates flags against a provided context without affecting SDK traffic. Useful for testing targeting rules.
+
+---
+
+## Webhooks
+
+Project-scoped HTTP webhooks that notify external services when management events occur. All webhook endpoints require `project:settings` permission.
+
+### Supported Event Types
+
+| Event | Description |
+|-------|-------------|
+| `flag.created` | A new flag was created |
+| `flag.updated` | A flag's metadata was updated |
+| `flag.deleted` | A flag was deleted |
+| `flag.archived` | A flag was archived or unarchived |
+| `flag_config.updated` | A flag's per-environment config was updated |
+| `segment.created` | A new segment was created |
+| `segment.updated` | A segment was updated |
+| `segment.deleted` | A segment was deleted |
+| `environment.created` | A new environment was created |
+| `webhook.test` | A test delivery (sent via the test endpoint) |
+
+### Create Webhook
+
+```
+POST /api/v1/projects/{key}/webhooks
+```
+
+**Request:**
+
+```json
+{
+  "name": "CI Pipeline",
+  "url": "https://example.com/webhooks/togglerino",
+  "event_types": ["flag.created", "flag.updated", "flag.deleted"]
+}
+```
+
+**Response** (201): Webhook object including the `secret` field (shown only at creation time).
+
+```json
+{
+  "id": "uuid",
+  "project_id": "uuid",
+  "name": "CI Pipeline",
+  "url": "https://example.com/webhooks/togglerino",
+  "secret": "whsec_...",
+  "event_types": ["flag.created", "flag.updated", "flag.deleted"],
+  "enabled": true,
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+```
+
+| Status | Description |
+|--------|-------------|
+| 400 | Missing required fields, invalid event type, or URL fails validation (private IP / SSRF) |
+
+### List Webhooks
+
+```
+GET /api/v1/projects/{key}/webhooks
+```
+
+Returns a paginated list of webhooks for the project. Secrets are masked in list responses.
+
+**Query parameters:** `?limit=` and `?offset=` for pagination.
+
+**Response** (200): Paginated array of webhook objects.
+
+### Get Webhook
+
+```
+GET /api/v1/projects/{key}/webhooks/{id}
+```
+
+Returns a single webhook. Secret is masked.
+
+### Update Webhook
+
+```
+PUT /api/v1/projects/{key}/webhooks/{id}
+```
+
+Updates a webhook's name, URL, event types, or enabled state. Only provided fields are updated.
+
+**Request:**
+
+```json
+{
+  "name": "Updated Name",
+  "url": "https://new-url.example.com/hook",
+  "event_types": ["flag.created"],
+  "enabled": false
+}
+```
+
+**Response** (200): Updated webhook object (secret masked).
+
+### Delete Webhook
+
+```
+DELETE /api/v1/projects/{key}/webhooks/{id}
+```
+
+Permanently deletes a webhook and all its delivery history.
+
+**Response** (204): No content.
+
+### Test Webhook
+
+```
+POST /api/v1/projects/{key}/webhooks/{id}/test
+```
+
+Sends a synchronous test delivery to the webhook URL. The delivery is recorded in the delivery log.
+
+**Response** (200):
+
+```json
+{
+  "success": true,
+  "status_code": 200,
+  "duration_ms": 150
+}
+```
+
+If the delivery fails, the response includes an `error` field.
+
+### List Deliveries
+
+```
+GET /api/v1/projects/{key}/webhooks/{id}/deliveries
+```
+
+Returns a paginated list of delivery attempts for a webhook, ordered by most recent first.
+
+**Query parameters:** `?limit=` and `?offset=` for pagination.
+
+**Response** (200):
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "webhook_id": "uuid",
+      "event_type": "flag.created",
+      "payload": { "..." },
+      "status_code": 200,
+      "response_body": "OK",
+      "error": null,
+      "attempt": 1,
+      "success": true,
+      "duration_ms": 95,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### Webhook Payload Format
+
+All webhook deliveries include the following headers:
+
+| Header | Description |
+|--------|-------------|
+| `Content-Type` | `application/json` |
+| `X-Togglerino-Signature` | HMAC-SHA256 hex digest of the request body using the webhook secret |
+| `X-Togglerino-Event` | The event type (e.g., `flag.created`) |
+| `X-Togglerino-Delivery` | Unique delivery ID |
+
+**Payload structure:**
+
+```json
+{
+  "type": "flag.created",
+  "timestamp": "2026-01-01T00:00:00Z",
+  "project_id": "uuid",
+  "actor": {
+    "id": "uuid",
+    "email": "user@example.com"
+  },
+  "entity": { "...event-specific data..." }
+}
+```
+
+### Signature Verification
+
+To verify a webhook delivery, compute the HMAC-SHA256 of the raw request body using your webhook secret and compare it to the `X-Togglerino-Signature` header value:
+
+```python
+import hmac, hashlib
+
+def verify(body: bytes, secret: str, signature: str) -> bool:
+    expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+### Retry Behavior
+
+Failed deliveries (non-2xx status or network error) are retried up to **3 times** with exponential backoff. Delivery logs are retained for **30 days** and automatically cleaned up.
