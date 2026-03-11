@@ -75,6 +75,8 @@ func (t *Tracker) flush() {
 		ids = append(ids, id)
 	}
 
+	// On failure, the batch is intentionally dropped. The tracker operates on
+	// day-scale thresholds, so a missed flush is corrected on the next cycle.
 	if err := t.store.UpdateLastEvaluatedAt(context.Background(), ids); err != nil {
 		slog.Error("evaluation tracker: failed to flush", "count", len(ids), "error", err)
 	} else {

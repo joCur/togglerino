@@ -148,7 +148,7 @@ export default function FlagLifetimesTab() {
 
         <div className="flex items-center gap-3 mt-4">
           <Button onClick={handleSave} disabled={updateMutation.isPending}>
-            {updateMutation.isPending ? 'Saving...' : 'Save Lifetimes'}
+            {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
           </Button>
           {saveSuccess && (
             <span className="text-[13px] text-emerald-400 animate-[fadeIn_200ms_ease]">Saved</span>

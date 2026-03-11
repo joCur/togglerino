@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -196,6 +197,12 @@ func (h *FlagHandler) List(w http.ResponseWriter, r *http.Request) {
 	flagType := r.URL.Query().Get("flag_type")
 	owner := r.URL.Query().Get("owner")
 	unevaluatedDays := r.URL.Query().Get("unevaluated_days")
+	if unevaluatedDays != "" && unevaluatedDays != "never" {
+		if n, err := strconv.Atoi(unevaluatedDays); err != nil || n <= 0 {
+			writeError(w, http.StatusBadRequest, "unevaluated_days must be 'never' or a positive integer")
+			return
+		}
+	}
 	limit, offset := parsePagination(r)
 
 	flags, totalCount, err := h.flags.ListByProject(r.Context(), project.ID, tag, search, lifecycleStatus, flagType, owner, unevaluatedDays, limit, offset)
