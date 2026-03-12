@@ -118,6 +118,71 @@ POST /api/v1/auth/setup
 | 409    | Setup already completed (users exist) |
 | 429    | Rate limit exceeded |
 
+## Personal Access Tokens (Programmatic Access)
+
+Personal access tokens (PATs) allow programmatic access to the management API without a browser session. They are used by the [MCP server](/docs/integrations/mcp-server) and other automation tools.
+
+### Creating a Token
+
+Create tokens from the **Account** page in the dashboard, or via the API:
+
+```
+POST /api/v1/auth/tokens
+```
+
+**Request body:**
+
+```json
+{
+  "name": "my-ci-token",
+  "expires_at": "2026-12-31T23:59:59Z"
+}
+```
+
+- `name` (required): A label for the token (max 100 characters)
+- `expires_at` (optional): Expiration timestamp (must be in the future). Omit for a non-expiring token.
+
+**Response** (201 Created):
+
+```json
+{
+  "id": "uuid",
+  "name": "my-ci-token",
+  "token_prefix": "pat_a1b2c3d4",
+  "expires_at": "2026-12-31T23:59:59Z",
+  "created_at": "2026-03-12T00:00:00Z",
+  "token": "pat_a1b2c3d4e5f6..."
+}
+```
+
+The `token` field is shown **only once** at creation time. Store it securely.
+
+### Using a Token
+
+Pass the token in the `Authorization` header:
+
+```
+Authorization: Bearer pat_a1b2c3d4e5f6...
+```
+
+PATs have the same permissions as the user who created them. They work with all management API endpoints except profile updates (`PUT /api/v1/auth/me`), password changes, and PAT management itself.
+
+### Listing Tokens
+
+```
+GET /api/v1/auth/tokens
+```
+
+Returns all tokens for the authenticated user (without the secret value).
+
+### Revoking a Token
+
+```
+DELETE /api/v1/auth/tokens/{id}
+```
+
+Returns 204 No Content on success. Only the token owner can revoke their tokens.
+
 ## SDK Key Authentication (Client SDKs)
 
 Client SDKs authenticate using SDK keys, which are scoped to a specific project and environment. Pass the key in the `Authorization` header:

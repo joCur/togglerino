@@ -187,6 +187,14 @@ var (
 	patLastUsed   = make(map[string]time.Time)
 )
 
+// ClearPATLastUsed removes a PAT's debounce entry. Call when a token is
+// deleted or revoked to prevent unbounded map growth.
+func ClearPATLastUsed(patID string) {
+	patLastUsedMu.Lock()
+	delete(patLastUsed, patID)
+	patLastUsedMu.Unlock()
+}
+
 // SessionOrPATAuth returns middleware that authenticates requests using a
 // Personal Access Token (if an "Authorization: Bearer pat_..." header is
 // present) or falls back to session cookie auth via sessionAuthFallback.

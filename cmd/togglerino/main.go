@@ -34,6 +34,12 @@ import (
 	"github.com/togglerino/togglerino/web"
 )
 
+// Compile-time interface satisfaction checks.
+var (
+	_ auth.PATFinder  = (*store.PATStore)(nil)
+	_ auth.UserFinder = (*store.UserStore)(nil)
+)
+
 func main() {
 	// 1. Load config
 	cfg, err := config.Load()
@@ -247,7 +253,7 @@ func main() {
 
 	// --- Session-authed routes (management API) ---
 	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionOrPATAuth))
-	mux.Handle("PUT /api/v1/auth/me", wrap(authHandler.UpdateMe, sessionOrPATAuth))
+	mux.Handle("PUT /api/v1/auth/me", wrap(authHandler.UpdateMe, sessionAuth))
 	mux.Handle("POST /api/v1/auth/change-password", authLimiter.Middleware(wrap(authHandler.ChangePassword, sessionAuth)))
 
 	// Personal Access Tokens (session-only — cannot create tokens with tokens)

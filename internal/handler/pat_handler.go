@@ -42,6 +42,10 @@ func (h *PATHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name must be 100 characters or fewer")
 		return
 	}
+	if req.ExpiresAt != nil && !req.ExpiresAt.After(time.Now()) {
+		writeError(w, http.StatusBadRequest, "expires_at must be in the future")
+		return
+	}
 
 	pat, err := h.pats.Create(r.Context(), user.ID, req.Name, req.ExpiresAt)
 	if err != nil {
@@ -93,5 +97,6 @@ func (h *PATHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	auth.ClearPATLastUsed(id)
 	w.WriteHeader(http.StatusNoContent)
 }

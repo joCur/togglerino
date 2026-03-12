@@ -84,6 +84,25 @@ func TestPATHandler_Create_EmptyName(t *testing.T) {
 	}
 }
 
+// TestPATHandler_Create_PastExpiry verifies that an expires_at in the past returns 400.
+func TestPATHandler_Create_PastExpiry(t *testing.T) {
+	h, _ := newPATHandler(t)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	user := createTestUser(t, testPool(t), "pat-past-"+suffix+"@test.dev", model.RoleMember)
+
+	past := time.Now().Add(-24 * time.Hour).UTC().Format(time.RFC3339)
+	req := patRequest(t, http.MethodPost, "/api/v1/auth/tokens", user, map[string]string{
+		"name":       "expired-token",
+		"expires_at": past,
+	})
+	rr := httptest.NewRecorder()
+	h.Create(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 // TestPATHandler_List verifies that GET returns tokens without the `token` field.
 func TestPATHandler_List(t *testing.T) {
 	pool := testPool(t)

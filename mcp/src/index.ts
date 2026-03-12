@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
@@ -6,6 +8,9 @@ import { listProjects } from './tools/projects.js'
 import { listFlags, getFlag, createFlag, updateFlag, toggleFlag, updateFlagConfig } from './tools/flags.js'
 import { listEnvironments } from './tools/environments.js'
 import { listSegments, getSegment } from './tools/segments.js'
+
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string }
+const version = pkg.version
 
 const baseUrl = process.env.TOGGLERINO_URL
 const apiKey = process.env.TOGGLERINO_API_KEY
@@ -44,7 +49,7 @@ function err(e: unknown) {
   return { content: [{ type: 'text' as const, text: msg }], isError: true as const }
 }
 
-const server = new McpServer({ name: 'togglerino', version: '0.1.0' })
+const server = new McpServer({ name: 'togglerino', version })
 
 server.tool('list_projects', 'List all projects in the Togglerino instance', async () => {
   try {

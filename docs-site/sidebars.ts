@@ -60,6 +60,13 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Integrations',
+      items: [
+        'integrations/mcp-server',
+      ],
+    },
+    {
+      type: 'category',
       label: 'API Reference',
       items: [
         'api-reference/authentication',
