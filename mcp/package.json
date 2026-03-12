@@ -1,0 +1,33 @@
+{
+  "name": "@togglerino/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Togglerino feature flag management",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "togglerino-mcp": "dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": ["mcp", "feature-flags", "togglerino"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joCur/togglerino",
+    "directory": "mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
