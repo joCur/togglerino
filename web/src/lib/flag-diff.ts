@@ -1,0 +1,131 @@
+import type { FlagEnvironmentConfig } from '@/api/types'
+
+/**
+ * Recursively serializes a value with sorted object keys.
+ * Ensures {a:1, b:2} and {b:2, a:1} produce identical strings.
+ */
+export function canonicalize(value: unknown): string {
+  if (value === null || value === undefined) {
+    return JSON.stringify(value ?? null)
+  }
+  if (Array.isArray(value)) {
+    return '[' + value.map(canonicalize).join(',') + ']'
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    const keys = Object.keys(obj).sort()
+    const entries = keys
+      .filter((k) => obj[k] !== undefined)
+      .map((k) => JSON.stringify(k) + ':' + canonicalize(obj[k]))
+    return '{' + entries.join(',') + '}'
+  }
+  return JSON.stringify(value)
+}
+
+export type DiffStatus = 'match' | 'differs'
+
+export type FieldDiff = {
+  status: DiffStatus
+  values: Map<string, unknown>
+}
+
+export type VariantDiff = {
+  status: DiffStatus
+  perVariant: Map<string, FieldDiff>
+}
+
+export type ComparisonResult = {
+  enabled: FieldDiff
+  defaultVariant: FieldDiff
+  variants: VariantDiff
+  rules: FieldDiff
+}
+
+function getConfig(configs: FlagEnvironmentConfig[], envId: string): FlagEnvironmentConfig | null {
+  return configs.find((c) => c.environment_id === envId) ?? null
+}
+
+export function compareEnabled(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
+  const values = new Map<string, unknown>()
+  for (const envId of environmentIds) {
+    const config = getConfig(configs, envId)
+    values.set(envId, config?.enabled ?? false)
+  }
+  const allValues = [...values.values()]
+  const status: DiffStatus = allValues.every((v) => v === allValues[0]) ? 'match' : 'differs'
+  return { status, values }
+}
+
+export function compareDefaultVariant(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
+  const values = new Map<string, unknown>()
+  for (const envId of environmentIds) {
+    const config = getConfig(configs, envId)
+    values.set(envId, config?.default_variant ?? '')
+  }
+  const allValues = [...values.values()]
+  const status: DiffStatus = allValues.every((v) => v === allValues[0]) ? 'match' : 'differs'
+  return { status, values }
+}
+
+export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds: string[]): VariantDiff {
+  const allKeys = new Set<string>()
+  for (const envId of environmentIds) {
+    const config = getConfig(configs, envId)
+    for (const v of config?.variants ?? []) {
+      allKeys.add(v.key)
+    }
+  }
+
+  const perVariant = new Map<string, FieldDiff>()
+  let overallDiffers = false
+
+  for (const variantKey of allKeys) {
+    const values = new Map<string, unknown>()
+    const serialized: string[] = []
+
+    for (const envId of environmentIds) {
+      const config = getConfig(configs, envId)
+      const variant = config?.variants?.find((v) => v.key === variantKey)
+      if (variant) {
+        values.set(envId, variant.value)
+        serialized.push(canonicalize(variant.value))
+      } else {
+        serialized.push('__MISSING__')
+      }
+    }
+
+    const allSame = serialized.every((s) => s === serialized[0])
+    const status: DiffStatus = allSame ? 'match' : 'differs'
+    if (!allSame) overallDiffers = true
+    perVariant.set(variantKey, { status, values })
+  }
+
+  return {
+    status: overallDiffers ? 'differs' : 'match',
+    perVariant,
+  }
+}
+
+export function compareRules(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
+  const values = new Map<string, unknown>()
+  const serialized: string[] = []
+
+  for (const envId of environmentIds) {
+    const config = getConfig(configs, envId)
+    const rules = config?.targeting_rules ?? []
+    values.set(envId, rules)
+    serialized.push(canonicalize(rules))
+  }
+
+  const status: DiffStatus = serialized.every((s) => s === serialized[0]) ? 'match' : 'differs'
+  return { status, values }
+}
+
+export function compareFlag(configs: FlagEnvironmentConfig[], environmentIds: string[]): ComparisonResult {
+  return {
+    enabled: compareEnabled(configs, environmentIds),
+    defaultVariant: compareDefaultVariant(configs, environmentIds),
+    variants: compareVariants(configs, environmentIds),
+    rules: compareRules(configs, environmentIds),
+  }
+}
