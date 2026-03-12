@@ -279,7 +279,7 @@ export default function EnvironmentsPage() {
           <DialogHeader>
             <DialogTitle>Delete environment</DialogTitle>
             <DialogDescription>
-              {sdkKeyCount && sdkKeyCount > 0
+              {sdkKeyCount !== null && sdkKeyCount > 0
                 ? `This environment has ${sdkKeyCount} active SDK key${sdkKeyCount === 1 ? '' : 's'}. Deleting it will revoke all keys and remove all flag configurations for this environment. This cannot be undone.`
                 : `All flag configurations for the "${deleteTarget?.name}" environment will be removed. This cannot be undone.`}
             </DialogDescription>
