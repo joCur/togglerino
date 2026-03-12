@@ -107,6 +107,7 @@ export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds
   }
 }
 
+// Rule order is intentionally preserved (first-match-wins); only conditions within each rule are sorted.
 function canonicalizeRules(rules: FlagEnvironmentConfig['targeting_rules']): string {
   const normalized = rules.map((rule) => ({
     ...rule,
