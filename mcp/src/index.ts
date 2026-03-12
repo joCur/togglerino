@@ -114,7 +114,7 @@ server.tool(
   async ({ projectKey, name, key, flag_type, value_type, default_value, description, tags, environment_overrides }) => {
     try {
       const project = requireProject(projectKey)
-      const params: Record<string, unknown> = { name, key, type: flag_type, value_type, default_value }
+      const params: Record<string, unknown> = { name, key, flag_type, value_type, default_value }
       if (description !== undefined) params.description = description
       if (tags !== undefined) params.tags = tags
       if (environment_overrides !== undefined) params.environment_overrides = environment_overrides
