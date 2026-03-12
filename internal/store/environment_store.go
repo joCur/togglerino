@@ -90,6 +90,38 @@ func (s *EnvironmentStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// ErrLastEnvironment is returned when attempting to delete the last environment in a project.
+var ErrLastEnvironment = fmt.Errorf("cannot delete the last environment")
+
+// DeleteIfNotLast deletes an environment in a transaction, guarding against deleting the last one.
+func (s *EnvironmentStore) DeleteIfNotLast(ctx context.Context, envID, projectID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var count int
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM environments WHERE project_id = $1`, projectID,
+	).Scan(&count); err != nil {
+		return fmt.Errorf("counting environments: %w", err)
+	}
+	if count <= 1 {
+		return ErrLastEnvironment
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM environments WHERE id = $1 AND project_id = $2`, envID, projectID)
+	if err != nil {
+		return fmt.Errorf("deleting environment: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("environment not found")
+	}
+
+	return tx.Commit(ctx)
+}
+
 // EnvKeyByID returns the environment key for an environment ID (used by schedule checker).
 func (s *EnvironmentStore) EnvKeyByID(ctx context.Context, environmentID string) (string, error) {
 	var key string
