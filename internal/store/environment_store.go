@@ -103,7 +103,7 @@ func (s *EnvironmentStore) DeleteIfNotLast(ctx context.Context, envID, projectID
 
 	var count int
 	if err := tx.QueryRow(ctx,
-		`SELECT COUNT(*) FROM environments WHERE project_id = $1 FOR UPDATE`, projectID,
+		`SELECT COUNT(*) FROM (SELECT 1 FROM environments WHERE project_id = $1 FOR UPDATE) AS locked`, projectID,
 	).Scan(&count); err != nil {
 		return fmt.Errorf("counting environments: %w", err)
 	}
