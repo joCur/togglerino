@@ -785,6 +785,23 @@ PUT /api/v1/projects/{key}/environments/order
 
 Reorders the environments for a project (affects promotion flow).
 
+### Delete Environment
+
+```
+DELETE /api/v1/projects/{key}/environments/{envKey}
+```
+
+**Permission:** `project:settings`
+
+Deletes an environment and all associated data (flag configs, SDK keys, scheduled changes). A project must always have at least one environment.
+
+**Response** (204): No content.
+
+| Status | Description |
+|--------|-------------|
+| 404    | Environment not found |
+| 409    | Cannot delete the last environment in the project |
+
 ---
 
 ## Environment Access
