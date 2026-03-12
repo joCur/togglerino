@@ -43,9 +43,9 @@ New migration: `personal_access_tokens` table.
 | `user_id` | UUID | FK → `users(id)` ON DELETE CASCADE |
 | `name` | TEXT NOT NULL | User-provided label, e.g. "Claude Code" |
 | `token_hash` | TEXT NOT NULL | SHA-256 hex digest of the full token |
-| `token_prefix` | VARCHAR(12) NOT NULL | First 8 chars of token for display (e.g. `pat_abcd`) |
+| `token_prefix` | VARCHAR(12) NOT NULL | First 12 chars of token for display (e.g. `pat_a1b2c3d4`) |
 | `expires_at` | TIMESTAMPTZ | Nullable — null means no expiry |
-| `last_used_at` | TIMESTAMPTZ | Nullable — updated on each authenticated request |
+| `last_used_at` | TIMESTAMPTZ | Nullable — updated at most once per minute per token |
 | `created_at` | TIMESTAMPTZ NOT NULL | Default `now()` |
 
 Index: `UNIQUE(token_hash)` for fast lookup.
@@ -80,7 +80,7 @@ Create a new PAT.
   "id": "uuid",
   "name": "Claude Code",
   "token": "pat_a1b2c3d4e5f6...",
-  "token_prefix": "pat_a1b2",
+  "token_prefix": "pat_a1b2c3d4",
   "expires_at": "2026-06-12T00:00:00Z",
   "created_at": "2026-03-12T10:00:00Z"
 }
@@ -98,7 +98,7 @@ List current user's tokens.
   {
     "id": "uuid",
     "name": "Claude Code",
-    "token_prefix": "pat_a1b2",
+    "token_prefix": "pat_a1b2c3d4",
     "expires_at": "2026-06-12T00:00:00Z",
     "last_used_at": "2026-03-12T14:30:00Z",
     "created_at": "2026-03-12T10:00:00Z"
@@ -108,26 +108,41 @@ List current user's tokens.
 
 #### `DELETE /api/v1/auth/tokens/{id}`
 
-Revoke (delete) a token. Only the token's owner can delete it (admins cannot delete other users' tokens).
+Revoke (delete) a token. Only the token's owner can delete it.
 
 **Response:** 204 No Content.
 
+Note: Admins cannot delete other users' tokens directly. If an admin needs to revoke a compromised user's tokens (e.g., after employee departure), deleting the user cascades to their tokens. Admin token management is out of scope for v1.
+
 ### Authentication Middleware
 
-New `PATAuth` middleware, usable alongside `SessionAuth`.
+New `SessionOrPATAuth` combined middleware in `internal/auth/` that replaces `SessionAuth` on all management API routes.
+
+```go
+func SessionOrPATAuth(sessionStore SessionStore, userStore UserStore, patStore PATStore) func(http.Handler) http.Handler
+```
 
 Flow:
-1. Check `Authorization: Bearer pat_...` header
-2. SHA-256 hash the token
-3. Look up `token_hash` in `personal_access_tokens`
-4. Check `expires_at` (if set, must be in the future)
-5. Update `last_used_at`
-6. Load user from `user_id`
-7. Store user in request context (same as `SessionAuth` does)
+1. Check for `Authorization: Bearer pat_...` header (the `pat_` prefix disambiguates from SDK keys which use `sdk_` prefix — both use the `Authorization: Bearer` scheme)
+2. If PAT header present:
+   a. SHA-256 hash the token
+   b. Look up `token_hash` in `personal_access_tokens`
+   c. Check `expires_at` (if set, must be in the future)
+   d. Update `last_used_at` (debounced: at most once per minute per token, using an in-memory timestamp map)
+   e. Load user from `user_id`
+   f. Store user in request context
+3. If no PAT header: fall back to existing `SessionAuth` logic (read `session_id` cookie, validate session, load user)
+4. If neither succeeds: return 401
 
-From this point, the existing RBAC pipeline applies identically: `RequireOrgPermission`, `RequireProjectPermission`, role resolver, environment locks — all work because they read the user from context.
+In `main.go`, every `wrap(..., sessionAuth, ...)` call becomes `wrap(..., sessionOrPATAuth, ...)`. The existing RBAC pipeline applies identically after auth: `RequireOrgPermission`, `RequireProjectPermission`, role resolver, environment locks — all work because they read the user from context.
 
-Management API routes accept **either** session auth (cookie) **or** PAT auth (Bearer header). Implementation: a combined middleware that tries PAT first (if `Authorization` header present), falls back to session cookie.
+### Rate Limiting
+
+PAT-authenticated requests use the same management API routes as session-authenticated requests. No additional rate limiting is applied for v1 — the existing per-IP rate limits on auth endpoints still apply to PAT CRUD operations. If bursty MCP usage becomes a concern, per-token rate limiting can be added later.
+
+### Audit Trail
+
+PAT-authenticated actions appear in the audit log with the PAT owner's `user_id`, identical to session-authed actions. There is no distinction in the audit log between dashboard and PAT usage in v1. Adding an `auth_method` field to audit entries is a future enhancement.
 
 ### Dashboard UI
 
@@ -230,9 +245,9 @@ All tools that accept `projectKey` use `TOGGLERINO_PROJECT` as the default when 
 
 #### `create_flag`
 
-**Parameters:** `projectKey?`, `name`, `key`, `type` (release/experiment/operational/kill-switch/permission), `valueType` (boolean/string/number/json), `variants`
+**Parameters:** `projectKey?`, `name`, `key`, `type` (release/experiment/operational/kill-switch/permission), `valueType` (boolean/string/number/json), `defaultValue`, `description?`, `tags?`, `environmentOverrides?`
 **API:** `POST /api/v1/projects/{key}/flags`
-**Returns:** Created flag.
+**Returns:** Created flag. The `environmentOverrides` parameter allows enabling the flag in specific environments at creation time (e.g., enable in development immediately).
 
 #### `update_flag`
 
@@ -243,14 +258,14 @@ All tools that accept `projectKey` use `TOGGLERINO_PROJECT` as the default when 
 #### `toggle_flag`
 
 **Parameters:** `projectKey?`, `flagKey`, `environmentKey`, `enabled`
-**API:** `PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}`
-**Returns:** Updated environment config.
+**API:** `GET /api/v1/projects/{key}/flags/{flag}` then `PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}`
+**Returns:** Updated environment config. Uses read-modify-write: fetches current config, sets `enabled`, preserves all other fields (targeting rules, variants, etc.), then PUTs the merged config.
 
 #### `update_flag_config`
 
 **Parameters:** `projectKey?`, `flagKey`, `environmentKey`, `defaultVariant?`, `rules?`, `rolloutPercentage?`
-**API:** `PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}`
-**Returns:** Updated environment config.
+**API:** `GET /api/v1/projects/{key}/flags/{flag}` then `PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}`
+**Returns:** Updated environment config. Uses read-modify-write: fetches current config, merges provided fields, preserves unspecified fields, then PUTs the merged config.
 
 #### `list_environments`
 
@@ -324,3 +339,8 @@ Separate `release-please` configuration for the `mcp/` directory:
 - Scoped/restricted PATs (tokens inherit full user permissions)
 - Default environment config (`TOGGLERINO_DEFAULT_ENVIRONMENT`)
 - Integration tests against live Togglerino instance
+- Admin management of other users' PATs
+- Per-token rate limiting
+- Audit log `auth_method` field (distinguishing dashboard vs PAT)
+- Delete flag tool
+- Expired PAT cleanup job (expiry check at auth time is sufficient for v1)
