@@ -386,6 +386,16 @@ func (c *Cache) DeleteOverridesForUser(projectKey, envKey, appUserID string) {
 	c.mu.Unlock()
 }
 
+// Evict removes all cached data and overrides for a specific project/environment.
+// Called when an environment is deleted.
+func (c *Cache) Evict(projectKey, envKey string) {
+	key := cacheKey(projectKey, envKey)
+	c.mu.Lock()
+	delete(c.data, key)
+	delete(c.overrides, key)
+	c.mu.Unlock()
+}
+
 // PurgeExpiredOverrides removes all expired override entries from the cache.
 func (c *Cache) PurgeExpiredOverrides() {
 	now := time.Now()
