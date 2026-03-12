@@ -31,6 +31,16 @@
         {"type": "refactor", "section": "Code Refactoring"}
       ]
     },
+    "mcp": {
+      "release-type": "node",
+      "component": "mcp",
+      "changelog-path": "CHANGELOG.md",
+      "changelog-sections": [
+        {"type": "feat", "section": "Features"},
+        {"type": "fix", "section": "Bug Fixes"},
+        {"type": "refactor", "section": "Code Refactoring"}
+      ]
+    },
     "sdks/dotnet": {
       "release-type": "simple",
       "component": "dotnet-sdk",

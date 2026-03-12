@@ -39,6 +39,13 @@ cd sdks/go && go test ./...                # Go SDK tests
 
 JS/React SDKs use `tsup` for bundling, outputting CJS + ESM with TypeScript declarations. `@togglerino/react` references `@togglerino/sdk` via local file path for development.
 
+### MCP Server
+
+```bash
+cd mcp && npm install && npm run build     # Build MCP server
+cd mcp && npm test                         # Run MCP server tests
+```
+
 ### Docker
 
 ```bash
@@ -158,6 +165,10 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - `sdks/dotnet/` — `Togglerino.Sdk`: .NET 8+ SDK with IObservable events, Polly resilience, built with dotnet
 - `sdks/go/` — Go SDK with SSE streaming and polling, pure stdlib
 
+### MCP Server (`mcp/`)
+
+TypeScript package (`@togglerino/mcp`) providing an MCP (Model Context Protocol) server for AI assistant integration. Runs as a local stdio process, proxying to the management API using Personal Access Tokens. Registers 10 tools for flag, environment, project, and segment operations. Built with `@modelcontextprotocol/sdk`, bundled with tsup, tested with vitest.
+
 ## API Routes
 
 ### Public (no auth, some rate-limited)
@@ -195,6 +206,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **Context attributes**: `GET /api/v1/projects/{key}/context-attributes` — autocomplete for rule builder
 - **Audit log**: `GET /api/v1/projects/{key}/audit-log?limit=50&offset=0`
 - **Webhooks**: CRUD on `/api/v1/projects/{key}/webhooks[/{id}]`, `POST .../webhooks/{id}/test` for test delivery, `GET .../webhooks/{id}/deliveries` for delivery log (all require `project:settings`)
+- **Personal Access Tokens**: `POST /api/v1/auth/tokens` (create), `GET /api/v1/auth/tokens` (list), `DELETE /api/v1/auth/tokens/{id}` (revoke) — session-authed only
 
 ### SDK-authed (client SDKs)
 
@@ -228,6 +240,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 - **OIDC SSO**: Single OIDC provider (configurable via admin UI or env vars). Authorization Code Flow with HMAC-signed state/nonce cookies. Three callback outcomes: existing identity → session, email match → password-confirmed account linking, new user → auto-provisioned with configurable default role. Provider config stored in `oidc_providers` table, identity links in `oidc_identities`. `sync.RWMutex`-protected hot-reloadable provider in `OIDCHandler`
 - **Prometheus metrics**: Optional `/metrics` endpoint (enabled by default) exposes evaluation counts, HTTP request stats, SSE connection gauges, cache state, and DB pool health. Uses `prometheus/client_golang`. Metrics middleware normalizes HTTP paths to route patterns via `r.Pattern`. Optional separate listener via `METRICS_PORT`
 - **SPA fallback**: Go file server tries static file first, falls back to `index.html` for React Router
+- **Personal Access Tokens**: PATs provide programmatic access to the management API. Token format `pat_<40 hex>`, stored as SHA-256 hash. `SessionOrPATAuth` middleware accepts either session cookie or PAT Bearer token on management routes. PATs inherit the user's full permissions (RBAC, project roles, environment locks). Created/managed via dashboard account page.
 
 ## Database
 
@@ -239,7 +252,7 @@ Go tests require a running PostgreSQL instance. Tests use `testPool()` helper th
 
 ## CI/CD
 
-- **`.github/workflows/ci.yml`**: Six jobs — `test-go` (postgres service container, builds frontend for `go:embed`, runs `go test`), `test-sdks` (JS + React SDK tests), `test-dotnet-sdk` (.NET SDK tests), `test-go-sdk` (Go SDK tests), `lint-frontend` (`npm run lint`), `build` (gates on all five, full binary build). Runs on push/PR to `main`.
+- **`.github/workflows/ci.yml`**: Seven jobs — `test-go` (postgres service container, builds frontend for `go:embed`, runs `go test`), `test-sdks` (JS + React SDK tests), `test-dotnet-sdk` (.NET SDK tests), `test-go-sdk` (Go SDK tests), `test-mcp` (MCP server tests), `lint-frontend` (`npm run lint`), `build` (gates on all six, full binary build). Runs on push/PR to `main`.
 - **`.github/workflows/release.yml`**: Uses `release-please-action@v4` (`release-type: simple`). On release, builds and pushes Docker image to **ghcr.io** with semver + `latest` tags. Changelog auto-generated from Conventional Commits.
 
 ## Documentation Site

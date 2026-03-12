@@ -2,5 +2,6 @@
   ".": "0.15.1",
   "sdks/javascript": "0.2.1",
   "sdks/react": "0.2.1",
-  "sdks/dotnet": "0.2.1"
+  "sdks/dotnet": "0.2.1",
+  "mcp": "0.1.0"
 }

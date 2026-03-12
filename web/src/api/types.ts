@@ -382,3 +382,16 @@ export interface WebhookTestResult {
   error?: string
   duration_ms: number
 }
+
+export interface PersonalAccessToken {
+  id: string
+  name: string
+  token_prefix: string
+  expires_at: string | null
+  last_used_at: string | null
+  created_at: string
+}
+
+export interface PersonalAccessTokenWithValue extends PersonalAccessToken {
+  token: string
+}

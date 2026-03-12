@@ -1,4 +1,4 @@
-import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User, AppIdentity, FlagOverrideEntry, EnvironmentAccessResponse, EnvironmentAccessRestriction, Webhook, WebhookDelivery, WebhookTestResult } from './types'
+import type { Condition, Segment, Flag, FlagEnvironmentConfig, BulkActionRequest, BulkActionResponse, FlagTemplate, TemplatesForProject, PlaygroundRequest, PlaygroundResponse, LifecycleSummary, LifecycleSnapshot, PaginatedResponse, AuditEntry, UnknownFlag, Project, User, AppIdentity, FlagOverrideEntry, EnvironmentAccessResponse, EnvironmentAccessRestriction, Webhook, WebhookDelivery, WebhookTestResult, PersonalAccessToken, PersonalAccessTokenWithValue } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -244,6 +244,17 @@ export const api = {
       request<FlagTemplate>(`/projects/${projectKey}/templates/${templateKey}`, { method: 'PUT', body: JSON.stringify(body) }),
     deleteForProject: (projectKey: string, templateKey: string) =>
       request<void>(`/projects/${projectKey}/templates/${templateKey}`, { method: 'DELETE' }),
+  },
+
+  tokens: {
+    list: () => request<PersonalAccessToken[]>('/auth/tokens'),
+    create: (data: { name: string; expires_at?: string }) =>
+      request<PersonalAccessTokenWithValue>('/auth/tokens', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/auth/tokens/${id}`, { method: 'DELETE' }),
   },
 
   webhooks: {

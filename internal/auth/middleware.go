@@ -2,12 +2,28 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/togglerino/togglerino/internal/model"
 	"github.com/togglerino/togglerino/internal/store"
 )
+
+// PATFinder looks up a PAT by its hash.
+type PATFinder interface {
+	FindByHash(ctx context.Context, hash string) (*model.PersonalAccessToken, error)
+	UpdateLastUsed(ctx context.Context, id string) error
+}
+
+// UserFinder loads a user by ID.
+type UserFinder interface {
+	FindByID(ctx context.Context, id string) (*model.User, error)
+}
 
 type contextKey string
 
@@ -160,6 +176,84 @@ func RequireRole(role model.Role) func(http.Handler) http.Handler {
 				return
 			}
 			next.ServeHTTP(w, r.WithContext(r.Context()))
+		})
+	}
+}
+
+// patLastUsed tracks when each PAT was last recorded as used (by PAT ID) to
+// debounce UpdateLastUsed calls to at most once per minute per token.
+var (
+	patLastUsedMu sync.Mutex
+	patLastUsed   = make(map[string]time.Time)
+)
+
+// ClearPATLastUsed removes a PAT's debounce entry. Call when a token is
+// deleted or revoked to prevent unbounded map growth.
+func ClearPATLastUsed(patID string) {
+	patLastUsedMu.Lock()
+	delete(patLastUsed, patID)
+	patLastUsedMu.Unlock()
+}
+
+// SessionOrPATAuth returns middleware that authenticates requests using a
+// Personal Access Token (if an "Authorization: Bearer pat_..." header is
+// present) or falls back to session cookie auth via sessionAuthFallback.
+// If sessionAuthFallback is nil and no PAT header is present, 401 is returned.
+func SessionOrPATAuth(sessionAuthFallback func(http.Handler) http.Handler, users UserFinder, pats PATFinder) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer pat_") {
+				token := strings.TrimPrefix(authHeader, "Bearer ")
+
+				// Hash the raw token to look it up.
+				sum := sha256.Sum256([]byte(token))
+				hash := hex.EncodeToString(sum[:])
+
+				pat, err := pats.FindByHash(r.Context(), hash)
+				if err != nil {
+					http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+					return
+				}
+
+				// Check expiry.
+				if pat.ExpiresAt != nil && time.Now().After(*pat.ExpiresAt) {
+					http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+					return
+				}
+
+				// Debounced last_used_at update: fire at most once per minute per token.
+				patLastUsedMu.Lock()
+				lastRecorded, seen := patLastUsed[pat.ID]
+				if !seen || time.Since(lastRecorded) > time.Minute {
+					patLastUsed[pat.ID] = time.Now()
+					patLastUsedMu.Unlock()
+					go func() {
+						if err := pats.UpdateLastUsed(context.Background(), pat.ID); err != nil {
+							slog.Warn("failed to update PAT last_used_at", "pat_id", pat.ID, "error", err)
+						}
+					}()
+				} else {
+					patLastUsedMu.Unlock()
+				}
+
+				user, err := users.FindByID(r.Context(), pat.UserID)
+				if err != nil {
+					http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+					return
+				}
+
+				ctx := ContextWithUser(r.Context(), user)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			// No PAT header — fall back to session auth.
+			if sessionAuthFallback == nil {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			sessionAuthFallback(next).ServeHTTP(w, r)
 		})
 	}
 }
