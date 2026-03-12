@@ -81,18 +81,6 @@ func (s *EnvironmentStore) FindByID(ctx context.Context, id string) (*model.Envi
 	return &e, nil
 }
 
-// Delete deletes an environment by ID.
-func (s *EnvironmentStore) Delete(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM environments WHERE id = $1`, id)
-	if err != nil {
-		return fmt.Errorf("deleting environment: %w", err)
-	}
-	return nil
-}
-
-// ErrLastEnvironment is returned when attempting to delete the last environment in a project.
-var ErrLastEnvironment = fmt.Errorf("cannot delete the last environment")
-
 // DeleteIfNotLast deletes an environment in a transaction, guarding against deleting the last one.
 func (s *EnvironmentStore) DeleteIfNotLast(ctx context.Context, envID, projectID string) error {
 	tx, err := s.pool.Begin(ctx)

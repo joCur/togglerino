@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/togglerino/togglerino/internal/store"
@@ -174,14 +175,18 @@ func TestEnvironmentStore_Delete(t *testing.T) {
 
 	projectID := createTestProject(t, ps)
 
+	// Create two environments so we can delete one (guard requires >1)
 	env, err := es.Create(ctx, projectID, "to-delete", "To Delete")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
+	if _, err := es.Create(ctx, projectID, "keeper", "Keeper"); err != nil {
+		t.Fatalf("Create keeper: %v", err)
+	}
 
-	err = es.Delete(ctx, env.ID)
+	err = es.DeleteIfNotLast(ctx, env.ID, projectID)
 	if err != nil {
-		t.Fatalf("Delete: %v", err)
+		t.Fatalf("DeleteIfNotLast: %v", err)
 	}
 
 	// Verify it's gone
@@ -316,7 +321,7 @@ func TestEnvironmentStore_DeleteIfNotLast(t *testing.T) {
 
 	// Delete last env — should fail with ErrLastEnvironment
 	err = envStore.DeleteIfNotLast(ctx, envs[2].ID, project.ID)
-	if err != store.ErrLastEnvironment {
+	if !errors.Is(err, store.ErrLastEnvironment) {
 		t.Fatalf("expected ErrLastEnvironment, got: %v", err)
 	}
 
