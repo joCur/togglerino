@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/togglerino/togglerino/internal/store"
@@ -174,14 +175,18 @@ func TestEnvironmentStore_Delete(t *testing.T) {
 
 	projectID := createTestProject(t, ps)
 
+	// Create two environments so we can delete one (guard requires >1)
 	env, err := es.Create(ctx, projectID, "to-delete", "To Delete")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
+	if _, err := es.Create(ctx, projectID, "keeper", "Keeper"); err != nil {
+		t.Fatalf("Create keeper: %v", err)
+	}
 
-	err = es.Delete(ctx, env.ID)
+	err = es.DeleteIfNotLast(ctx, env.ID, projectID)
 	if err != nil {
-		t.Fatalf("Delete: %v", err)
+		t.Fatalf("DeleteIfNotLast: %v", err)
 	}
 
 	// Verify it's gone
@@ -280,6 +285,50 @@ func TestEnvironmentStore_SortOrder(t *testing.T) {
 	err = es.UpdateOrder(ctx, projectID, []string{"nonexistent-id"})
 	if err == nil {
 		t.Fatal("expected error for unknown environment ID, got nil")
+	}
+}
+
+func TestEnvironmentStore_DeleteIfNotLast(t *testing.T) {
+	pool := testPool(t)
+	envStore := store.NewEnvironmentStore(pool)
+	projectStore := store.NewProjectStore(pool)
+	ctx := context.Background()
+
+	project, err := projectStore.Create(ctx, uniqueKey("delete-guard"), "Delete Guard Test", "")
+	if err != nil {
+		t.Fatalf("creating project: %v", err)
+	}
+
+	// Create default environments (development, staging, production)
+	if err := envStore.CreateDefaultEnvironments(ctx, project.ID); err != nil {
+		t.Fatalf("creating defaults: %v", err)
+	}
+
+	envs, _ := envStore.ListByProject(ctx, project.ID)
+	if len(envs) != 3 {
+		t.Fatalf("expected 3 envs, got %d", len(envs))
+	}
+
+	// Delete first env — should succeed
+	if err := envStore.DeleteIfNotLast(ctx, envs[0].ID, project.ID); err != nil {
+		t.Fatalf("expected success deleting first env: %v", err)
+	}
+
+	// Delete second env — should succeed
+	if err := envStore.DeleteIfNotLast(ctx, envs[1].ID, project.ID); err != nil {
+		t.Fatalf("expected success deleting second env: %v", err)
+	}
+
+	// Delete last env — should fail with ErrLastEnvironment
+	err = envStore.DeleteIfNotLast(ctx, envs[2].ID, project.ID)
+	if !errors.Is(err, store.ErrLastEnvironment) {
+		t.Fatalf("expected ErrLastEnvironment, got: %v", err)
+	}
+
+	// Verify the last env still exists
+	remaining, _ := envStore.ListByProject(ctx, project.ID)
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 remaining env, got %d", len(remaining))
 	}
 }
 

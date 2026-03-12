@@ -19,30 +19,32 @@ type Event struct {
 }
 
 const (
-	EventFlagCreated        = "flag.created"
-	EventFlagUpdated        = "flag.updated"
-	EventFlagDeleted        = "flag.deleted"
-	EventFlagArchived       = "flag.archived"
-	EventFlagConfigUpdated  = "flag_config.updated"
-	EventSegmentCreated     = "segment.created"
-	EventSegmentUpdated     = "segment.updated"
-	EventSegmentDeleted     = "segment.deleted"
-	EventEnvironmentCreated = "environment.created"
-	EventFlagConfigLocked   = "flag_config.locked"
-	EventFlagConfigUnlocked = "flag_config.unlocked"
-	EventWebhookTest        = "webhook.test"
+	EventFlagCreated         = "flag.created"
+	EventFlagUpdated         = "flag.updated"
+	EventFlagDeleted         = "flag.deleted"
+	EventFlagArchived        = "flag.archived"
+	EventFlagConfigUpdated   = "flag_config.updated"
+	EventSegmentCreated      = "segment.created"
+	EventSegmentUpdated      = "segment.updated"
+	EventSegmentDeleted      = "segment.deleted"
+	EventEnvironmentCreated  = "environment.created"
+	EventEnvironmentDeleted  = "environment.deleted"
+	EventFlagConfigLocked    = "flag_config.locked"
+	EventFlagConfigUnlocked  = "flag_config.unlocked"
+	EventWebhookTest         = "webhook.test"
 )
 
 var ValidEventTypes = map[string]bool{
-	EventFlagCreated:        true,
-	EventFlagUpdated:        true,
-	EventFlagDeleted:        true,
-	EventFlagArchived:       true,
-	EventFlagConfigUpdated:  true,
-	EventSegmentCreated:     true,
-	EventSegmentUpdated:     true,
-	EventSegmentDeleted:     true,
-	EventEnvironmentCreated: true,
-	EventFlagConfigLocked:   true,
-	EventFlagConfigUnlocked: true,
+	EventFlagCreated:         true,
+	EventFlagUpdated:         true,
+	EventFlagDeleted:         true,
+	EventFlagArchived:        true,
+	EventFlagConfigUpdated:   true,
+	EventSegmentCreated:      true,
+	EventSegmentUpdated:      true,
+	EventSegmentDeleted:      true,
+	EventEnvironmentCreated:  true,
+	EventEnvironmentDeleted:  true,
+	EventFlagConfigLocked:    true,
+	EventFlagConfigUnlocked:  true,
 }

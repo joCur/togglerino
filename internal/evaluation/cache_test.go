@@ -322,3 +322,36 @@ func TestCache_PurgeExpiredOverrides(t *testing.T) {
 		t.Fatalf("expected \"on\", got %s", string(val))
 	}
 }
+
+func TestCache_Evict(t *testing.T) {
+	c := evaluation.NewCache()
+
+	// Populate data and overrides for two environments
+	c.Set("proj", "dev", map[string]evaluation.FlagData{
+		"flag1": {Flag: model.Flag{Key: "flag1"}},
+	})
+	c.Set("proj", "staging", map[string]evaluation.FlagData{
+		"flag2": {Flag: model.Flag{Key: "flag2"}},
+	})
+	c.SetOverride("proj", "dev", "user1", "flag1", []byte(`true`), nil)
+	c.SetOverride("proj", "staging", "user1", "flag2", []byte(`false`), nil)
+
+	// Evict dev environment
+	c.Evict("proj", "dev")
+
+	// dev data and overrides should be gone
+	if flags := c.GetFlags("proj", "dev"); flags != nil {
+		t.Errorf("expected nil flags for evicted env, got %v", flags)
+	}
+	if val, ok := c.GetOverride("proj", "dev", "user1", "flag1"); ok {
+		t.Errorf("expected no override for evicted env, got %v", val)
+	}
+
+	// staging should be untouched
+	if flags := c.GetFlags("proj", "staging"); flags == nil {
+		t.Error("expected staging flags to still exist")
+	}
+	if _, ok := c.GetOverride("proj", "staging", "user1", "flag2"); !ok {
+		t.Error("expected staging override to still exist")
+	}
+}

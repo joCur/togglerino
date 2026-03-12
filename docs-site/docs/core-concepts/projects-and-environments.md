@@ -29,6 +29,19 @@ Each project has multiple environments representing your deployment stages. When
 
 You can create additional environments to match your deployment pipeline (e.g., `qa`, `canary`, `eu-production`).
 
+### Deleting Environments
+
+You can delete any environment, including the default ones, using the dashboard or API. However, a project must always have at least one environment. When you delete an environment:
+
+- All flag configurations for that environment are removed.
+- All SDK keys for that environment are revoked.
+- Any scheduled flag changes for that environment are cancelled.
+- The environment is immediately unavailable to SDKs using its keys (requests fail with 401).
+
+:::warning
+A project cannot have zero environments. If you have only one environment left, you cannot delete it. Create an additional environment first if you need to delete the last one.
+:::
+
 ### Per-Environment Flag Configuration
 
 Each flag has independent configuration per environment. This means you can:
