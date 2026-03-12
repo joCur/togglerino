@@ -90,6 +90,7 @@ export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds
         values.set(envId, variant.value)
         serialized.push(canonicalize(variant.value))
       } else {
+        values.set(envId, null)
         serialized.push('__MISSING__')
       }
     }
@@ -109,7 +110,11 @@ export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds
 function canonicalizeRules(rules: FlagEnvironmentConfig['targeting_rules']): string {
   const normalized = rules.map((rule) => ({
     ...rule,
-    conditions: [...rule.conditions].sort((a, b) => a.attribute.localeCompare(b.attribute)),
+    conditions: [...rule.conditions].sort((a, b) =>
+      a.attribute.localeCompare(b.attribute) ||
+      a.operator.localeCompare(b.operator) ||
+      canonicalize(a.value).localeCompare(canonicalize(b.value))
+    ),
   }))
   return canonicalize(normalized)
 }

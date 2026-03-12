@@ -84,6 +84,14 @@ describe('compareEnabled', () => {
     expect(result.values.get('env-2')).toBe(false)
   })
 
+  it('returns differs when enabled config is true and other env is missing', () => {
+    const configs = [makeConfig({ environment_id: 'env-1', enabled: true })]
+    const result = compareEnabled(configs, ['env-1', 'env-2'])
+    expect(result.status).toBe('differs')
+    expect(result.values.get('env-1')).toBe(true)
+    expect(result.values.get('env-2')).toBe(false)
+  })
+
   it('returns match for single environment', () => {
     const configs = [makeConfig({ environment_id: 'env-1', enabled: true })]
     const result = compareEnabled(configs, ['env-1'])
@@ -149,6 +157,8 @@ describe('compareVariants', () => {
     const result = compareVariants(configs, ['env-1', 'env-2'])
     expect(result.status).toBe('differs')
     expect(result.perVariant.get('extra')?.status).toBe('differs')
+    expect(result.perVariant.get('extra')?.values.get('env-1')).toBe('x')
+    expect(result.perVariant.get('extra')?.values.get('env-2')).toBeNull()
   })
 
   it('handles missing config as empty variants', () => {
@@ -226,6 +236,33 @@ describe('compareRules', () => {
           conditions: [
             { attribute: 'plan', operator: 'equals', value: 'pro' },
             { attribute: 'country', operator: 'equals', value: 'US' },
+          ],
+          variant: 'on',
+        }],
+      }),
+    ]
+    const result = compareRules(configs, ['env-1', 'env-2'])
+    expect(result.status).toBe('match')
+  })
+
+  it('compares rules independent of condition order with same attribute but different operators', () => {
+    const configs = [
+      makeConfig({
+        environment_id: 'env-1',
+        targeting_rules: [{
+          conditions: [
+            { attribute: 'age', operator: 'gte', value: '18' },
+            { attribute: 'age', operator: 'lte', value: '65' },
+          ],
+          variant: 'on',
+        }],
+      }),
+      makeConfig({
+        environment_id: 'env-2',
+        targeting_rules: [{
+          conditions: [
+            { attribute: 'age', operator: 'lte', value: '65' },
+            { attribute: 'age', operator: 'gte', value: '18' },
           ],
           variant: 'on',
         }],

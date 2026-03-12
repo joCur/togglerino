@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { compareFlag } from '@/lib/flag-diff'
 import type { FieldDiff, VariantDiff } from '@/lib/flag-diff'
@@ -76,9 +76,9 @@ export default function CompareTab({ environments, environmentConfigs }: Compare
   const [showDiffsOnly, setShowDiffsOnly] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
-  const sortedEnvs = [...environments].sort((a, b) => a.sort_order - b.sort_order)
-  const envIds = sortedEnvs.map((e) => e.id)
-  const comparison = compareFlag(environmentConfigs, envIds)
+  const sortedEnvs = useMemo(() => [...environments].sort((a, b) => a.sort_order - b.sort_order), [environments])
+  const envIds = useMemo(() => sortedEnvs.map((e) => e.id), [sortedEnvs])
+  const comparison = useMemo(() => compareFlag(environmentConfigs, envIds), [environmentConfigs, envIds])
 
   const toggleRow = (row: string) => {
     setExpandedRows((prev) => {
@@ -205,7 +205,7 @@ export default function CompareTab({ environments, environmentConfigs }: Compare
                           const value = diff.values.get(env.id)
                           return (
                             <div key={env.id} className="bg-muted/30 p-3">
-                              {value !== undefined ? (
+                              {value != null ? (
                                 <DiffBadge differs={diff.status === 'differs'}>
                                   <span className="font-mono text-xs">{typeof value === 'string' ? value : JSON.stringify(value)}</span>
                                 </DiffBadge>
