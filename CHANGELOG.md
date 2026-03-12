@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/joCur/togglerino/compare/v0.15.1...v1.0.0) (2026-03-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* MCP server for flag management ([#124](https://github.com/joCur/togglerino/issues/124)) (#128)
+
+### Features
+
+* allow deletion of environments including defaults ([#123](https://github.com/joCur/togglerino/issues/123)) ([#127](https://github.com/joCur/togglerino/issues/127)) ([0396b58](https://github.com/joCur/togglerino/commit/0396b58c5e6366f6c53133b7cf461ecda68236a9))
+* environment comparison — side-by-side flag config diff ([#46](https://github.com/joCur/togglerino/issues/46)) ([#125](https://github.com/joCur/togglerino/issues/125)) ([47abfbe](https://github.com/joCur/togglerino/commit/47abfbe67c7bb15f76ca18cfcd17fdc476b09fb0))
+* flag environment locking ([#53](https://github.com/joCur/togglerino/issues/53)) ([#122](https://github.com/joCur/togglerino/issues/122)) ([cefc9b8](https://github.com/joCur/togglerino/commit/cefc9b8faa7ed7e96ee4e4802481d2a0f4eb28a9))
+* MCP server for flag management ([#124](https://github.com/joCur/togglerino/issues/124)) ([#128](https://github.com/joCur/togglerino/issues/128)) ([ea6d0e8](https://github.com/joCur/togglerino/commit/ea6d0e8ec43ab1e2eda6c55ad669cb7ce6b255ff))
+* project-scoped webhooks for flag change events ([#33](https://github.com/joCur/togglerino/issues/33)) ([#118](https://github.com/joCur/togglerino/issues/118)) ([c2a6ab8](https://github.com/joCur/togglerino/commit/c2a6ab875730f41b2ed1f6745e95aaf978eee4ed))
+* unused flag detection via SDK evaluation tracking ([#88](https://github.com/joCur/togglerino/issues/88)) ([#121](https://github.com/joCur/togglerino/issues/121)) ([a5970b7](https://github.com/joCur/togglerino/commit/a5970b7fe9b0dc791b15112e4113f0d126885d13))
+
 ## [0.15.1](https://github.com/joCur/togglerino/compare/v0.15.0...v0.15.1) (2026-03-10)
 
 
