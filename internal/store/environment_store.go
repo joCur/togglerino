@@ -81,13 +81,33 @@ func (s *EnvironmentStore) FindByID(ctx context.Context, id string) (*model.Envi
 	return &e, nil
 }
 
-// Delete deletes an environment by ID.
-func (s *EnvironmentStore) Delete(ctx context.Context, id string) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM environments WHERE id = $1`, id)
+// DeleteIfNotLast deletes an environment in a transaction, guarding against deleting the last one.
+func (s *EnvironmentStore) DeleteIfNotLast(ctx context.Context, envID, projectID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var count int
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM (SELECT 1 FROM environments WHERE project_id = $1 FOR UPDATE) AS locked`, projectID,
+	).Scan(&count); err != nil {
+		return fmt.Errorf("counting environments: %w", err)
+	}
+	if count <= 1 {
+		return ErrLastEnvironment
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM environments WHERE id = $1 AND project_id = $2`, envID, projectID)
 	if err != nil {
 		return fmt.Errorf("deleting environment: %w", err)
 	}
-	return nil
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	return tx.Commit(ctx)
 }
 
 // EnvKeyByID returns the environment key for an environment ID (used by schedule checker).

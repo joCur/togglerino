@@ -167,7 +167,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(userStore, sessionStore, inviteStore, cfg.BaseURL)
 	userHandler := handler.NewUserHandler(userStore, inviteStore, projectMemberStore, roleStore, pool, auditStore)
 	projectHandler := handler.NewProjectHandler(projectStore, environmentStore, auditStore, orgSettingsStore, projectMemberStore)
-	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore, webhookDispatcher)
+	environmentHandler := handler.NewEnvironmentHandler(environmentStore, projectStore, webhookDispatcher, auditStore, cache)
 	sdkKeyHandler := handler.NewSDKKeyHandler(sdkKeyStore, environmentStore, projectStore)
 	flagHandler := handler.NewFlagHandler(flagStore, projectStore, environmentStore, auditStore, hub, cache, pool, unknownFlagStore, scheduleStore, projectSettingsStore, webhookDispatcher)
 	auditHandler := handler.NewAuditHandler(auditStore, projectStore)
@@ -283,6 +283,7 @@ func main() {
 	mux.Handle("POST /api/v1/projects/{key}/environments", wrap(environmentHandler.Create, sessionOrPATAuth, requireEnvsWrite))
 	mux.Handle("GET /api/v1/projects/{key}/environments", wrap(environmentHandler.List, sessionOrPATAuth, requireEnvsRead))
 	mux.Handle("PUT /api/v1/projects/{key}/environments/order", wrap(environmentHandler.UpdateOrder, sessionOrPATAuth, requireProjectSettings))
+	mux.Handle("DELETE /api/v1/projects/{key}/environments/{envKey}", wrap(environmentHandler.Delete, sessionOrPATAuth, requireProjectSettings))
 
 	// SDK Keys
 	mux.Handle("POST /api/v1/projects/{key}/environments/{env}/sdk-keys", wrap(sdkKeyHandler.Create, sessionOrPATAuth, requireSDKKeysManage))
