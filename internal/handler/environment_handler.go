@@ -132,6 +132,10 @@ func (h *EnvironmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "cannot delete the last environment")
 			return
 		}
+		if store.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "environment not found")
+			return
+		}
 		slog.Error("failed to delete environment", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to delete environment")
 		return

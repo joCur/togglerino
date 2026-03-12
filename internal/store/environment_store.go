@@ -104,7 +104,7 @@ func (s *EnvironmentStore) DeleteIfNotLast(ctx context.Context, envID, projectID
 		return fmt.Errorf("deleting environment: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("environment not found")
+		return ErrNotFound
 	}
 
 	return tx.Commit(ctx)
