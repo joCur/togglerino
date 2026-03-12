@@ -246,8 +246,8 @@ func main() {
 	mux.Handle("GET /api/v1/auth/oidc/identities", wrap(oidcHandler.OIDCIdentities, sessionAuth))
 
 	// --- Session-authed routes (management API) ---
-	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionAuth))
-	mux.Handle("PUT /api/v1/auth/me", wrap(authHandler.UpdateMe, sessionAuth))
+	mux.Handle("GET /api/v1/auth/me", wrap(authHandler.Me, sessionOrPATAuth))
+	mux.Handle("PUT /api/v1/auth/me", wrap(authHandler.UpdateMe, sessionOrPATAuth))
 	mux.Handle("POST /api/v1/auth/change-password", authLimiter.Middleware(wrap(authHandler.ChangePassword, sessionAuth)))
 
 	// Personal Access Tokens (session-only — cannot create tokens with tokens)
