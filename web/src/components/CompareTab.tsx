@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronRight } from 'lucide-react'
+import { formatRelativeTime } from '@/lib/date'
 
 interface CompareTabProps {
   environments: Environment[]
@@ -294,7 +295,7 @@ export default function CompareTab({ environments, environmentConfigs }: Compare
                 return (
                   <div key={env.id} className="bg-background p-3 text-xs text-muted-foreground">
                     {config.updated_by_user
-                      ? `${config.updated_by_user.display_name ?? config.updated_by_user.email}`
+                      ? `${formatRelativeTime(config.updated_at)} by ${config.updated_by_user.display_name ?? config.updated_by_user.email}`
                       : '—'}
                   </div>
                 )

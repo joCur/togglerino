@@ -106,6 +106,14 @@ export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds
   }
 }
 
+function canonicalizeRules(rules: FlagEnvironmentConfig['targeting_rules']): string {
+  const normalized = rules.map((rule) => ({
+    ...rule,
+    conditions: [...rule.conditions].sort((a, b) => a.attribute.localeCompare(b.attribute)),
+  }))
+  return canonicalize(normalized)
+}
+
 export function compareRules(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
   const values = new Map<string, unknown>()
   const serialized: string[] = []
@@ -114,7 +122,7 @@ export function compareRules(configs: FlagEnvironmentConfig[], environmentIds: s
     const config = getConfig(configs, envId)
     const rules = config?.targeting_rules ?? []
     values.set(envId, rules)
-    serialized.push(canonicalize(rules))
+    serialized.push(canonicalizeRules(rules))
   }
 
   const status: DiffStatus = serialized.every((s) => s === serialized[0]) ? 'match' : 'differs'

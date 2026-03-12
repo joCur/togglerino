@@ -208,6 +208,33 @@ describe('compareRules', () => {
     expect(result.status).toBe('match')
   })
 
+  it('compares rules independent of condition array order', () => {
+    const configs = [
+      makeConfig({
+        environment_id: 'env-1',
+        targeting_rules: [{
+          conditions: [
+            { attribute: 'country', operator: 'equals', value: 'US' },
+            { attribute: 'plan', operator: 'equals', value: 'pro' },
+          ],
+          variant: 'on',
+        }],
+      }),
+      makeConfig({
+        environment_id: 'env-2',
+        targeting_rules: [{
+          conditions: [
+            { attribute: 'plan', operator: 'equals', value: 'pro' },
+            { attribute: 'country', operator: 'equals', value: 'US' },
+          ],
+          variant: 'on',
+        }],
+      }),
+    ]
+    const result = compareRules(configs, ['env-1', 'env-2'])
+    expect(result.status).toBe('match')
+  })
+
   it('treats missing config as no rules', () => {
     const configs = [makeConfig({ environment_id: 'env-1', targeting_rules: [] })]
     const result = compareRules(configs, ['env-1', 'env-2'])
