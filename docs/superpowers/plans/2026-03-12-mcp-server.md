@@ -585,7 +585,7 @@ git commit -m "feat: add PATStore ListByUser, Delete, UpdateLastUsed (#124)"
 
 - [ ] **Step 1: Write failing test for PAT auth — valid token**
 
-Create `internal/auth/pat_auth_test.go`. Note: handler tests in this codebase use `httptest`. Check how existing middleware tests work:
+Create `internal/auth/pat_auth_test.go`. The middleware uses interfaces (`PATFinder`, `UserFinder`) so tests can use mocks:
 
 ```go
 package auth_test
@@ -594,6 +594,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -603,12 +604,11 @@ import (
 	"github.com/togglerino/togglerino/internal/model"
 )
 
-// mockPATStore implements the interface needed by SessionOrPATAuth.
-type mockPATStore struct {
+type mockPATFinder struct {
 	tokens map[string]*model.PersonalAccessToken // keyed by token_hash
 }
 
-func (m *mockPATStore) FindByHash(ctx context.Context, hash string) (*model.PersonalAccessToken, error) {
+func (m *mockPATFinder) FindByHash(ctx context.Context, hash string) (*model.PersonalAccessToken, error) {
 	pat, ok := m.tokens[hash]
 	if !ok {
 		return nil, fmt.Errorf("not found")
@@ -616,12 +616,21 @@ func (m *mockPATStore) FindByHash(ctx context.Context, hash string) (*model.Pers
 	return pat, nil
 }
 
-func (m *mockPATStore) UpdateLastUsed(ctx context.Context, id string) error {
+func (m *mockPATFinder) UpdateLastUsed(ctx context.Context, id string) error {
 	return nil
 }
 
-// mockSessionStore and mockUserStore should match existing test patterns.
-// Check internal/auth/ for existing mock patterns and adapt accordingly.
+type mockUserFinder struct {
+	users map[string]*model.User // keyed by user ID
+}
+
+func (m *mockUserFinder) FindByID(ctx context.Context, id string) (*model.User, error) {
+	user, ok := m.users[id]
+	if !ok {
+		return nil, fmt.Errorf("not found")
+	}
+	return user, nil
+}
 
 func TestSessionOrPATAuth_ValidPAT(t *testing.T) {
 	token := "pat_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -630,18 +639,15 @@ func TestSessionOrPATAuth_ValidPAT(t *testing.T) {
 
 	user := &model.User{ID: "user-1", Email: "test@test.com", Role: model.RoleAdmin}
 
-	patStore := &mockPATStore{
+	patFinder := &mockPATFinder{
 		tokens: map[string]*model.PersonalAccessToken{
 			hash: {ID: "pat-1", UserID: user.ID, Name: "Test", TokenPrefix: "pat_aaaaaaaa"},
 		},
 	}
+	userFinder := &mockUserFinder{users: map[string]*model.User{user.ID: user}}
 
-	// The middleware needs a UserStore to load the user from the PAT's user_id.
-	// Create a mock that returns the user for the given ID.
-	userStore := &mockUserStore{users: map[string]*model.User{user.ID: user}}
-	sessionStore := &mockSessionStore{} // empty — no sessions
-
-	middleware := auth.SessionOrPATAuth(sessionStore, userStore, patStore)
+	// Pass nil for sessionAuthFallback — PAT path should succeed without it
+	middleware := auth.SessionOrPATAuth(nil, userFinder, patFinder)
 
 	called := false
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -676,16 +682,14 @@ func TestSessionOrPATAuth_ExpiredPAT(t *testing.T) {
 	hash := hex.EncodeToString(h[:])
 
 	expired := time.Now().Add(-1 * time.Hour)
-	patStore := &mockPATStore{
+	patFinder := &mockPATFinder{
 		tokens: map[string]*model.PersonalAccessToken{
 			hash: {ID: "pat-2", UserID: "user-1", Name: "Expired", TokenPrefix: "pat_bbbbbbbb", ExpiresAt: &expired},
 		},
 	}
+	userFinder := &mockUserFinder{}
 
-	userStore := &mockUserStore{}
-	sessionStore := &mockSessionStore{}
-
-	middleware := auth.SessionOrPATAuth(sessionStore, userStore, patStore)
+	middleware := auth.SessionOrPATAuth(nil, userFinder, patFinder)
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called for expired token")
 	}))
@@ -702,14 +706,48 @@ func TestSessionOrPATAuth_ExpiredPAT(t *testing.T) {
 }
 
 func TestSessionOrPATAuth_FallsBackToSession(t *testing.T) {
-	// When no Authorization header is present, should fall back to session auth.
-	// This test verifies the fallback path. Use existing session mock patterns.
-	// A valid session cookie should authenticate the user.
-	// Implementation depends on existing mock patterns in the auth package — adapt as needed.
+	// When no Authorization header with pat_ prefix is present,
+	// delegates to the sessionAuthFallback middleware.
+	// Build a real SessionAuth using integration test stores, or
+	// pass a simple fallback middleware that sets a test user:
+	user := &model.User{ID: "session-user", Email: "session@test.com", Role: model.RoleAdmin}
+
+	fakeSessionAuth := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := auth.ContextWithUser(r.Context(), user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+
+	patFinder := &mockPATFinder{tokens: map[string]*model.PersonalAccessToken{}}
+	userFinder := &mockUserFinder{}
+
+	middleware := auth.SessionOrPATAuth(fakeSessionAuth, userFinder, patFinder)
+
+	called := false
+	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		u := auth.UserFromContext(r.Context())
+		if u == nil {
+			t.Fatal("expected user in context")
+		}
+		if u.ID != "session-user" {
+			t.Errorf("user ID: got %q, want %q", u.ID, "session-user")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// No Authorization header — should fall back to session auth
+	req := httptest.NewRequest("GET", "/api/v1/projects", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Error("handler was not called")
+	}
 }
 ```
-
-Note: The exact mock types depend on what interfaces `SessionOrPATAuth` requires. When implementing, define interfaces for the stores it needs (`PATFinder`, `UserFinder`, `SessionFinder`) and create mocks accordingly. Check existing test files in `internal/auth/` for mock patterns to follow.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -727,10 +765,16 @@ type PATFinder interface {
 	UpdateLastUsed(ctx context.Context, id string) error
 }
 
-// SessionOrPATAuth tries PAT auth first (if Authorization header with pat_ prefix present),
-// then falls back to session cookie auth.
-func SessionOrPATAuth(sessions *store.SessionStore, users *store.UserStore, pats PATFinder) func(http.Handler) http.Handler {
-	// In-memory map for last_used_at debouncing (token ID → last update time)
+// UserFinder loads a user by ID (used by PAT auth to resolve the token's owner).
+type UserFinder interface {
+	FindByID(ctx context.Context, id string) (*model.User, error)
+}
+
+// SessionOrPATAuth tries PAT auth first (if Authorization header has pat_ prefix),
+// then delegates to sessionAuthFallback for cookie-based session auth.
+// sessionAuthFallback is typically auth.SessionAuth(...) — passed as a pre-built middleware
+// to avoid duplicating session auth logic.
+func SessionOrPATAuth(sessionAuthFallback func(http.Handler) http.Handler, users UserFinder, pats PATFinder) func(http.Handler) http.Handler {
 	var lastUsedMu sync.Mutex
 	lastUsedTimes := make(map[string]time.Time)
 
@@ -749,7 +793,6 @@ func SessionOrPATAuth(sessions *store.SessionStore, users *store.UserStore, pats
 					return
 				}
 
-				// Check expiry
 				if pat.ExpiresAt != nil && pat.ExpiresAt.Before(time.Now()) {
 					http.Error(w, `{"error":"token expired"}`, http.StatusUnauthorized)
 					return
@@ -765,7 +808,6 @@ func SessionOrPATAuth(sessions *store.SessionStore, users *store.UserStore, pats
 				lastUsedMu.Unlock()
 
 				if shouldUpdate {
-					// Fire and forget — don't block the request
 					go pats.UpdateLastUsed(context.Background(), pat.ID)
 				}
 
@@ -780,33 +822,19 @@ func SessionOrPATAuth(sessions *store.SessionStore, users *store.UserStore, pats
 				return
 			}
 
-			// Fall back to session auth
-			cookie, err := r.Cookie("session_id")
-			if err != nil {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			// No PAT header — delegate to session auth
+			if sessionAuthFallback != nil {
+				sessionAuthFallback(next).ServeHTTP(w, r)
 				return
 			}
 
-			session, err := sessions.FindByID(r.Context(), cookie.Value)
-			if err != nil {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-				return
-			}
-
-			user, err := users.FindByID(r.Context(), session.UserID)
-			if err != nil {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-				return
-			}
-
-			ctx := ContextWithUser(r.Context(), user)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 		})
 	}
 }
 ```
 
-Add these imports at the top: `"crypto/sha256"`, `"encoding/hex"`, `"sync"`, `"time"`.
+Add these imports at the top: `"crypto/sha256"`, `"encoding/hex"`, `"strings"`, `"sync"`, `"time"`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -982,19 +1010,22 @@ In the handler creation section:
 patHandler := handler.NewPATHandler(patStore)
 ```
 
-Replace the `sessionAuth` middleware definition:
+Keep the existing `sessionAuth` definition, then create the combined middleware:
 
 ```go
-sessionOrPATAuth := auth.SessionOrPATAuth(sessionStore, userStore, patStore)
+sessionAuth := auth.SessionAuth(sessionStore, userStore)
+sessionOrPATAuth := auth.SessionOrPATAuth(sessionAuth, userStore, patStore)
 ```
 
-Then replace all occurrences of `sessionAuth` in route registrations with `sessionOrPATAuth`. Keep `sessionAuth` only for the PAT management endpoints themselves (create/list/delete tokens must use session auth only — you shouldn't be able to create a token using a token).
+Then replace occurrences of `sessionAuth` with `sessionOrPATAuth` on management routes — **except** these which must remain session-only:
+- PAT CRUD routes (can't create tokens with tokens)
+- `GET /PUT /api/v1/auth/me` (profile management)
+- `POST /api/v1/auth/change-password`
 
 Add the PAT management routes (session-authed only):
 
 ```go
 // PAT management (session-only, not PAT-authed)
-sessionAuth := auth.SessionAuth(sessionStore, userStore)
 mux.Handle("POST /api/v1/auth/tokens", wrap(patHandler.Create, sessionAuth))
 mux.Handle("GET /api/v1/auth/tokens", wrap(patHandler.List, sessionAuth))
 mux.Handle("DELETE /api/v1/auth/tokens/{id}", wrap(patHandler.Delete, sessionAuth))
