@@ -92,6 +92,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ source_environment_key: sourceEnvKey }),
       }),
+    delete: (projectKey: string, envKey: string) =>
+      request<void>(`/projects/${projectKey}/environments/${envKey}`, { method: 'DELETE' }),
   },
 
   environmentAccess: {

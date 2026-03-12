@@ -2,23 +2,34 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client.ts'
-import type { Environment } from '../api/types.ts'
+import type { Environment, SDKKey } from '../api/types.ts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useEnvironmentsWrite, useSdkKeysManage } from '@/hooks/usePermissions'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { useEnvironmentsWrite, useSdkKeysManage, useIsProjectAdmin } from '@/hooks/usePermissions'
+import { ArrowUp, ArrowDown, Trash2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 export default function EnvironmentsPage() {
   const { key } = useParams<{ key: string }>()
   const queryClient = useQueryClient()
   const canWrite = useEnvironmentsWrite(key)
   const canManageKeys = useSdkKeysManage(key)
+  const canDelete = useIsProjectAdmin(key)
   const [showForm, setShowForm] = useState(false)
   const [envKey, setEnvKey] = useState('')
   const [envName, setEnvName] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<Environment | null>(null)
+  const [sdkKeyCount, setSdkKeyCount] = useState<number | null>(null)
 
   const { data: environments, isLoading, error } = useQuery({
     queryKey: ['projects', key, 'environments'],
@@ -45,6 +56,16 @@ export default function EnvironmentsPage() {
     },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (envKey: string) => api.environments.delete(key!, envKey),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'environments'] })
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags'] })
+      setDeleteTarget(null)
+      setSdkKeyCount(null)
+    },
+  })
+
   const sortedEnvironments = environments ? [...environments].sort((a, b) => a.sort_order - b.sort_order) : undefined
 
   const handleMoveUp = (index: number) => {
@@ -65,6 +86,17 @@ export default function EnvironmentsPage() {
     e.preventDefault()
     if (!envKey.trim() || !envName.trim()) return
     createMutation.mutate({ key: envKey.trim(), name: envName.trim() })
+  }
+
+  const handleDeleteClick = async (env: Environment) => {
+    setDeleteTarget(env)
+    deleteMutation.reset()
+    try {
+      const keys = await api.get<SDKKey[]>(`/projects/${key}/environments/${env.key}/sdk-keys`)
+      setSdkKeyCount(keys.length)
+    } catch {
+      setSdkKeyCount(0)
+    }
   }
 
   if (isLoading) {
@@ -178,6 +210,7 @@ export default function EnvironmentsPage() {
                 <TableHead className="font-mono text-[11px] uppercase tracking-wider">Name</TableHead>
                 <TableHead className="font-mono text-[11px] uppercase tracking-wider">Created</TableHead>
                 {canManageKeys && <TableHead className="font-mono text-[11px] uppercase tracking-wider">SDK Keys</TableHead>}
+                {canDelete && <TableHead className="font-mono text-[11px] uppercase tracking-wider w-[60px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -222,12 +255,56 @@ export default function EnvironmentsPage() {
                       </Link>
                     </TableCell>
                   )}
+                  {canDelete && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteClick(env)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setSdkKeyCount(null); deleteMutation.reset() } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete environment</DialogTitle>
+            <DialogDescription>
+              {sdkKeyCount && sdkKeyCount > 0
+                ? `This environment has ${sdkKeyCount} active SDK key${sdkKeyCount === 1 ? '' : 's'}. Deleting it will revoke all keys and remove all flag configurations for this environment. This cannot be undone.`
+                : `All flag configurations for the "${deleteTarget?.name}" environment will be removed. This cannot be undone.`}
+            </DialogDescription>
+          </DialogHeader>
+          {deleteMutation.error && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Failed to delete environment'}
+              </AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteTarget(null); setSdkKeyCount(null); deleteMutation.reset() }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.key)}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
