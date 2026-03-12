@@ -36,7 +36,7 @@ The MCP server requires two environment variables:
 3. Under **API Tokens**, click **Create Token**
 4. Copy the token — it is only shown once
 
-See the [authentication docs](/docs/api-reference/authentication#personal-access-tokens-programmatic-access) for more details.
+See the [authentication docs](../api-reference/authentication.md#personal-access-tokens-programmatic-access) for more details.
 
 ## AI Assistant Setup
 

@@ -120,7 +120,7 @@ POST /api/v1/auth/setup
 
 ## Personal Access Tokens (Programmatic Access)
 
-Personal access tokens (PATs) allow programmatic access to the management API without a browser session. They are used by the [MCP server](/docs/integrations/mcp-server) and other automation tools.
+Personal access tokens (PATs) allow programmatic access to the management API without a browser session. They are used by the [MCP server](../integrations/mcp-server.md) and other automation tools.
 
 ### Creating a Token
 
