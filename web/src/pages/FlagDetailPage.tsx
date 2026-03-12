@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '../api/client.ts'
@@ -42,6 +42,7 @@ import { Label } from '@/components/ui/label'
 import { useCanWrite, useIsProjectAdmin } from '@/hooks/usePermissions'
 import { useEnvironmentWriteAccess } from '@/hooks/useEnvironmentAccess'
 import PromoteDialog from '../components/PromoteDialog.tsx'
+import CompareTab from '../components/CompareTab.tsx'
 import { FlagOverrideControl } from '../components/FlagOverrideControl.tsx'
 import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play, ArrowRightFromLine, Lock, Unlock } from 'lucide-react'
 
@@ -64,6 +65,8 @@ export default function FlagDetailPage() {
   const [promoteState, setPromoteState] = useState<{ sourceEnvKey: string; targetEnvKey: string } | null>(null)
   const [lockDialogState, setLockDialogState] = useState<{ open: boolean; envKey: string; envName: string } | null>(null)
   const [lockReason, setLockReason] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') ?? 'configuration'
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['projects', key, 'flags', flagKey],
@@ -380,9 +383,19 @@ export default function FlagDetailPage() {
         </Select>
       </div>
 
-      <Tabs defaultValue="configuration" className="w-full">
+      <Tabs value={activeTab} onValueChange={(value) => {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev)
+          if (value === 'configuration') next.delete('tab')
+          else next.set('tab', value)
+          return next
+        }, { replace: true })
+      }} className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          {environments && environments.length >= 2 && (
+            <TabsTrigger value="compare">Compare</TabsTrigger>
+          )}
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
@@ -593,6 +606,15 @@ export default function FlagDetailPage() {
             <div className="py-8 text-center text-muted-foreground/60 text-[13px]">
               No environments found for this project.
             </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="compare">
+          {environments && environments.length >= 2 && data && (
+            <CompareTab
+              environments={environments}
+              environmentConfigs={data.environment_configs}
+            />
           )}
         </TabsContent>
 
