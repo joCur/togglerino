@@ -51,3 +51,13 @@ export async function updateFlagConfig(
     ...updates,
   })
 }
+
+export async function deleteFlag(client: TogglerinoClient, projectKey: string, flagKey: string): Promise<void> {
+  await client.del(`/projects/${projectKey}/flags/${flagKey}`)
+}
+
+export async function archiveFlag(
+  client: TogglerinoClient, projectKey: string, flagKey: string, archived: boolean,
+): Promise<unknown> {
+  return client.put(`/projects/${projectKey}/flags/${flagKey}/archive`, { archived })
+}
