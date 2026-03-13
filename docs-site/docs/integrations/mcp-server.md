@@ -88,16 +88,33 @@ The server uses stdio transport. Run `togglerino-mcp` (or `npx @togglerino/mcp`)
 
 | Tool | Description |
 |------|-------------|
+| **Projects** | |
 | `list_projects` | List all projects |
+| **Flags** | |
 | `list_flags` | List flags in a project (with optional search/tag filters) |
 | `get_flag` | Get flag details including all environment configurations |
 | `create_flag` | Create a new feature flag |
 | `update_flag` | Update flag metadata (name, description, tags) |
 | `toggle_flag` | Enable or disable a flag in a specific environment |
-| `update_flag_config` | Update environment-specific config (targeting rules, rollout, default variant) |
+| `update_flag_config` | Update environment-specific config (enabled, variants, targeting rules, default variant) |
+| `delete_flag` | Permanently delete a flag (must be archived first) |
+| `archive_flag` | Archive or restore a feature flag |
+| **Environments** | |
 | `list_environments` | List all environments in a project |
+| **Segments** | |
 | `list_segments` | List targeting segments in a project |
 | `get_segment` | Get segment details including conditions |
+| `create_segment` | Create a new targeting segment |
+| `update_segment` | Update a targeting segment (partial updates supported) |
+| `delete_segment` | Delete a targeting segment (fails if referenced by flags) |
+| `get_segment_usage` | Check which flags reference a segment |
+| **SDK Keys** | |
+| `create_sdk_key` | Create a new SDK key for an environment |
+| `list_sdk_keys` | List SDK keys for an environment |
+| `delete_sdk_key` | Revoke an SDK key |
+| **Audit & Testing** | |
+| `get_audit_log` | Get project audit log entries (paginated) |
+| `evaluate_flags` | Evaluate flags via the playground with detailed traces |
 
 ### Project Resolution
 
@@ -121,3 +138,7 @@ Once configured, ask your AI assistant to:
 - "Create a boolean release flag called `new-checkout-flow`"
 - "Enable the `dark-mode` flag in the staging environment"
 - "Add a targeting rule to roll out `new-checkout-flow` to 25% of users in production"
+- "Create a segment called `enterprise-users` for users with plan equals enterprise"
+- "Evaluate the `new-checkout-flow` flag for user-123 in production"
+- "Show me the audit log for the last 10 changes"
+- "Archive the `old-feature` flag and then delete it"
