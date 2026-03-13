@@ -8,6 +8,9 @@ import { listProjects } from './tools/projects.js'
 import { listFlags, getFlag, createFlag, updateFlag, toggleFlag, updateFlagConfig, deleteFlag, archiveFlag } from './tools/flags.js'
 import { listEnvironments } from './tools/environments.js'
 import { listSegments, getSegment, createSegment, updateSegment, deleteSegment, getSegmentUsage } from './tools/segments.js'
+import { createSdkKey, listSdkKeys, deleteSdkKey } from './tools/sdk-keys.js'
+import { getAuditLog } from './tools/audit.js'
+import { evaluateFlags } from './tools/playground.js'
 
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string }
 const version = pkg.version
@@ -366,6 +369,109 @@ server.tool(
     try {
       const project = requireProject(projectKey)
       const result = await getSegmentUsage(client, project, segmentKey)
+      return ok(result)
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'create_sdk_key',
+  'Create a new SDK key for an environment. The key secret is only shown once in the response.',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    environmentKey: z.string().describe('The environment key (e.g. production, staging, development)'),
+    name: z.string().describe('Display name for the SDK key'),
+  },
+  async ({ projectKey, environmentKey, name }) => {
+    try {
+      const project = requireProject(projectKey)
+      const result = await createSdkKey(client, project, environmentKey, name)
+      return ok(result)
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'list_sdk_keys',
+  'List all SDK keys for a specific environment',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    environmentKey: z.string().describe('The environment key (e.g. production, staging, development)'),
+  },
+  async ({ projectKey, environmentKey }) => {
+    try {
+      const project = requireProject(projectKey)
+      const result = await listSdkKeys(client, project, environmentKey)
+      return ok(result)
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'delete_sdk_key',
+  'Delete (revoke) an SDK key. Use list_sdk_keys to find the key ID.',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    environmentKey: z.string().describe('The environment key'),
+    sdkKeyId: z.string().describe('The SDK key ID to delete (not the key string itself)'),
+  },
+  async ({ projectKey, environmentKey, sdkKeyId }) => {
+    try {
+      const project = requireProject(projectKey)
+      await deleteSdkKey(client, project, environmentKey, sdkKeyId)
+      return ok({ message: `SDK key '${sdkKeyId}' deleted successfully` })
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'get_audit_log',
+  'Get the audit log for a project — shows flag creates, updates, deletes, config changes, and lifecycle events',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    limit: z.number().optional().describe('Number of entries to return (default 50, max 100)'),
+    offset: z.number().optional().describe('Number of entries to skip for pagination'),
+  },
+  async ({ projectKey, limit, offset }) => {
+    try {
+      const project = requireProject(projectKey)
+      const params: { limit?: number; offset?: number } = {}
+      if (limit !== undefined) params.limit = limit
+      if (offset !== undefined) params.offset = offset
+      const result = await getAuditLog(client, project, params)
+      return ok(result)
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'evaluate_flags',
+  'Evaluate feature flags using the playground — returns detailed evaluation traces showing which rules matched and why. Useful for testing flag configurations.',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    environmentKey: z.string().describe('The environment key to evaluate in'),
+    flagKey: z.string().optional().describe('Specific flag key to evaluate (omit to evaluate all flags)'),
+    userId: z.string().optional().describe('User ID for the evaluation context'),
+    attributes: z.string().optional().describe('JSON object of user attributes for targeting, e.g. {"plan":"enterprise","country":"US"}'),
+  },
+  async ({ projectKey, environmentKey, flagKey, userId, attributes }) => {
+    try {
+      const project = requireProject(projectKey)
+      const params: Parameters<typeof evaluateFlags>[2] = { environmentKey }
+      if (flagKey !== undefined) params.flagKey = flagKey
+      if (userId !== undefined) params.userId = userId
+      if (attributes !== undefined) params.attributes = JSON.parse(attributes)
+      const result = await evaluateFlags(client, project, params)
       return ok(result)
     } catch (e) {
       return err(e)
