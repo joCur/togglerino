@@ -293,7 +293,7 @@ server.tool(
 
 server.tool(
   'create_segment',
-  'Create a new reusable targeting segment in a project. Conditions use: attribute, operator (equals, not_equals, contains, not_contains, starts_with, ends_with, greater_than, less_than, gte, lte, in, not_in, exists, not_exists, matches, segment_match), and value.',
+  'Create a new reusable targeting segment in a project. Conditions use: attribute, operator (equals, not_equals, contains, not_contains, starts_with, ends_with, greater_than, less_than, gte, lte, in, not_in, exists, not_exists, matches), and value. Note: segment_match operator is NOT allowed in segment conditions.',
   {
     projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
     key: z.string().describe('Unique key for the segment (lowercase alphanumeric + hyphens, 3-64 chars)'),
