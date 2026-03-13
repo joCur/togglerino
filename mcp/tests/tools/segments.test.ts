@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { TogglerinoClient } from '../../src/client'
-import { listSegments, getSegment, createSegment, updateSegment } from '../../src/tools/segments'
+import { listSegments, getSegment, createSegment, updateSegment, deleteSegment, getSegmentUsage } from '../../src/tools/segments'
 
 describe('listSegments', () => {
   it('calls GET /projects/{key}/segments', async () => {
@@ -69,6 +69,25 @@ describe('updateSegment', () => {
       description: 'Desc',
       conditions: newConditions,
     })
+  })
+})
+
+describe('deleteSegment', () => {
+  it('calls DELETE /projects/{key}/segments/{segmentKey}', async () => {
+    const mockClient = { del: vi.fn().mockResolvedValue(undefined) } as unknown as TogglerinoClient
+    await deleteSegment(mockClient, 'my-project', 'beta-users')
+    expect(mockClient.del).toHaveBeenCalledWith('/projects/my-project/segments/beta-users')
+  })
+})
+
+describe('getSegmentUsage', () => {
+  it('calls GET /projects/{key}/segments/{segmentKey}/usage', async () => {
+    const mockClient = {
+      get: vi.fn().mockResolvedValue({ referencing_flags: ['flag-1', 'flag-2'] }),
+    } as unknown as TogglerinoClient
+    const result = await getSegmentUsage(mockClient, 'my-project', 'beta-users')
+    expect(mockClient.get).toHaveBeenCalledWith('/projects/my-project/segments/beta-users/usage')
+    expect(result).toEqual({ referencing_flags: ['flag-1', 'flag-2'] })
   })
 })
 

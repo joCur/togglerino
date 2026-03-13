@@ -27,6 +27,14 @@ export async function updateSegment(
   return client.put(`/projects/${projectKey}/segments/${segmentKey}`, merged)
 }
 
+export async function deleteSegment(client: TogglerinoClient, projectKey: string, segmentKey: string): Promise<void> {
+  await client.del(`/projects/${projectKey}/segments/${segmentKey}`)
+}
+
+export async function getSegmentUsage(client: TogglerinoClient, projectKey: string, segmentKey: string): Promise<unknown> {
+  return client.get(`/projects/${projectKey}/segments/${segmentKey}/usage`)
+}
+
 export async function createSegment(
   client: TogglerinoClient,
   projectKey: string,
