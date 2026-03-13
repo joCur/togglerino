@@ -5,7 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { TogglerinoClient, TogglerinoError } from './client.js'
 import { listProjects } from './tools/projects.js'
-import { listFlags, getFlag, createFlag, updateFlag, toggleFlag, updateFlagConfig } from './tools/flags.js'
+import { listFlags, getFlag, createFlag, updateFlag, toggleFlag, updateFlagConfig, deleteFlag, archiveFlag } from './tools/flags.js'
 import { listEnvironments } from './tools/environments.js'
 import { listSegments, getSegment, createSegment, updateSegment, deleteSegment, getSegmentUsage } from './tools/segments.js'
 
@@ -192,6 +192,43 @@ server.tool(
       if (variants !== undefined) updates.variants = JSON.parse(variants)
       if (targeting_rules !== undefined) updates.targeting_rules = targeting_rules
       const result = await updateFlagConfig(client, project, flagKey, environmentKey, updates)
+      return ok(result)
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'delete_flag',
+  'Permanently delete a feature flag. The flag must be archived first — use archive_flag before deleting.',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    flagKey: z.string().describe('The flag key to delete'),
+  },
+  async ({ projectKey, flagKey }) => {
+    try {
+      const project = requireProject(projectKey)
+      await deleteFlag(client, project, flagKey)
+      return ok({ message: `Flag '${flagKey}' deleted successfully` })
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'archive_flag',
+  'Archive or restore a feature flag. Archived flags are disabled and excluded from SDK evaluations.',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    flagKey: z.string().describe('The flag key to archive or restore'),
+    archived: z.boolean().describe('true to archive, false to restore to active'),
+  },
+  async ({ projectKey, flagKey, archived }) => {
+    try {
+      const project = requireProject(projectKey)
+      const result = await archiveFlag(client, project, flagKey, archived)
       return ok(result)
     } catch (e) {
       return err(e)
