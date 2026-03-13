@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { TogglerinoClient } from '../../src/client'
-import { listSegments, getSegment } from '../../src/tools/segments'
+import { listSegments, getSegment, createSegment } from '../../src/tools/segments'
 
 describe('listSegments', () => {
   it('calls GET /projects/{key}/segments', async () => {
@@ -23,5 +23,22 @@ describe('getSegment', () => {
     const result = await getSegment(mockClient, 'my-project', 'beta-users')
     expect(mockClient.get).toHaveBeenCalledWith('/projects/my-project/segments/beta-users')
     expect(result).toEqual({ key: 'beta-users', conditions: [] })
+  })
+})
+
+describe('createSegment', () => {
+  it('POSTs to /projects/{key}/segments', async () => {
+    const mockClient = {
+      post: vi.fn().mockResolvedValue({ key: 'beta-users', name: 'Beta Users', conditions: [] }),
+    } as unknown as TogglerinoClient
+    const params = {
+      key: 'beta-users',
+      name: 'Beta Users',
+      description: 'Users in beta program',
+      conditions: [{ attribute: 'plan', operator: 'equals', value: 'beta' }],
+    }
+    const result = await createSegment(mockClient, 'my-project', params)
+    expect(mockClient.post).toHaveBeenCalledWith('/projects/my-project/segments', params)
+    expect(result).toEqual({ key: 'beta-users', name: 'Beta Users', conditions: [] })
   })
 })
