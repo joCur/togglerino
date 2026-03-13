@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { TogglerinoClient } from '../../src/client'
-import { listSegments, getSegment, createSegment } from '../../src/tools/segments'
+import { listSegments, getSegment, createSegment, updateSegment } from '../../src/tools/segments'
 
 describe('listSegments', () => {
   it('calls GET /projects/{key}/segments', async () => {
@@ -23,6 +23,52 @@ describe('getSegment', () => {
     const result = await getSegment(mockClient, 'my-project', 'beta-users')
     expect(mockClient.get).toHaveBeenCalledWith('/projects/my-project/segments/beta-users')
     expect(result).toEqual({ key: 'beta-users', conditions: [] })
+  })
+})
+
+describe('updateSegment', () => {
+  it('does GET then PUT with updates merged into existing segment', async () => {
+    const existing = {
+      key: 'beta-users',
+      name: 'Beta Users',
+      description: 'Old desc',
+      conditions: [{ attribute: 'plan', operator: 'equals', value: 'beta' }],
+    }
+    const mockClient = {
+      get: vi.fn().mockResolvedValue(existing),
+      put: vi.fn().mockResolvedValue({ ...existing, name: 'Updated Name' }),
+    } as unknown as TogglerinoClient
+
+    await updateSegment(mockClient, 'my-project', 'beta-users', { name: 'Updated Name' })
+
+    expect(mockClient.get).toHaveBeenCalledWith('/projects/my-project/segments/beta-users')
+    expect(mockClient.put).toHaveBeenCalledWith('/projects/my-project/segments/beta-users', {
+      name: 'Updated Name',
+      description: 'Old desc',
+      conditions: [{ attribute: 'plan', operator: 'equals', value: 'beta' }],
+    })
+  })
+
+  it('merges only provided fields', async () => {
+    const existing = {
+      key: 'beta-users',
+      name: 'Beta Users',
+      description: 'Desc',
+      conditions: [{ attribute: 'plan', operator: 'equals', value: 'beta' }],
+    }
+    const newConditions = [{ attribute: 'plan', operator: 'in', value: ['beta', 'alpha'] }]
+    const mockClient = {
+      get: vi.fn().mockResolvedValue(existing),
+      put: vi.fn().mockResolvedValue({ ...existing, conditions: newConditions }),
+    } as unknown as TogglerinoClient
+
+    await updateSegment(mockClient, 'my-project', 'beta-users', { conditions: newConditions })
+
+    expect(mockClient.put).toHaveBeenCalledWith('/projects/my-project/segments/beta-users', {
+      name: 'Beta Users',
+      description: 'Desc',
+      conditions: newConditions,
+    })
   })
 })
 
