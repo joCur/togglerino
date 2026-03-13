@@ -173,22 +173,24 @@ server.tool(
 
 server.tool(
   'update_flag_config',
-  'Update the environment-specific configuration of a feature flag (targeting rules, rollout percentage, default variant)',
+  'Update the environment-specific configuration of a feature flag. Uses GET-then-merge so you only need to provide fields you want to change.',
   {
     projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
     flagKey: z.string().describe('The flag key to update'),
     environmentKey: z.string().describe('The environment key (e.g. production, staging, development)'),
+    enabled: z.boolean().optional().describe('Whether the flag is enabled in this environment'),
     default_variant: z.string().optional().describe('The default variant key to serve when no rules match'),
+    variants: z.string().optional().describe('JSON array of variant objects, e.g. [{"key":"control","value":false},{"key":"treatment","value":true}]'),
     targeting_rules: z.array(z.record(z.string(), z.unknown())).optional().describe('Targeting rules array for the flag'),
-    rollout_percentage: z.number().min(0).max(100).optional().describe('Percentage of users to roll out to (0-100)'),
   },
-  async ({ projectKey, flagKey, environmentKey, default_variant, targeting_rules, rollout_percentage }) => {
+  async ({ projectKey, flagKey, environmentKey, enabled, default_variant, variants, targeting_rules }) => {
     try {
       const project = requireProject(projectKey)
       const updates: Record<string, unknown> = {}
+      if (enabled !== undefined) updates.enabled = enabled
       if (default_variant !== undefined) updates.default_variant = default_variant
+      if (variants !== undefined) updates.variants = JSON.parse(variants)
       if (targeting_rules !== undefined) updates.targeting_rules = targeting_rules
-      if (rollout_percentage !== undefined) updates.rollout_percentage = rollout_percentage
       const result = await updateFlagConfig(client, project, flagKey, environmentKey, updates)
       return ok(result)
     } catch (e) {
