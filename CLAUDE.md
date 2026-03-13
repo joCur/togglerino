@@ -273,4 +273,4 @@ cd docs-site && npm start                      # Local dev server with hot reloa
 
 ## Other
 
-- `docs/plans/` — design documents and implementation plans (planning artifacts, not API docs)
+- Planning artifacts (design docs, implementation plans) were previously in `docs/` and have been removed. `docs/superpowers/` is gitignored.
