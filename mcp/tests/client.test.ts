@@ -63,4 +63,23 @@ describe('TogglerinoClient', () => {
 
     vi.unstubAllGlobals()
   })
+
+  it('constructs DELETE requests', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    await client.del('/projects/test/flags/my-flag')
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:8080/api/v1/projects/test/flags/my-flag',
+      expect.objectContaining({
+        method: 'DELETE',
+      }),
+    )
+
+    vi.unstubAllGlobals()
+  })
 })
