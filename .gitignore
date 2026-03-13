@@ -21,4 +21,7 @@ web/node_modules/
 # Worktrees
 .worktrees/
 
+# Superpowers planning artifacts
+docs/superpowers/
+
 /web/dist
