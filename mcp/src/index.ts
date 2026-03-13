@@ -7,7 +7,7 @@ import { TogglerinoClient, TogglerinoError } from './client.js'
 import { listProjects } from './tools/projects.js'
 import { listFlags, getFlag, createFlag, updateFlag, toggleFlag, updateFlagConfig } from './tools/flags.js'
 import { listEnvironments } from './tools/environments.js'
-import { listSegments, getSegment } from './tools/segments.js'
+import { listSegments, getSegment, createSegment, updateSegment, deleteSegment, getSegmentUsage } from './tools/segments.js'
 
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string }
 const version = pkg.version
@@ -242,6 +242,91 @@ server.tool(
     try {
       const project = requireProject(projectKey)
       const result = await getSegment(client, project, segmentKey)
+      return ok(result)
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'create_segment',
+  'Create a new reusable targeting segment in a project. Conditions use: attribute, operator (equals, not_equals, contains, not_contains, starts_with, ends_with, greater_than, less_than, gte, lte, in, not_in, exists, not_exists, matches, segment_match), and value.',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    key: z.string().describe('Unique key for the segment (lowercase alphanumeric + hyphens, 3-64 chars)'),
+    name: z.string().describe('Display name for the segment'),
+    description: z.string().optional().describe('Optional description of the segment'),
+    conditions: z.string().describe('JSON array of conditions, e.g. [{"attribute":"plan","operator":"equals","value":"enterprise"}]'),
+  },
+  async ({ projectKey, key, name, description, conditions }) => {
+    try {
+      const project = requireProject(projectKey)
+      const parsed = JSON.parse(conditions)
+      const params: Record<string, unknown> = { key, name, conditions: parsed }
+      if (description !== undefined) params.description = description
+      const result = await createSegment(client, project, params as Parameters<typeof createSegment>[2])
+      return ok(result)
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'update_segment',
+  'Update a targeting segment. Uses GET-then-merge so you only need to provide fields you want to change.',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    segmentKey: z.string().describe('The segment key to update'),
+    name: z.string().optional().describe('New display name for the segment'),
+    description: z.string().optional().describe('New description for the segment'),
+    conditions: z.string().optional().describe('JSON array of conditions to replace existing conditions'),
+  },
+  async ({ projectKey, segmentKey, name, description, conditions }) => {
+    try {
+      const project = requireProject(projectKey)
+      const updates: Record<string, unknown> = {}
+      if (name !== undefined) updates.name = name
+      if (description !== undefined) updates.description = description
+      if (conditions !== undefined) updates.conditions = JSON.parse(conditions)
+      const result = await updateSegment(client, project, segmentKey, updates)
+      return ok(result)
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'delete_segment',
+  'Delete a targeting segment. Fails with 409 if the segment is referenced by active flags — use get_segment_usage to check first.',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    segmentKey: z.string().describe('The segment key to delete'),
+  },
+  async ({ projectKey, segmentKey }) => {
+    try {
+      const project = requireProject(projectKey)
+      await deleteSegment(client, project, segmentKey)
+      return ok({ message: `Segment '${segmentKey}' deleted successfully` })
+    } catch (e) {
+      return err(e)
+    }
+  },
+)
+
+server.tool(
+  'get_segment_usage',
+  'Get which flags reference a specific segment — useful before deleting a segment',
+  {
+    projectKey: z.string().optional().describe('Project key (uses TOGGLERINO_PROJECT env var if not provided)'),
+    segmentKey: z.string().describe('The segment key to check usage for'),
+  },
+  async ({ projectKey, segmentKey }) => {
+    try {
+      const project = requireProject(projectKey)
+      const result = await getSegmentUsage(client, project, segmentKey)
       return ok(result)
     } catch (e) {
       return err(e)
