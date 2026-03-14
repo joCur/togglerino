@@ -1,7 +1,9 @@
 import { test as base, type Page } from '@playwright/test';
 import { ApiHelper, type Project } from './api.js';
-import { ensureSetup, login } from './auth.js';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, uniqueProjectKey } from './test-data.js';
+
+/** Shared API context to avoid multiple logins (rate limit: 10 req/60s). */
+let sharedApiContext: { context: any; api: ApiHelper } | null = null;
 
 type Fixtures = {
   authenticatedPage: Page;
@@ -10,26 +12,35 @@ type Fixtures = {
 };
 
 export const test = base.extend<Fixtures>({
+  /**
+   * A page with the admin session pre-loaded via storageState (from auth.setup.ts).
+   * No login needed — just navigate and go.
+   */
   authenticatedPage: async ({ page }, use) => {
-    // Ensure admin user exists
-    await ensureSetup(page);
-
-    // Check if we already have a valid session
-    const meRes = await page.request.get('/api/v1/auth/me');
-    if (!meRes.ok()) {
-      await login(page);
-    }
-
     await use(page);
   },
 
+  /**
+   * API helper with an authenticated session. Reuses a single login across
+   * all tests in the worker to avoid rate limiting.
+   */
   apiContext: async ({ playwright }, use) => {
-    // Create a fresh API context with its own cookie jar
+    // Reuse existing API context if session is still valid
+    if (sharedApiContext) {
+      const meRes = await sharedApiContext.context.get('/api/v1/auth/me');
+      if (meRes.ok()) {
+        await use(sharedApiContext.api);
+        return;
+      }
+      // Session expired — clean up and create new one
+      await sharedApiContext.context.dispose();
+      sharedApiContext = null;
+    }
+
     const context = await playwright.request.newContext({
       baseURL: process.env.E2E_BASE_URL || 'http://localhost:9091',
     });
 
-    // Login via API to get session cookie
     const loginRes = await context.post('/api/v1/auth/login', {
       data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
     });
@@ -38,8 +49,9 @@ export const test = base.extend<Fixtures>({
     }
 
     const api = new ApiHelper(context);
+    sharedApiContext = { context, api };
     await use(api);
-    await context.dispose();
+    // Don't dispose — reuse across tests
   },
 
   testProject: async ({ apiContext }, use) => {

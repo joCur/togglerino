@@ -19,9 +19,22 @@ export default defineConfig({
   globalSetup: './global-setup.ts',
   globalTeardown: './global-teardown.ts',
   projects: [
+    // Setup project: creates admin user and saves authenticated session
+    {
+      name: 'setup',
+      testDir: './tests/setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    // Smoke tests: run serially with pre-authenticated session
     {
       name: 'chromium',
-      use: { browserName: 'chromium' },
+      use: {
+        browserName: 'chromium',
+        // Reuse the authenticated session from setup
+        storageState: 'test-results/.auth/user.json',
+      },
+      dependencies: ['setup'],
+      testDir: './tests/smoke',
     },
   ],
   timeout: 30_000,

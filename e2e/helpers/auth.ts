@@ -3,7 +3,8 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from './test-data.js';
 
 /**
  * Idempotent setup — creates the first admin user if the database is fresh.
- * Checks /api/v1/auth/status first to avoid 409 on subsequent calls.
+ * Uses the API to check status and the UI to create the account (since
+ * the setup form is only shown once).
  */
 export async function ensureSetup(page: Page): Promise<void> {
   const res = await page.request.get('/api/v1/auth/status');
@@ -21,24 +22,27 @@ export async function ensureSetup(page: Page): Promise<void> {
 }
 
 /**
- * Login via the UI login page.
+ * Login via the API to get a session cookie, then navigate to the app.
+ * Uses the API instead of the UI form to avoid rate limit pressure on
+ * the auth endpoints (10 req/60s per IP).
  */
 export async function login(page: Page, email = ADMIN_EMAIL, password = ADMIN_PASSWORD): Promise<void> {
-  await page.goto('/login');
-  await page.getByPlaceholder('you@example.com').fill(email);
-  await page.getByPlaceholder('Your password').fill(password);
-  await page.getByRole('button', { name: 'Sign In' }).click();
-
-  // Wait for redirect to dashboard
-  await page.waitForURL('**/projects');
+  const res = await page.request.post('/api/v1/auth/login', {
+    data: { email, password },
+  });
+  if (!res.ok()) {
+    throw new Error(`Login failed: ${res.status()} ${await res.text()}`);
+  }
+  // Navigate to the dashboard — the session cookie is already set
+  await page.goto('/projects');
 }
 
 /**
  * Logout via the topbar dropdown menu.
  */
 export async function logout(page: Page): Promise<void> {
-  // Open the user dropdown in the topbar
-  await page.locator('header').getByRole('button').last().click();
+  // Open the user dropdown by clicking the element containing the user email
+  await page.getByText(ADMIN_EMAIL).click();
   await page.getByRole('menuitem', { name: 'Log out' }).click();
 
   // Wait for redirect to login page
