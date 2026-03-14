@@ -24,26 +24,26 @@ test.describe('Flags', () => {
     await expect(page.getByText(key, { exact: true }).first()).toBeVisible();
   });
 
-  test('toggles flag on', async ({ authenticatedPage: page, testProject, apiContext }) => {
+  test('toggles flag on and off via UI', async ({ authenticatedPage: page, testProject, apiContext }) => {
     const key = uniqueFlagKey();
     await apiContext.createFlag(testProject.key, { key, name: `Toggle Test ${key}` });
+    // Ensure flag starts disabled in development
+    await apiContext.updateFlagEnvConfig(testProject.key, key, 'development', { enabled: false });
 
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
     // Wait for the environment config to load
-    await expect(page.getByRole('switch').first()).toBeVisible();
-
-    // Click the first toggle switch (development environment)
     const toggle = page.getByRole('switch').first();
+    await expect(toggle).toBeVisible();
+    await expect(toggle).not.toBeChecked();
+
+    // Toggle ON
     await toggle.click();
+    await expect(toggle).toBeChecked({ timeout: 10_000 });
 
-    // Wait for the API response to complete
-    await page.waitForResponse(resp =>
-      resp.url().includes(`/flags/${key}/environments/`) && resp.request().method() === 'PUT'
-    );
-
-    // Verify toggle is now checked
-    await expect(toggle).toBeChecked();
+    // Toggle OFF
+    await toggle.click();
+    await expect(toggle).not.toBeChecked({ timeout: 10_000 });
   });
 
   test('persists toggle state', async ({ authenticatedPage: page, testProject, apiContext }) => {
