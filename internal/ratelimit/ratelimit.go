@@ -22,12 +22,32 @@ type Limiter struct {
 }
 
 // New creates a new Limiter that allows limit requests per windowSeconds
-// from a single IP address.
+// from a single IP address. A background goroutine removes expired entries
+// every 5 minutes.
 func New(limit, windowSeconds int) *Limiter {
-	return &Limiter{
+	l := &Limiter{
 		entries:       make(map[string]*entry),
 		limit:         limit,
 		windowSeconds: windowSeconds,
+	}
+	go l.cleanup()
+	return l
+}
+
+// cleanup removes expired entries every 5 minutes.
+func (l *Limiter) cleanup() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		l.mu.Lock()
+		now := time.Now()
+		window := time.Duration(l.windowSeconds) * time.Second
+		for ip, e := range l.entries {
+			if now.Sub(e.windowStart) >= window {
+				delete(l.entries, ip)
+			}
+		}
+		l.mu.Unlock()
 	}
 }
 
