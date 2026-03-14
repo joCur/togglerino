@@ -35,6 +35,10 @@ export class TogglerinoClient {
     })
   }
 
+  async del<T>(path: string): Promise<T> {
+    return this.request<T>(path, { method: 'DELETE' })
+  }
+
   private async request<T>(path: string, options: RequestInit): Promise<T> {
     const url = `${this.baseUrl}/api/v1${path}`
     const res = await fetch(url, {

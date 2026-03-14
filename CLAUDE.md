@@ -167,7 +167,7 @@ React 19 + TypeScript + Vite. Uses React Router v7 for routing and TanStack Quer
 
 ### MCP Server (`mcp/`)
 
-TypeScript package (`@togglerino/mcp`) providing an MCP (Model Context Protocol) server for AI assistant integration. Runs as a local stdio process, proxying to the management API using Personal Access Tokens. Registers 10 tools for flag, environment, project, and segment operations. Built with `@modelcontextprotocol/sdk`, bundled with tsup, tested with vitest.
+TypeScript package (`@togglerino/mcp`) providing an MCP (Model Context Protocol) server for AI assistant integration. Runs as a local stdio process, proxying to the management API using Personal Access Tokens. Registers 21 tools for flag, environment, project, segment, SDK key, audit log, and playground operations. Built with `@modelcontextprotocol/sdk`, bundled with tsup, tested with vitest.
 
 ## API Routes
 

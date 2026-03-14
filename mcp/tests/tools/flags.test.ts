@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { TogglerinoClient } from '../../src/client'
-import { listFlags, getFlag, createFlag, updateFlag, toggleFlag, updateFlagConfig } from '../../src/tools/flags'
+import { listFlags, getFlag, createFlag, updateFlag, toggleFlag, updateFlagConfig, deleteFlag, archiveFlag } from '../../src/tools/flags'
 
 describe('listFlags', () => {
   it('calls GET /projects/{key}/flags without params', async () => {
@@ -97,23 +97,52 @@ describe('toggleFlag', () => {
 
 describe('updateFlagConfig', () => {
   it('does GET then PUT with updates merged into existing config', async () => {
-    const existingConfig = { enabled: true, rollout_percentage: 50 }
-    const mockFlag = {
-      environments: {
-        production: existingConfig,
-      },
-    }
+    const existingConfig = { enabled: true, default_variant: 'control', variants: [{ key: 'control', value: false }], targeting_rules: [] }
+    const mockFlag = { environments: { production: existingConfig } }
     const mockClient = {
       get: vi.fn().mockResolvedValue(mockFlag),
-      put: vi.fn().mockResolvedValue({ ...existingConfig, rollout_percentage: 75 }),
+      put: vi.fn().mockResolvedValue({ ...existingConfig, default_variant: 'treatment' }),
     } as unknown as TogglerinoClient
 
-    await updateFlagConfig(mockClient, 'my-project', 'my-flag', 'production', { rollout_percentage: 75 })
+    await updateFlagConfig(mockClient, 'my-project', 'my-flag', 'production', { default_variant: 'treatment' })
 
     expect(mockClient.get).toHaveBeenCalledWith('/projects/my-project/flags/my-flag')
     expect(mockClient.put).toHaveBeenCalledWith(
       '/projects/my-project/flags/my-flag/environments/production',
-      { enabled: true, rollout_percentage: 75 },
+      { ...existingConfig, default_variant: 'treatment' },
+    )
+  })
+
+  it('merges enabled into existing config', async () => {
+    const existingConfig = { enabled: false, variants: [], targeting_rules: [] }
+    const mockFlag = { environments: { production: existingConfig } }
+    const mockClient = {
+      get: vi.fn().mockResolvedValue(mockFlag),
+      put: vi.fn().mockResolvedValue({ ...existingConfig, enabled: true }),
+    } as unknown as TogglerinoClient
+
+    await updateFlagConfig(mockClient, 'my-project', 'my-flag', 'production', { enabled: true })
+
+    expect(mockClient.put).toHaveBeenCalledWith(
+      '/projects/my-project/flags/my-flag/environments/production',
+      { ...existingConfig, enabled: true },
+    )
+  })
+
+  it('merges variants into existing config', async () => {
+    const existingConfig = { enabled: true, default_variant: 'control', variants: [{ key: 'control', value: false }], targeting_rules: [] }
+    const newVariants = [{ key: 'control', value: false }, { key: 'treatment', value: true }]
+    const mockFlag = { environments: { production: existingConfig } }
+    const mockClient = {
+      get: vi.fn().mockResolvedValue(mockFlag),
+      put: vi.fn().mockResolvedValue({ ...existingConfig, variants: newVariants }),
+    } as unknown as TogglerinoClient
+
+    await updateFlagConfig(mockClient, 'my-project', 'my-flag', 'production', { variants: newVariants })
+
+    expect(mockClient.put).toHaveBeenCalledWith(
+      '/projects/my-project/flags/my-flag/environments/production',
+      { ...existingConfig, variants: newVariants },
     )
   })
 
@@ -130,5 +159,32 @@ describe('updateFlagConfig', () => {
       '/projects/my-project/flags/my-flag/environments/dev',
       { targeting_rules: [] },
     )
+  })
+})
+
+describe('deleteFlag', () => {
+  it('calls DELETE /projects/{key}/flags/{flagKey}', async () => {
+    const mockClient = { del: vi.fn().mockResolvedValue(undefined) } as unknown as TogglerinoClient
+    await deleteFlag(mockClient, 'my-project', 'old-flag')
+    expect(mockClient.del).toHaveBeenCalledWith('/projects/my-project/flags/old-flag')
+  })
+})
+
+describe('archiveFlag', () => {
+  it('PUTs to /projects/{key}/flags/{flagKey}/archive with archived: true', async () => {
+    const mockClient = {
+      put: vi.fn().mockResolvedValue({ key: 'my-flag', lifecycle_status: 'archived' }),
+    } as unknown as TogglerinoClient
+    const result = await archiveFlag(mockClient, 'my-project', 'my-flag', true)
+    expect(mockClient.put).toHaveBeenCalledWith('/projects/my-project/flags/my-flag/archive', { archived: true })
+    expect(result).toEqual({ key: 'my-flag', lifecycle_status: 'archived' })
+  })
+
+  it('PUTs with archived: false to restore', async () => {
+    const mockClient = {
+      put: vi.fn().mockResolvedValue({ key: 'my-flag', lifecycle_status: 'active' }),
+    } as unknown as TogglerinoClient
+    await archiveFlag(mockClient, 'my-project', 'my-flag', false)
+    expect(mockClient.put).toHaveBeenCalledWith('/projects/my-project/flags/my-flag/archive', { archived: false })
   })
 })
