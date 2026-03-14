@@ -36,6 +36,16 @@ export default defineConfig({
       dependencies: ['setup'],
       testDir: './tests/smoke',
     },
+    // Feature tests: run after smoke tests with pre-authenticated session
+    {
+      name: 'features',
+      use: {
+        browserName: 'chromium',
+        storageState: 'test-results/.auth/user.json',
+      },
+      dependencies: ['setup'],
+      testDir: './tests/features',
+    },
   ],
   timeout: 30_000,
   expect: {

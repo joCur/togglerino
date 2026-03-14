@@ -116,16 +116,16 @@ export class ApiHelper {
   ) {
     // Fetch current config to preserve existing values
     const { environment_configs } = await this.getFlag(projectKey, flagKey);
-    const current = environment_configs.find((c: any) => c.environment_key === envKey) || {};
+    const current = environment_configs.find((c: any) => c.environment_key === envKey || c.env_key === envKey);
 
     const res = await this.request.put(
       `/api/v1/projects/${projectKey}/flags/${flagKey}/environments/${envKey}`,
       {
         data: {
           enabled: config.enabled,
-          default_variant: (current as any).default_variant || 'off',
-          variants: (current as any).variants || [],
-          targeting_rules: (current as any).targeting_rules || [],
+          default_variant: current?.default_variant ?? '',
+          variants: current?.variants ?? [],
+          targeting_rules: current?.targeting_rules ?? [],
         },
       },
     );
@@ -140,5 +140,95 @@ export class ApiHelper {
     );
     if (!res.ok()) throw new Error(`archiveFlag failed: ${res.status()} ${await res.text()}`);
     return (await res.json()) as Flag;
+  }
+
+  // --- SDK Key Management ---
+
+  async createSDKKey(projectKey: string, envKey: string, name: string): Promise<SDKKey> {
+    const res = await this.request.post(
+      `/api/v1/projects/${projectKey}/environments/${envKey}/sdk-keys`,
+      { data: { name } },
+    );
+    if (!res.ok()) throw new Error(`createSDKKey failed: ${res.status()} ${await res.text()}`);
+    return (await res.json()) as SDKKey;
+  }
+
+  async listSDKKeys(projectKey: string, envKey: string): Promise<SDKKey[]> {
+    const res = await this.request.get(
+      `/api/v1/projects/${projectKey}/environments/${envKey}/sdk-keys`,
+    );
+    if (!res.ok()) throw new Error(`listSDKKeys failed: ${res.status()} ${await res.text()}`);
+    return (await res.json()) as SDKKey[];
+  }
+
+  async deleteSDKKey(projectKey: string, envKey: string, id: string) {
+    const res = await this.request.delete(
+      `/api/v1/projects/${projectKey}/environments/${envKey}/sdk-keys/${id}`,
+    );
+    if (!res.ok()) throw new Error(`deleteSDKKey failed: ${res.status()} ${await res.text()}`);
+  }
+}
+
+// --- SDK Evaluation (uses SDK key auth, not session auth) ---
+
+export interface EvaluationResult {
+  value: unknown;
+  variant: string;
+  reason: string;
+}
+
+export interface SDKKey {
+  id: string;
+  key: string;
+  environment_id: string;
+  name: string;
+  revoked: boolean;
+  created_at: string;
+  project_key: string;
+  environment_key: string;
+}
+
+/**
+ * SDK client helper — uses Bearer token auth (SDK key) instead of session cookies.
+ * Mirrors what a real SDK client would do.
+ */
+export class SDKClient {
+  constructor(
+    private baseURL: string,
+    private sdkKey: string,
+  ) {}
+
+  private headers() {
+    return { Authorization: `Bearer ${this.sdkKey}` };
+  }
+
+  async evaluateAll(context?: { user_id?: string; attributes?: Record<string, unknown> }): Promise<Record<string, EvaluationResult>> {
+    const res = await fetch(`${this.baseURL}/api/v1/evaluate`, {
+      method: 'POST',
+      headers: { ...this.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(context ? { context } : {}),
+    });
+    if (!res.ok) throw new Error(`evaluateAll failed: ${res.status} ${await res.text()}`);
+    const body = await res.json();
+    return body.flags as Record<string, EvaluationResult>;
+  }
+
+  async evaluateFlag(flagKey: string, context?: { user_id?: string; attributes?: Record<string, unknown> }): Promise<EvaluationResult> {
+    const res = await fetch(`${this.baseURL}/api/v1/evaluate/${flagKey}`, {
+      method: 'POST',
+      headers: { ...this.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(context ? { context } : {}),
+    });
+    if (!res.ok) throw new Error(`evaluateFlag failed: ${res.status} ${await res.text()}`);
+    return (await res.json()) as EvaluationResult;
+  }
+
+  async evaluateFlagRaw(flagKey: string): Promise<{ status: number; body: any }> {
+    const res = await fetch(`${this.baseURL}/api/v1/evaluate/${flagKey}`, {
+      method: 'POST',
+      headers: { ...this.headers(), 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    return { status: res.status, body: await res.json() };
   }
 }
