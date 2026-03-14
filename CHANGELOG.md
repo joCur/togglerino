@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/joCur/togglerino/compare/v1.0.0...v1.1.0) (2026-03-14)
+
+
+### Features
+
+* **mcp:** add missing tools for key API functionality ([#131](https://github.com/joCur/togglerino/issues/131)) ([ee68272](https://github.com/joCur/togglerino/commit/ee682728e4421a271bb6f6fa8e53956250fc14d4))
+
 ## [1.0.0](https://github.com/joCur/togglerino/compare/v0.15.1...v1.0.0) (2026-03-12)
 
 
