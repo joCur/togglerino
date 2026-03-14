@@ -32,7 +32,21 @@ export interface Environment {
 
 export interface FlagEnvironmentConfig {
   enabled: boolean;
+  default_variant?: string;
+  variants?: Array<{ key: string; value: unknown }>;
+  targeting_rules?: Array<{ conditions: Array<{ attribute: string; operator: string; value: unknown }>; variant: string; percentage_rollout?: number }>;
   [key: string]: unknown;
+}
+
+export interface Segment {
+  id: string;
+  project_id: string;
+  key: string;
+  name: string;
+  description: string;
+  conditions: Array<{ attribute: string; operator: string; value: unknown }>;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Typed API helper wrapping Playwright's request context. */
@@ -140,6 +154,60 @@ export class ApiHelper {
     );
     if (!res.ok()) throw new Error(`archiveFlag failed: ${res.status()} ${await res.text()}`);
     return (await res.json()) as Flag;
+  }
+
+  // --- Flag Environment Config (full control) ---
+
+  /**
+   * Set the full environment config for a flag — variants, targeting rules, default variant.
+   * Use this when you need to configure targeting rules or variants.
+   */
+  async setFlagEnvConfig(
+    projectKey: string,
+    flagKey: string,
+    envKey: string,
+    config: {
+      enabled: boolean;
+      default_variant: string;
+      variants: Array<{ key: string; value: unknown }>;
+      targeting_rules?: Array<{
+        conditions: Array<{ attribute: string; operator: string; value: unknown }>;
+        variant: string;
+        percentage_rollout?: number;
+      }>;
+    },
+  ) {
+    const res = await this.request.put(
+      `/api/v1/projects/${projectKey}/flags/${flagKey}/environments/${envKey}`,
+      {
+        data: {
+          enabled: config.enabled,
+          default_variant: config.default_variant,
+          variants: config.variants.map(v => ({ key: v.key, value: v.value })),
+          targeting_rules: config.targeting_rules ?? [],
+        },
+      },
+    );
+    if (!res.ok()) throw new Error(`setFlagEnvConfig failed: ${res.status()} ${await res.text()}`);
+    return (await res.json()) as FlagEnvironmentConfig;
+  }
+
+  // --- Segments ---
+
+  async createSegment(projectKey: string, data: {
+    key: string;
+    name: string;
+    description?: string;
+    conditions: Array<{ attribute: string; operator: string; value: unknown }>;
+  }): Promise<Segment> {
+    const res = await this.request.post(`/api/v1/projects/${projectKey}/segments`, { data });
+    if (!res.ok()) throw new Error(`createSegment failed: ${res.status()} ${await res.text()}`);
+    return (await res.json()) as Segment;
+  }
+
+  async deleteSegment(projectKey: string, segmentKey: string) {
+    const res = await this.request.delete(`/api/v1/projects/${projectKey}/segments/${segmentKey}`);
+    if (!res.ok()) throw new Error(`deleteSegment failed: ${res.status()} ${await res.text()}`);
   }
 
   // --- SDK Key Management ---
