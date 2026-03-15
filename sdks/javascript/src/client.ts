@@ -492,7 +492,7 @@ export class Togglerino {
 
     try {
       const event: { flagKey: string } = JSON.parse(data)
-      this.fetchSingleFlag(event.flagKey)
+      this.fetchSingleFlag(event.flagKey).catch(() => {})
     } catch {
       // Ignore malformed SSE data
     }

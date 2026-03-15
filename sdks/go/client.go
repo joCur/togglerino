@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -170,7 +171,7 @@ func (c *Client) fetchFlags(ctx context.Context) error {
 // a single flag in the local cache. A 404 response is treated as a flag deletion.
 // On success, emits a change event only if the value actually changed.
 func (c *Client) fetchSingleFlag(ctx context.Context, flagKey string) error {
-	url := c.config.serverURL + "/api/v1/evaluate/" + flagKey
+	url := c.config.serverURL + "/api/v1/evaluate/" + url.PathEscape(flagKey)
 
 	c.flagsMu.RLock()
 	evalCtx := c.config.context

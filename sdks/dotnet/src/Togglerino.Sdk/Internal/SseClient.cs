@@ -6,7 +6,7 @@ using Polly.Retry;
 
 namespace Togglerino.Sdk.Internal;
 
-internal readonly record struct SseParsedEvent(string EventType, string FlagKey, JsonElement Value, string Variant);
+internal readonly record struct SseParsedEvent(string EventType, string FlagKey);
 
 internal static class SseParser
 {
@@ -41,10 +41,8 @@ internal static class SseParser
             var root = doc.RootElement;
 
             var flagKey = root.GetProperty("flagKey").GetString()!;
-            var value = root.TryGetProperty("value", out var v) ? v.Clone() : default;
-            var variant = root.TryGetProperty("variant", out var var_) ? var_.GetString() ?? "" : "";
 
-            return new SseParsedEvent(eventType, flagKey, value, variant);
+            return new SseParsedEvent(eventType, flagKey);
         }
         catch
         {

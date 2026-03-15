@@ -885,14 +885,19 @@ func (h *FlagHandler) BulkAction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Deduplicated cache refresh + SSE broadcast for enable/disable
+	// Cache refresh + SSE broadcast for enable/disable
 	if env != nil {
 		if err := h.cache.Refresh(r.Context(), h.pool, projectKey, req.EnvironmentKey); err != nil {
 			slog.Warn("failed to refresh cache after bulk action", "error", err)
 		}
-		h.hub.Broadcast(projectKey, req.EnvironmentKey, stream.Event{
-			Type: "flag_update",
-		})
+		for _, res := range results {
+			if res.Success {
+				h.hub.Broadcast(projectKey, req.EnvironmentKey, stream.Event{
+					Type:    "flag_update",
+					FlagKey: res.FlagKey,
+				})
+			}
+		}
 	}
 
 	// For archive actions, refresh all environments
@@ -905,7 +910,14 @@ func (h *FlagHandler) BulkAction(w http.ResponseWriter, r *http.Request) {
 				if err := h.cache.Refresh(r.Context(), h.pool, projectKey, e.Key); err != nil {
 					slog.Warn("failed to refresh cache", "project", projectKey, "env", e.Key, "error", err)
 				}
-				h.hub.Broadcast(projectKey, e.Key, stream.Event{Type: "flag_update"})
+				for _, res := range results {
+					if res.Success {
+						h.hub.Broadcast(projectKey, e.Key, stream.Event{
+							Type:    "flag_update",
+							FlagKey: res.FlagKey,
+						})
+					}
+				}
 			}
 		}
 	}
