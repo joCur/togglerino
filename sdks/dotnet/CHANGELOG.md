@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/joCur/togglerino/compare/dotnet-sdk-v0.2.1...dotnet-sdk-v0.2.2) (2026-03-15)
+
+
+### Bug Fixes
+
+* SSE events trigger SDK re-fetch instead of caching wrong value ([#142](https://github.com/joCur/togglerino/issues/142)) ([15a45d9](https://github.com/joCur/togglerino/commit/15a45d913fb46378e62a99a92102a2928c85d36e))
+
 ## [0.2.1](https://github.com/joCur/togglerino/compare/dotnet-sdk-v0.2.0...dotnet-sdk-v0.2.1) (2026-03-10)
 
 
