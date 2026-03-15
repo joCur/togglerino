@@ -36,7 +36,7 @@ type CacheRefresher interface {
 
 // EventBroadcaster broadcasts flag update events to connected SDK clients.
 type EventBroadcaster interface {
-	Broadcast(projectKey, envKey string, flagKey string, enabled bool, defaultVariant string)
+	Broadcast(projectKey, envKey, flagKey string)
 }
 
 // AuditRecorder records audit log entries.
@@ -213,7 +213,7 @@ func (c *Checker) postExecute(ctx context.Context, sc model.ScheduledFlagChange,
 				"project", projectKey, "env", envKey, "error", err)
 		}
 		if fkErr == nil {
-			c.broadcaster.Broadcast(projectKey, envKey, flagKey, snapshot.Enabled, snapshot.DefaultVariant)
+			c.broadcaster.Broadcast(projectKey, envKey, flagKey)
 		}
 	}
 

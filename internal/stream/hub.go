@@ -6,8 +6,6 @@ import "sync"
 type Event struct {
 	Type    string `json:"type"`
 	FlagKey string `json:"flagKey"`
-	Value   any    `json:"value"`
-	Variant string `json:"variant"`
 }
 
 // Hub manages SSE subscriptions per project/environment.

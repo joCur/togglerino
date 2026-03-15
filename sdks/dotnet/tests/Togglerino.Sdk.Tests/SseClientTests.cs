@@ -21,7 +21,23 @@ public class SseClientTests
         Assert.NotNull(result);
         Assert.Equal("flag_update", result!.Value.EventType);
         Assert.Equal("dark-mode", result.Value.FlagKey);
-        Assert.Equal("on", result.Value.Variant);
+    }
+
+    [Fact]
+    public void ParseEvent_FlagUpdateWithoutValue()
+    {
+        var lines = new[]
+        {
+            "event: flag_update",
+            """data: {"flagKey":"color"}""",
+            "",
+        };
+
+        var result = Internal.SseParser.ParseEvent(lines);
+
+        Assert.NotNull(result);
+        Assert.Equal("flag_update", result!.Value.EventType);
+        Assert.Equal("color", result.Value.FlagKey);
     }
 
     [Fact]

@@ -6,7 +6,7 @@ using Polly.Retry;
 
 namespace Togglerino.Sdk.Internal;
 
-internal readonly record struct SseParsedEvent(string EventType, string FlagKey, JsonElement Value, string Variant);
+internal readonly record struct SseParsedEvent(string EventType, string FlagKey);
 
 internal static class SseParser
 {
@@ -41,10 +41,8 @@ internal static class SseParser
             var root = doc.RootElement;
 
             var flagKey = root.GetProperty("flagKey").GetString()!;
-            var value = root.TryGetProperty("value", out var v) ? v.Clone() : default;
-            var variant = root.TryGetProperty("variant", out var var_) ? var_.GetString() ?? "" : "";
 
-            return new SseParsedEvent(eventType, flagKey, value, variant);
+            return new SseParsedEvent(eventType, flagKey);
         }
         catch
         {
@@ -90,6 +88,7 @@ internal sealed class SseClient : IDisposable
     private readonly string _sdkKey;
     private readonly FlagStore _store;
     private readonly ILogger _logger;
+    private readonly Func<string, CancellationToken, Task> _onFlagUpdate;
     private readonly ResiliencePipeline _resiliencePipeline;
     private CancellationTokenSource? _cts;
     private Task? _readTask;
@@ -99,13 +98,15 @@ internal sealed class SseClient : IDisposable
         string serverUrl,
         string sdkKey,
         FlagStore store,
-        ILogger logger)
+        ILogger logger,
+        Func<string, CancellationToken, Task> onFlagUpdate)
     {
         _httpClient = httpClient;
         _baseUrl = serverUrl.TrimEnd('/');
         _sdkKey = sdkKey;
         _store = store;
         _logger = logger;
+        _onFlagUpdate = onFlagUpdate;
 
         _resiliencePipeline = new ResiliencePipelineBuilder()
             .AddRetry(new RetryStrategyOptions
@@ -163,13 +164,14 @@ internal sealed class SseClient : IDisposable
             {
                 if (evt.EventType == "flag_update")
                 {
-                    var result = new EvaluationResult
+                    try
                     {
-                        Value = evt.Value,
-                        Variant = evt.Variant,
-                        Reason = "stream",
-                    };
-                    _store.ApplyUpdate(evt.FlagKey, result);
+                        await _onFlagUpdate(evt.FlagKey, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to re-fetch flag {FlagKey} after SSE event", evt.FlagKey);
+                    }
                 }
                 else if (evt.EventType == "flag_deleted")
                 {

@@ -487,6 +487,12 @@ describe('Togglerino', () => {
       },
     })
 
+    // Re-fetch for single flag after SSE event
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ value: true, variant: 'on', reason: 'rule_match' }),
+    })
+
     const client = new Togglerino({
       ...baseConfig,
       streaming: true,
@@ -506,6 +512,107 @@ describe('Togglerino', () => {
       value: true,
       variant: 'on',
     })
+
+    client.close()
+  })
+
+  it('should re-fetch from /evaluate/{flag} on SSE flag_update event', async () => {
+    // Initial fetch
+    mockFetch.mockResolvedValueOnce(
+      evaluateResponse({
+        'color': { value: 'blue', variant: 'default', reason: 'default' },
+      })
+    )
+
+    // Create SSE stream
+    const sseData = 'event: flag_update\ndata: {"flagKey":"color"}\n\n'
+    const encoder = new TextEncoder()
+    let readerDone = false
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => {
+        if (!readerDone) {
+          readerDone = true
+          return Promise.resolve({ done: false, value: encoder.encode(sseData) })
+        }
+        return Promise.resolve({ done: true, value: undefined })
+      }),
+    }
+
+    // SSE connection
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: { getReader: () => mockReader },
+    })
+
+    // Re-fetch response for single flag
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ value: 'red', variant: 'holiday', reason: 'rule_match' }),
+    })
+
+    const client = new Togglerino({ ...baseConfig, streaming: true })
+    const changeFn = vi.fn()
+    client.on('change', changeFn)
+
+    await client.initialize()
+    await new Promise((r) => setTimeout(r, 10))
+
+    // Verify /evaluate/color was called
+    const singleEvalCall = mockFetch.mock.calls.find(
+      ([url]: [string]) => url.includes('/evaluate/color')
+    )
+    expect(singleEvalCall).toBeDefined()
+    expect(singleEvalCall![1].method).toBe('POST')
+
+    // Verify cached value is from re-fetch
+    expect(client.getString('color')).toBe('red')
+
+    // Verify change event with re-fetched value
+    expect(changeFn).toHaveBeenCalledWith({
+      flagKey: 'color',
+      value: 'red',
+      variant: 'holiday',
+    })
+
+    client.close()
+  })
+
+  it('should keep previous value when SSE re-fetch fails', async () => {
+    mockFetch.mockResolvedValueOnce(
+      evaluateResponse({
+        'color': { value: 'blue', variant: 'default', reason: 'default' },
+      })
+    )
+
+    const sseData = 'event: flag_update\ndata: {"flagKey":"color"}\n\n'
+    const encoder = new TextEncoder()
+    let readerDone = false
+    const mockReader = {
+      read: vi.fn().mockImplementation(() => {
+        if (!readerDone) {
+          readerDone = true
+          return Promise.resolve({ done: false, value: encoder.encode(sseData) })
+        }
+        return Promise.resolve({ done: true, value: undefined })
+      }),
+    }
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: { getReader: () => mockReader },
+    })
+
+    // Re-fetch fails
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 })
+
+    const client = new Togglerino({ ...baseConfig, streaming: true })
+    const errorFn = vi.fn()
+    client.on('error', errorFn)
+
+    await client.initialize()
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(client.getString('color')).toBe('blue')
+    expect(errorFn).toHaveBeenCalled()
 
     client.close()
   })
@@ -764,7 +871,7 @@ describe('Togglerino', () => {
           readerDone = true
           return Promise.resolve({
             done: false,
-            value: encoder.encode('event: flag_update\ndata: {"flagKey":"x","value":true,"variant":"on"}\n\n'),
+            value: encoder.encode('event: flag_update\ndata: {"flagKey":"x"}\n\n'),
           })
         }
         // Keep stream open by returning a pending promise
@@ -774,6 +881,11 @@ describe('Togglerino', () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       body: { getReader: () => mockReader },
+    })
+    // Re-fetch for single flag after SSE event
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ value: true, variant: 'on', reason: 'rule_match' }),
     })
 
     await vi.advanceTimersByTimeAsync(1_000)

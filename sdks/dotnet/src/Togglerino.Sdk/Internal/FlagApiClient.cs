@@ -40,6 +40,28 @@ internal sealed class FlagApiClient
         return result?.Flags ?? new Dictionary<string, EvaluationResult>();
     }
 
+    public async Task<EvaluationResult?> FetchSingleAsync(
+        string flagKey,
+        EvaluationContext? context,
+        CancellationToken cancellationToken)
+    {
+        var url = $"{_baseUrl}/api/v1/evaluate/{Uri.EscapeDataString(flagKey)}";
+        var body = new EvaluateRequest { Context = context ?? new EvaluationContext() };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _sdkKey);
+        request.Content = JsonContent.Create(body, options: JsonOptions);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<EvaluationResult>(JsonOptions, cancellationToken);
+    }
+
     private sealed record EvaluateRequest
     {
         [JsonPropertyName("context")]

@@ -88,7 +88,7 @@ func (c *Client) connectSSE(ctx context.Context, onConnected func()) error {
 
 		if line == "" {
 			if data != "" {
-				c.handleSSEEvent(eventType, data)
+				c.handleSSEEvent(ctx, eventType, data)
 			}
 			eventType = ""
 			data = ""
@@ -115,32 +115,16 @@ func (c *Client) connectSSE(ctx context.Context, onConnected func()) error {
 	return scanner.Err()
 }
 
-func (c *Client) handleSSEEvent(eventType, data string) {
+func (c *Client) handleSSEEvent(ctx context.Context, eventType, data string) {
 	switch eventType {
 	case "flag_update":
 		var evt sseEvent
 		if err := json.Unmarshal([]byte(data), &evt); err != nil {
 			return
 		}
-
-		c.flagsMu.Lock()
-		existing := c.flags[evt.FlagKey]
-		reason := "stream_update"
-		if existing != nil {
-			reason = existing.Reason
+		if err := c.fetchSingleFlag(ctx, evt.FlagKey); err != nil {
+			c.config.logger.Warn("failed to re-fetch flag after SSE event", "flag", evt.FlagKey, "error", err)
 		}
-		c.flags[evt.FlagKey] = &EvaluationResult{
-			Value:   evt.Value,
-			Variant: evt.Variant,
-			Reason:  reason,
-		}
-		c.flagsMu.Unlock()
-
-		c.events.emit(eventChange, FlagChangeEvent{
-			FlagKey: evt.FlagKey,
-			Value:   evt.Value,
-			Variant: evt.Variant,
-		})
 
 	case "flag_deleted":
 		var evt sseEvent
