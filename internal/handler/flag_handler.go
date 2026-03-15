@@ -612,6 +612,25 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		req.TargetingRules = json.RawMessage(`[]`)
 	}
 
+	// Boolean flags don't use variants — strip them.
+	if flag.ValueType == model.ValueTypeBoolean {
+		req.Variants = json.RawMessage(`[]`)
+		req.DefaultVariant = ""
+
+		// Validate targeting rule variant values for boolean flags.
+		if req.TargetingRules != nil && string(req.TargetingRules) != "[]" {
+			var rules []model.TargetingRule
+			if err := json.Unmarshal(req.TargetingRules, &rules); err == nil {
+				for _, rule := range rules {
+					if rule.Variant != "true" && rule.Variant != "false" {
+						writeError(w, http.StatusBadRequest, "boolean flag targeting rules must use variant 'true' or 'false'")
+						return
+					}
+				}
+			}
+		}
+	}
+
 	// Fetch old config for audit logging and lock check
 	oldConfig, err := h.flags.GetEnvironmentConfig(r.Context(), flag.ID, env.ID)
 	if err != nil {
