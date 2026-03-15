@@ -41,23 +41,11 @@ export const test = base.extend<Fixtures>({
       baseURL: process.env.E2E_BASE_URL || 'http://localhost:9091',
     });
 
-    // Login with retry on rate limit (429)
-    let loginRes;
-    for (let attempt = 0; attempt < 5; attempt++) {
-      loginRes = await context.post('/api/v1/auth/login', {
-        data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-      });
-      if (loginRes.ok()) break;
-      if (loginRes.status() === 429) {
-        const retryAfter = parseInt(loginRes.headers()['retry-after'] || '10', 10);
-        console.log(`Rate limited on API login, waiting ${retryAfter}s...`);
-        await new Promise(r => setTimeout(r, retryAfter * 1000));
-        continue;
-      }
-      throw new Error(`API login failed: ${loginRes!.status()}`);
-    }
-    if (!loginRes!.ok()) {
-      throw new Error(`API login failed after retries: ${loginRes!.status()}`);
+    const loginRes = await context.post('/api/v1/auth/login', {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    if (!loginRes.ok()) {
+      throw new Error(`API login failed: ${loginRes.status()}`);
     }
 
     const api = new ApiHelper(context);

@@ -23,6 +23,8 @@ type Config struct {
 	// Prometheus metrics
 	MetricsEnabled bool
 	MetricsPort    string
+	// Rate limiting
+	RateLimitDisabled bool
 }
 
 func Load() (*Config, error) {
@@ -45,6 +47,7 @@ func Load() (*Config, error) {
 		BaseURL:                   os.Getenv("BASE_URL"),
 		MetricsEnabled:            envOr("METRICS_ENABLED", "true") == "true",
 		MetricsPort:               os.Getenv("METRICS_PORT"),
+		RateLimitDisabled:         os.Getenv("RATE_LIMIT_DISABLED") == "true",
 	}
 	return cfg, nil
 }

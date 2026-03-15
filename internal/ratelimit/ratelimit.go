@@ -31,6 +31,15 @@ func New(limit, windowSeconds int) *Limiter {
 	}
 }
 
+// NewNoop creates a Limiter that never rejects requests. Use for testing.
+func NewNoop() *Limiter {
+	return &Limiter{
+		entries:       make(map[string]*entry),
+		limit:         1<<31 - 1, // effectively unlimited
+		windowSeconds: 1,
+	}
+}
+
 // Middleware returns an http.Handler that enforces the rate limit before
 // passing the request to next. If the limit is exceeded, it responds with
 // HTTP 429 and a JSON error body.

@@ -22,6 +22,7 @@ services:
       PORT: "8080"
       CORS_ORIGINS: "*"
       LOG_FORMAT: text
+      RATE_LIMIT_DISABLED: "true"
     ports:
       - "9091:8080"
     depends_on:
