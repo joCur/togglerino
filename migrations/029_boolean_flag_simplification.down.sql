@@ -1,0 +1,2 @@
+-- No automated rollback — variants were project-specific and can't be restored.
+-- This is safe since Togglerino is not in production use.

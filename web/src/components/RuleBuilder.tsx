@@ -10,6 +10,7 @@ import RolloutSlider from './RolloutSlider.tsx'
 interface Props {
   rules: TargetingRule[]
   variants: Variant[]
+  valueType: string
   onChange: (rules: TargetingRule[]) => void
   projectKey?: string
 }
@@ -90,7 +91,7 @@ function SegmentPicker({ projectKey, value, onChange }: { projectKey?: string; v
   )
 }
 
-export default function RuleBuilder({ rules, variants, onChange, projectKey }: Props) {
+export default function RuleBuilder({ rules, variants, valueType, onChange, projectKey }: Props) {
   const autocompleteEnabled = useFlag('context-attribute-autocomplete', false)
 
   const updateRule = (index: number, patch: Partial<TargetingRule>) => {
@@ -108,7 +109,7 @@ export default function RuleBuilder({ rules, variants, onChange, projectKey }: P
       ...rules,
       {
         conditions: [{ attribute: '', operator: 'equals', value: '' }],
-        variant: variants.length > 0 ? variants[0].key : '',
+        variant: valueType === 'boolean' ? 'true' : (variants.length > 0 ? variants[0].key : ''),
         percentage_rollout: undefined,
       },
     ])
@@ -144,7 +145,9 @@ export default function RuleBuilder({ rules, variants, onChange, projectKey }: P
     <div className="flex flex-col gap-3.5">
       {rules.length === 0 && (
         <div className="text-xs text-muted-foreground/60 italic">
-          No targeting rules. All users will receive the default variant.
+          {valueType === 'boolean'
+            ? 'No targeting rules. The flag value follows the enabled/disabled toggle.'
+            : 'No targeting rules. All users will receive the default variant.'}
         </div>
       )}
 
@@ -284,8 +287,19 @@ export default function RuleBuilder({ rules, variants, onChange, projectKey }: P
           {/* Serve variant */}
           <div className="flex flex-col gap-1 mb-3">
             <div className="flex flex-col md:flex-row md:items-center gap-2.5">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Serve variant:</span>
-              {variants.length > 0 ? (
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {valueType === 'boolean' ? 'Serve value:' : 'Serve variant:'}
+              </span>
+              {valueType === 'boolean' ? (
+                <select
+                  className="px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
+                  value={rule.variant}
+                  onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}
+                >
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+              ) : variants.length > 0 ? (
                 <select
                   className="px-2.5 py-1.5 text-xs border rounded-md bg-input text-foreground outline-none cursor-pointer"
                   value={rule.variant}
@@ -305,7 +319,9 @@ export default function RuleBuilder({ rules, variants, onChange, projectKey }: P
               )}
             </div>
             <div className="text-[11px] text-muted-foreground/60 italic">
-              The variant returned when this rule matches.
+              {valueType === 'boolean'
+                ? 'The boolean value returned when this rule matches.'
+                : 'The variant returned when this rule matches.'}
             </div>
           </div>
 
