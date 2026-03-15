@@ -35,9 +35,7 @@ func TestEvaluateAll_RecordsMetrics(t *testing.T) {
 			LifecycleStatus: model.LifecycleActive,
 		},
 		Config: model.FlagEnvironmentConfig{
-			Enabled:        true,
-			DefaultVariant: "off",
-			Variants:       []model.Variant{{Key: "off", Value: rawJSON(false)}},
+			Enabled: true,
 		},
 	})
 
@@ -52,8 +50,8 @@ func TestEvaluateAll_RecordsMetrics(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	// Verify evaluation counter was incremented
-	counter, err := reg.EvaluationsTotal.GetMetricWithLabelValues("proj", "dev", "flag-1", "off")
+	// Boolean flags return empty variant
+	counter, err := reg.EvaluationsTotal.GetMetricWithLabelValues("proj", "dev", "flag-1", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,9 +74,7 @@ func TestEvaluateSingle_RecordsMetrics(t *testing.T) {
 			LifecycleStatus: model.LifecycleActive,
 		},
 		Config: model.FlagEnvironmentConfig{
-			Enabled:        true,
-			DefaultVariant: "off",
-			Variants:       []model.Variant{{Key: "off", Value: rawJSON(false)}},
+			Enabled: true,
 		},
 	})
 
@@ -94,7 +90,8 @@ func TestEvaluateSingle_RecordsMetrics(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	counter, err := reg.EvaluationsTotal.GetMetricWithLabelValues("proj", "dev", "my-flag", "off")
+	// Boolean flags return empty variant
+	counter, err := reg.EvaluationsTotal.GetMetricWithLabelValues("proj", "dev", "my-flag", "")
 	if err != nil {
 		t.Fatal(err)
 	}
