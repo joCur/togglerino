@@ -105,28 +105,28 @@ test.describe('Segment Management UI', () => {
     });
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'off',
-      variants: [
-        { key: 'off', value: false },
-        { key: 'on', value: true },
-      ],
+      default_variant: '',
+      variants: [],
       targeting_rules: [
         {
           conditions: [{ attribute: '', operator: 'segment_match', value: segmentKey }],
-          variant: 'on',
+          variant: 'true',
         },
       ],
     });
 
-    // Evaluate
+    // Evaluate — boolean flag: enabled = true, targeting rule serves "true" on match
     const sdkKey = await apiContext.createSDKKey(testProject.key, 'development', 'seg-ui-test');
     const client = new SDKClient(BASE_URL, sdkKey.key);
 
     const vip = await client.evaluateFlag(flagKey, { attributes: { tier: 'vip' } });
     expect(vip.value).toBe(true);
+    expect(vip.reason).toBe('rule_match');
 
+    // Non-matching: enabled boolean default = true
     const regular = await client.evaluateFlag(flagKey, { attributes: { tier: 'free' } });
-    expect(regular.value).toBe(false);
+    expect(regular.value).toBe(true);
+    expect(regular.reason).toBe('default');
 
     // Verify segment shows in UI
     await page.goto(`/projects/${testProject.key}/segments`);

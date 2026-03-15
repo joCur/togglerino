@@ -161,10 +161,10 @@ test.describe('SDK Evaluation', () => {
     expect(devResult.value).toBe(true);
     expect(devResult.reason).toBe('default');
 
-    // Staging should return the flag's default value but with reason "disabled"
-    // (disabled means evaluation is skipped, not that the value is false)
+    // Staging should return false with reason "disabled"
+    // Boolean flags: disabled = false (regardless of default_value)
     const stagingResult = await stagingClient.evaluateFlag(flagKey);
-    expect(stagingResult.value).toBe(true); // default_value is true
+    expect(stagingResult.value).toBe(false);
     expect(stagingResult.reason).toBe('disabled');
   });
 

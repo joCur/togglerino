@@ -112,15 +112,8 @@ test.describe('Flag Management', () => {
       default_value: false,
     });
 
-    // Set up variants via API first
-    await apiContext.setFlagEnvConfig(testProject.key, key, 'development', {
-      enabled: true,
-      default_variant: 'off',
-      variants: [
-        { key: 'off', value: false },
-        { key: 'on', value: true },
-      ],
-    });
+    // Boolean flags: no variants needed — just enable
+    await apiContext.updateFlagEnvConfig(testProject.key, key, 'development', { enabled: true });
 
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
@@ -133,20 +126,19 @@ test.describe('Flag Management', () => {
     // Add a rule
     await page.getByRole('button', { name: '+ Add Rule' }).click();
 
-    // The condition row contains: [attribute combobox] [operator select] [value input]
-    // Find the attribute combobox inside the rule — it has text "e.g. user_id, email, plan"
+    // Set attribute via combobox
     await page.getByText('e.g. user_id, email, plan').click();
     await page.getByPlaceholder('Search or type attribute...').fill('plan');
     await page.getByText('Use "plan"').click();
 
-    // The operator select — select "equals" (it has optgroups)
+    // Set operator to "equals"
     await page.locator('select').filter({ has: page.locator('optgroup') }).first().selectOption('equals');
 
     // Set value
     await page.getByPlaceholder('Value').first().fill('enterprise');
 
-    // Set the serve variant — the variant <select> near "Serve variant:" label
-    await page.locator('text=Serve variant:').locator('..').locator('select').selectOption('on');
+    // For boolean flags, the "Serve value:" dropdown shows true/false instead of variants
+    await page.locator('text=Serve value:').locator('..').locator('select').selectOption('true');
 
     // Save configuration
     await page.getByRole('button', { name: 'Save Configuration' }).click();
@@ -160,8 +152,9 @@ test.describe('Flag Management', () => {
     expect(matched.value).toBe(true);
     expect(matched.reason).toBe('rule_match');
 
+    // Boolean flags: enabled default = true (no rule match still returns true)
     const unmatched = await client.evaluateFlag(key, { attributes: { plan: 'free' } });
-    expect(unmatched.value).toBe(false);
+    expect(unmatched.value).toBe(true);
     expect(unmatched.reason).toBe('default');
   });
 

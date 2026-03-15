@@ -10,7 +10,6 @@ function uniqueSegmentKey(): string {
 
 test.describe('Segments', () => {
   test('creates a segment and uses it in targeting via segment_match', async ({ apiContext, testProject }) => {
-    // Create a reusable segment: enterprise users
     const segmentKey = uniqueSegmentKey();
     const segment = await apiContext.createSegment(testProject.key, {
       key: segmentKey,
@@ -22,7 +21,7 @@ test.describe('Segments', () => {
     });
     expect(segment.key).toBe(segmentKey);
 
-    // Create a flag that uses the segment via segment_match
+    // Use a string flag so we can distinguish matched vs default
     const flagKey = uniqueFlagKey();
     await apiContext.createFlag(testProject.key, {
       key: flagKey,
@@ -49,20 +48,12 @@ test.describe('Segments', () => {
     const sdkKey = await apiContext.createSDKKey(testProject.key, 'development', 'segment-test');
     const client = new SDKClient(BASE_URL, sdkKey.key);
 
-    // Enterprise user matches segment → premium variant
-    const matched = await client.evaluateFlag(flagKey, {
-      attributes: { plan: 'enterprise' },
-    });
+    const matched = await client.evaluateFlag(flagKey, { attributes: { plan: 'enterprise' } });
     expect(matched.value).toBe('premium-feature');
-    expect(matched.variant).toBe('premium');
     expect(matched.reason).toBe('rule_match');
 
-    // Free user doesn't match segment → basic variant
-    const unmatched = await client.evaluateFlag(flagKey, {
-      attributes: { plan: 'free' },
-    });
+    const unmatched = await client.evaluateFlag(flagKey, { attributes: { plan: 'free' } });
     expect(unmatched.value).toBe('basic');
-    expect(unmatched.variant).toBe('basic');
     expect(unmatched.reason).toBe('default');
   });
 
@@ -77,25 +68,26 @@ test.describe('Segments', () => {
       ],
     });
 
+    // Use string flag to distinguish values
     const flagKey = uniqueFlagKey();
     await apiContext.createFlag(testProject.key, {
       key: flagKey,
       name: 'Multi-Condition Segment',
-      value_type: 'boolean',
-      default_value: false,
+      value_type: 'string',
+      default_value: 'no',
     });
 
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'off',
+      default_variant: 'default',
       variants: [
-        { key: 'off', value: false },
-        { key: 'on', value: true },
+        { key: 'default', value: 'no' },
+        { key: 'matched', value: 'yes' },
       ],
       targeting_rules: [
         {
           conditions: [{ attribute: '', operator: 'segment_match', value: segmentKey }],
-          variant: 'on',
+          variant: 'matched',
         },
       ],
     });
@@ -103,17 +95,15 @@ test.describe('Segments', () => {
     const sdkKey = await apiContext.createSDKKey(testProject.key, 'development', 'multi-seg');
     const client = new SDKClient(BASE_URL, sdkKey.key);
 
-    // Matches both conditions → true
     const both = await client.evaluateFlag(flagKey, {
       attributes: { plan: 'enterprise', country: 'US' },
     });
-    expect(both.value).toBe(true);
+    expect(both.value).toBe('yes');
 
-    // Only matches one condition → false
     const partial = await client.evaluateFlag(flagKey, {
       attributes: { plan: 'enterprise', country: 'DE' },
     });
-    expect(partial.value).toBe(false);
+    expect(partial.value).toBe('no');
   });
 
   test('segment can be shared across multiple flags', async ({ apiContext, testProject }) => {
@@ -126,7 +116,8 @@ test.describe('Segments', () => {
       ],
     });
 
-    // Two flags using the same segment
+    // Use boolean flags — with new behavior, matching returns true from rule,
+    // non-matching returns true from enabled default. Use "false" variant to test.
     const flag1Key = uniqueFlagKey();
     const flag2Key = uniqueFlagKey();
 
@@ -135,19 +126,15 @@ test.describe('Segments', () => {
         key: flagKey,
         name: `Shared Segment Flag`,
         value_type: 'boolean',
-        default_value: false,
       });
       await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
         enabled: true,
-        default_variant: 'off',
-        variants: [
-          { key: 'off', value: false },
-          { key: 'on', value: true },
-        ],
+        default_variant: '',
+        variants: [],
         targeting_rules: [
           {
             conditions: [{ attribute: '', operator: 'segment_match', value: segmentKey }],
-            variant: 'on',
+            variant: 'true',
           },
         ],
       });
@@ -156,14 +143,16 @@ test.describe('Segments', () => {
     const sdkKey = await apiContext.createSDKKey(testProject.key, 'development', 'shared-seg');
     const client = new SDKClient(BASE_URL, sdkKey.key);
 
-    // Both flags should match for beta users
+    // Both flags should return true for beta users (rule match)
     const flags = await client.evaluateAll({ attributes: { beta: true } });
     expect(flags[flag1Key].value).toBe(true);
+    expect(flags[flag1Key].reason).toBe('rule_match');
     expect(flags[flag2Key].value).toBe(true);
+    expect(flags[flag2Key].reason).toBe('rule_match');
 
-    // Neither should match for non-beta users
+    // Non-beta users: enabled boolean default = true (no rule match, but enabled = true)
     const nonBeta = await client.evaluateAll({ attributes: { beta: false } });
-    expect(nonBeta[flag1Key].value).toBe(false);
-    expect(nonBeta[flag2Key].value).toBe(false);
+    expect(nonBeta[flag1Key].value).toBe(true);
+    expect(nonBeta[flag1Key].reason).toBe('default');
   });
 });

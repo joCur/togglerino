@@ -92,21 +92,21 @@ test.describe('Targeting Rules', () => {
   });
 
   test('multiple conditions in a rule use AND logic', async ({ apiContext, testProject }) => {
+    // Use a STRING flag for AND logic test (boolean flags always return true when enabled)
     const flagKey = uniqueFlagKey();
     await apiContext.createFlag(testProject.key, {
       key: flagKey,
       name: 'AND Logic Test',
-      value_type: 'boolean',
-      default_value: false,
+      value_type: 'string',
+      default_value: 'default',
     });
 
-    // Rule requires BOTH country=US AND plan=enterprise
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'off',
+      default_variant: 'control',
       variants: [
-        { key: 'off', value: false },
-        { key: 'on', value: true },
+        { key: 'control', value: 'default' },
+        { key: 'matched', value: 'both-matched' },
       ],
       targeting_rules: [
         {
@@ -114,7 +114,7 @@ test.describe('Targeting Rules', () => {
             { attribute: 'country', operator: 'equals', value: 'US' },
             { attribute: 'plan', operator: 'equals', value: 'enterprise' },
           ],
-          variant: 'on',
+          variant: 'matched',
         },
       ],
     });
@@ -122,40 +122,42 @@ test.describe('Targeting Rules', () => {
     const sdkKey = await apiContext.createSDKKey(testProject.key, 'development', 'and-test');
     const client = new SDKClient(BASE_URL, sdkKey.key);
 
-    // Both conditions match → true
+    // Both conditions match → matched variant
     const both = await client.evaluateFlag(flagKey, {
       attributes: { country: 'US', plan: 'enterprise' },
     });
-    expect(both.value).toBe(true);
+    expect(both.value).toBe('both-matched');
+    expect(both.reason).toBe('rule_match');
 
-    // Only one condition matches → false (AND not satisfied)
+    // Only one condition → default variant
     const partial = await client.evaluateFlag(flagKey, {
       attributes: { country: 'US', plan: 'free' },
     });
-    expect(partial.value).toBe(false);
+    expect(partial.value).toBe('default');
     expect(partial.reason).toBe('default');
   });
 
   test('supports in operator for list matching', async ({ apiContext, testProject }) => {
+    // Use string flag so non-matching returns a different value
     const flagKey = uniqueFlagKey();
     await apiContext.createFlag(testProject.key, {
       key: flagKey,
       name: 'In Operator Test',
-      value_type: 'boolean',
-      default_value: false,
+      value_type: 'string',
+      default_value: 'blocked',
     });
 
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'off',
+      default_variant: 'default',
       variants: [
-        { key: 'off', value: false },
-        { key: 'on', value: true },
+        { key: 'default', value: 'blocked' },
+        { key: 'allowed', value: 'allowed' },
       ],
       targeting_rules: [
         {
           conditions: [{ attribute: 'country', operator: 'in', value: ['US', 'CA', 'UK'] }],
-          variant: 'on',
+          variant: 'allowed',
         },
       ],
     });
@@ -163,13 +165,13 @@ test.describe('Targeting Rules', () => {
     const sdkKey = await apiContext.createSDKKey(testProject.key, 'development', 'in-test');
     const client = new SDKClient(BASE_URL, sdkKey.key);
 
-    // Country in list → true
+    // Country in list → allowed
     const matched = await client.evaluateFlag(flagKey, { attributes: { country: 'CA' } });
-    expect(matched.value).toBe(true);
+    expect(matched.value).toBe('allowed');
 
-    // Country not in list → false
+    // Country not in list → blocked
     const unmatched = await client.evaluateFlag(flagKey, { attributes: { country: 'DE' } });
-    expect(unmatched.value).toBe(false);
+    expect(unmatched.value).toBe('blocked');
   });
 
   test('percentage rollout produces stable results', async ({ apiContext, testProject }) => {
@@ -181,18 +183,15 @@ test.describe('Targeting Rules', () => {
       default_value: false,
     });
 
-    // 50% rollout — consistent hashing should give same result for same user
+    // 50% rollout — use "false" variant so rollout users get false, others get true (enabled default)
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'off',
-      variants: [
-        { key: 'off', value: false },
-        { key: 'on', value: true },
-      ],
+      default_variant: '',
+      variants: [],
       targeting_rules: [
         {
           conditions: [{ attribute: 'plan', operator: 'exists', value: '' }],
-          variant: 'on',
+          variant: 'false',
           percentage_rollout: 50,
         },
       ],
