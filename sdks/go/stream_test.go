@@ -12,15 +12,22 @@ import (
 )
 
 func TestSSE_ProcessesFlagUpdate(t *testing.T) {
-	sseData := "event: flag_update\ndata: {\"type\":\"flag_update\",\"flagKey\":\"dark-mode\",\"value\":true,\"variant\":\"on\"}\n\n"
+	sseData := "event: flag_update\ndata: {\"type\":\"flag_update\",\"flagKey\":\"dark-mode\"}\n\n"
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v1/evaluate" {
+		if r.URL.Path == "/api/v1/evaluate" && r.Method == http.MethodPost {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(evaluateResponse{
 				Flags: map[string]*EvaluationResult{
 					"dark-mode": {Value: false, Variant: "off", Reason: "default"},
 				},
+			})
+			return
+		}
+		if r.URL.Path == "/api/v1/evaluate/dark-mode" && r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(EvaluationResult{
+				Value: true, Variant: "on", Reason: "rule_match",
 			})
 			return
 		}
@@ -308,4 +315,65 @@ func TestSSE_EmitsReconnectedOnSuccess(t *testing.T) {
 		t.Fatal("expected reconnected event")
 	}
 	reconnectedMu.Unlock()
+}
+
+func TestSSE_RefetchesFlagOnUpdate(t *testing.T) {
+	var mu sync.Mutex
+	evalCount := 0
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/evaluate" && r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(evaluateResponse{
+				Flags: map[string]*EvaluationResult{
+					"color": {Value: "blue", Variant: "default", Reason: "default"},
+				},
+			})
+			return
+		}
+		if r.URL.Path == "/api/v1/evaluate/color" && r.Method == http.MethodPost {
+			mu.Lock()
+			evalCount++
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(EvaluationResult{
+				Value: "red", Variant: "holiday", Reason: "rule_match",
+			})
+			return
+		}
+		if r.URL.Path == "/api/v1/stream" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			flusher, _ := w.(http.Flusher)
+			fmt.Fprint(w, ": connected\n\n")
+			flusher.Flush()
+			fmt.Fprint(w, "event: flag_update\ndata: {\"type\":\"flag_update\",\"flagKey\":\"color\"}\n\n")
+			flusher.Flush()
+			<-r.Context().Done()
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	client, err := New(context.Background(), Config{
+		ServerURL: ts.URL,
+		SDKKey:    "sdk_test",
+		Streaming: boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer client.Close()
+
+	time.Sleep(500 * time.Millisecond)
+
+	if got := client.StringValue("color", ""); got != "red" {
+		t.Errorf("StringValue after SSE = %q, want %q", got, "red")
+	}
+
+	mu.Lock()
+	if evalCount == 0 {
+		t.Error("expected /evaluate/color to be called")
+	}
+	mu.Unlock()
 }

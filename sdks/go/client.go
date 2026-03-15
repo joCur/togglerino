@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -161,6 +162,78 @@ func (c *Client) fetchFlags(ctx context.Context) error {
 	}
 	for _, evt := range deletedEvents {
 		c.events.emit(eventDeleted, evt)
+	}
+
+	return nil
+}
+
+// fetchSingleFlag performs a POST /api/v1/evaluate/{flagKey} request to refresh
+// a single flag in the local cache. A 404 response is treated as a flag deletion.
+// On success, emits a change event only if the value actually changed.
+func (c *Client) fetchSingleFlag(ctx context.Context, flagKey string) error {
+	url := c.config.serverURL + "/api/v1/evaluate/" + url.PathEscape(flagKey)
+
+	c.flagsMu.RLock()
+	evalCtx := c.config.context
+	attrs := make(map[string]any, len(evalCtx.Attributes))
+	for k, v := range evalCtx.Attributes {
+		attrs[k] = v
+	}
+	c.flagsMu.RUnlock()
+
+	reqBody := evaluateRequest{
+		Context: &evaluateContext{
+			UserID:     evalCtx.UserID,
+			Attributes: attrs,
+		},
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("togglerino: failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("togglerino: failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.config.sdkKey)
+
+	resp, err := c.config.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		c.flagsMu.Lock()
+		delete(c.flags, flagKey)
+		c.flagsMu.Unlock()
+		c.events.emit(eventDeleted, FlagDeletedEvent{FlagKey: flagKey})
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("togglerino: single flag evaluation failed with status %d", resp.StatusCode)
+	}
+
+	var result EvaluationResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("togglerino: failed to decode response: %w", err)
+	}
+
+	c.flagsMu.Lock()
+	old := c.flags[flagKey]
+	c.flags[flagKey] = &result
+	c.flagsMu.Unlock()
+
+	if old == nil || !jsonEqual(old.Value, result.Value) {
+		c.events.emit(eventChange, FlagChangeEvent{
+			FlagKey: flagKey,
+			Value:   result.Value,
+			Variant: result.Variant,
+		})
 	}
 
 	return nil

@@ -289,6 +289,53 @@ export class Togglerino {
     }
   }
 
+  /**
+   * Fetch a single flag from the server evaluation endpoint.
+   * Used to re-evaluate after an SSE change notification.
+   */
+  private async fetchSingleFlag(flagKey: string): Promise<void> {
+    const url = `${this.config.serverUrl}/api/v1/evaluate/${encodeURIComponent(flagKey)}`
+
+    const body = {
+      context: {
+        user_id: this.config.context.userId ?? '',
+        attributes: this.config.context.attributes ?? {},
+      },
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.config.sdkKey}`,
+        },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        throw new Error(
+          `Togglerino: single flag evaluation failed with status ${response.status}`
+        )
+      }
+
+      const result: EvaluationResult = await response.json()
+      const old = this.flags.get(flagKey)
+
+      this.flags.set(flagKey, result)
+
+      if (!old || JSON.stringify(old.value) !== JSON.stringify(result.value)) {
+        this.emit('change', {
+          flagKey,
+          value: result.value,
+          variant: result.variant,
+        } satisfies FlagChangeEvent)
+      }
+    } catch (error) {
+      this.emit('error', error)
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Internal: SSE streaming (fetch-based with ReadableStream)
   // ---------------------------------------------------------------------------
@@ -386,7 +433,7 @@ export class Togglerino {
    * Read and parse SSE events from a ReadableStream.
    * SSE format:
    *   event: flag_update
-   *   data: {"flagKey":"dark-mode","value":true,"variant":"on"}
+   *   data: {"flagKey":"dark-mode"}
    *
    */
   private async processSSEStream(
@@ -444,17 +491,8 @@ export class Togglerino {
     if (eventType !== 'flag_update') return
 
     try {
-      const event: FlagChangeEvent = JSON.parse(data)
-
-      // Update the flag in the local cache
-      const existing = this.flags.get(event.flagKey)
-      this.flags.set(event.flagKey, {
-        value: event.value,
-        variant: event.variant,
-        reason: existing?.reason ?? 'stream_update',
-      })
-
-      this.emit('change', event)
+      const event: { flagKey: string } = JSON.parse(data)
+      this.fetchSingleFlag(event.flagKey).catch(() => {})
     } catch {
       // Ignore malformed SSE data
     }

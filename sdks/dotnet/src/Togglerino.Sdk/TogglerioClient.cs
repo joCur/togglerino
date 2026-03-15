@@ -150,7 +150,19 @@ public sealed class TogglerioClient : IAsyncDisposable, IDisposable
 
     private void StartStreaming()
     {
-        _sseClient = new SseClient(_httpClient, _options.ServerUrl, _options.SdkKey, _store, _logger);
+        _sseClient = new SseClient(_httpClient, _options.ServerUrl, _options.SdkKey, _store, _logger,
+            async (flagKey, ct) =>
+            {
+                var result = await _apiClient.FetchSingleAsync(flagKey, _context, ct);
+                if (result is null)
+                {
+                    _store.ApplyDeletion(flagKey);
+                }
+                else
+                {
+                    _store.ApplyUpdate(flagKey, result);
+                }
+            });
         _sseClient.OnReconnecting += () => _logger.LogWarning("SSE reconnecting");
         _sseClient.OnReconnected += () => _logger.LogInformation("SSE reconnected");
         _sseClient.Start();

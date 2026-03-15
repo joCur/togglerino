@@ -12,7 +12,7 @@ func TestSubscribeAndReceiveBroadcast(t *testing.T) {
 	ch := hub.Subscribe("proj1", "staging")
 	defer hub.Unsubscribe("proj1", "staging", ch)
 
-	event := Event{FlagKey: "dark-mode", Value: true, Variant: "on"}
+	event := Event{FlagKey: "dark-mode", Type: "flag_update"}
 	hub.Broadcast("proj1", "staging", event)
 
 	select {
@@ -20,11 +20,8 @@ func TestSubscribeAndReceiveBroadcast(t *testing.T) {
 		if received.FlagKey != event.FlagKey {
 			t.Errorf("expected FlagKey %q, got %q", event.FlagKey, received.FlagKey)
 		}
-		if received.Value != event.Value {
-			t.Errorf("expected Value %v, got %v", event.Value, received.Value)
-		}
-		if received.Variant != event.Variant {
-			t.Errorf("expected Variant %q, got %q", event.Variant, received.Variant)
+		if received.Type != event.Type {
+			t.Errorf("expected Type %q, got %q", event.Type, received.Type)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for broadcast event")
@@ -56,7 +53,7 @@ func TestBroadcastToEmptyScope(t *testing.T) {
 	hub := NewHub()
 
 	// Should not panic when broadcasting to a scope with no subscribers
-	hub.Broadcast("nonexistent", "env", Event{FlagKey: "test", Value: false, Variant: ""})
+	hub.Broadcast("nonexistent", "env", Event{FlagKey: "test"})
 }
 
 func TestMultipleSubscribersReceiveSameEvent(t *testing.T) {
@@ -77,7 +74,7 @@ func TestMultipleSubscribersReceiveSameEvent(t *testing.T) {
 		t.Fatalf("expected %d subscribers, got %d", numSubscribers, count)
 	}
 
-	event := Event{FlagKey: "feature-x", Value: "blue", Variant: "variant-b"}
+	event := Event{FlagKey: "feature-x", Type: "flag_update"}
 	hub.Broadcast("proj1", "dev", event)
 
 	for i, ch := range channels {
@@ -86,11 +83,8 @@ func TestMultipleSubscribersReceiveSameEvent(t *testing.T) {
 			if received.FlagKey != event.FlagKey {
 				t.Errorf("subscriber %d: expected FlagKey %q, got %q", i, event.FlagKey, received.FlagKey)
 			}
-			if received.Value != event.Value {
-				t.Errorf("subscriber %d: expected Value %v, got %v", i, event.Value, received.Value)
-			}
-			if received.Variant != event.Variant {
-				t.Errorf("subscriber %d: expected Variant %q, got %q", i, event.Variant, received.Variant)
+			if received.Type != event.Type {
+				t.Errorf("subscriber %d: expected Type %q, got %q", i, event.Type, received.Type)
 			}
 		case <-time.After(time.Second):
 			t.Fatalf("subscriber %d: timed out waiting for event", i)
@@ -106,11 +100,11 @@ func TestBroadcastDropsEventWhenChannelFull(t *testing.T) {
 
 	// Fill the channel buffer (capacity 16)
 	for i := 0; i < 16; i++ {
-		hub.Broadcast("proj1", "staging", Event{FlagKey: "flag", Value: i, Variant: ""})
+		hub.Broadcast("proj1", "staging", Event{FlagKey: "flag"})
 	}
 
 	// This broadcast should be dropped (non-blocking) because the channel is full
-	hub.Broadcast("proj1", "staging", Event{FlagKey: "dropped", Value: true, Variant: ""})
+	hub.Broadcast("proj1", "staging", Event{FlagKey: "dropped"})
 
 	// Drain the channel and verify we got 16 events, none with FlagKey "dropped"
 	for i := 0; i < 16; i++ {
@@ -142,7 +136,7 @@ func TestScopesAreIsolated(t *testing.T) {
 	defer hub.Unsubscribe("proj2", "prod", ch2)
 
 	// Broadcast only to proj1:staging
-	hub.Broadcast("proj1", "staging", Event{FlagKey: "flag-a", Value: true, Variant: ""})
+	hub.Broadcast("proj1", "staging", Event{FlagKey: "flag-a", Type: "flag_update"})
 
 	// ch1 should receive the event
 	select {
@@ -186,7 +180,7 @@ func TestConcurrentSubscribeUnsubscribeBroadcast(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < iterations; j++ {
-				hub.Broadcast("proj1", "env1", Event{FlagKey: "flag", Value: j, Variant: ""})
+				hub.Broadcast("proj1", "env1", Event{FlagKey: "flag"})
 			}
 		}()
 	}

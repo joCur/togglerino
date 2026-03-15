@@ -98,12 +98,10 @@ type mockBroadcaster struct {
 
 type broadcast struct {
 	projectKey, envKey, flagKey string
-	enabled                    bool
-	defaultVariant             string
 }
 
-func (m *mockBroadcaster) Broadcast(projectKey, envKey, flagKey string, enabled bool, defaultVariant string) {
-	m.broadcasts = append(m.broadcasts, broadcast{projectKey, envKey, flagKey, enabled, defaultVariant})
+func (m *mockBroadcaster) Broadcast(projectKey, envKey, flagKey string) {
+	m.broadcasts = append(m.broadcasts, broadcast{projectKey, envKey, flagKey})
 }
 
 type mockAudit struct {
@@ -199,7 +197,7 @@ func TestTick_ExecutesDueSchedule(t *testing.T) {
 	if len(bc.broadcasts) != 1 {
 		t.Fatalf("expected 1 broadcast, got %d", len(bc.broadcasts))
 	}
-	if bc.broadcasts[0].flagKey != "my-flag" || bc.broadcasts[0].enabled != true {
+	if bc.broadcasts[0].flagKey != "my-flag" {
 		t.Errorf("unexpected broadcast: %+v", bc.broadcasts[0])
 	}
 	if len(audit.entries) != 1 || audit.entries[0].Action != "schedule_executed" {
