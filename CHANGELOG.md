@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/joCur/togglerino/compare/v1.1.0...v1.2.0) (2026-03-15)
+
+
+### Features
+
+* simplify boolean flag evaluation — toggle is the value ([#140](https://github.com/joCur/togglerino/issues/140)) ([f4729ca](https://github.com/joCur/togglerino/commit/f4729ca592bc232497aa7a00758d32098ee6b95c))
+
+
+### Bug Fixes
+
+* add request body size limit and rate limiter cleanup ([#136](https://github.com/joCur/togglerino/issues/136)) ([e45f8e5](https://github.com/joCur/togglerino/commit/e45f8e51aef66db0a4fa714ceba53ffad5f2dc79))
+* SSE events trigger SDK re-fetch instead of caching wrong value ([#142](https://github.com/joCur/togglerino/issues/142)) ([15a45d9](https://github.com/joCur/togglerino/commit/15a45d913fb46378e62a99a92102a2928c85d36e))
+
 ## [1.1.0](https://github.com/joCur/togglerino/compare/v1.0.0...v1.1.0) (2026-03-14)
 
 
