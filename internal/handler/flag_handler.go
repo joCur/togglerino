@@ -127,6 +127,26 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	envEnabled := projectSettings.ResolveEnvironmentDefaults(envKeys, req.EnvironmentOverrides)
 
+	// Boolean flags don't use variants — strip them from environment overrides.
+	if req.ValueType == model.ValueTypeBoolean {
+		for key, override := range req.EnvironmentOverrides {
+			override.Variants = nil
+			override.DefaultVariant = ""
+			if override.TargetingRules != nil && string(override.TargetingRules) != "[]" {
+				var rules []model.TargetingRule
+				if err := json.Unmarshal(override.TargetingRules, &rules); err == nil {
+					for _, rule := range rules {
+						if rule.Variant != "true" && rule.Variant != "false" {
+							writeError(w, http.StatusBadRequest, "boolean flag targeting rules must use variant 'true' or 'false'")
+							return
+						}
+					}
+				}
+			}
+			req.EnvironmentOverrides[key] = override
+		}
+	}
+
 	flag, err := h.flags.Create(r.Context(), project.ID, req.Key, req.Name, req.Description, req.ValueType, req.FlagType, req.DefaultValue, req.Tags, envEnabled, req.OwnerID, req.EnvironmentOverrides)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique") {
@@ -1190,13 +1210,21 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 		updatedBy = &user.ID
 	}
 
+	// Prepare config values — strip variants for boolean flags.
+	promoteDefaultVariant := sourceConfig.DefaultVariant
+	promoteVariants := marshalJSON(sourceConfig.Variants)
+	if flag.ValueType == model.ValueTypeBoolean {
+		promoteDefaultVariant = ""
+		promoteVariants = json.RawMessage(`[]`)
+	}
+
 	cfg, err := h.flags.UpdateEnvironmentConfig(
 		r.Context(),
 		flag.ID,
 		targetEnv.ID,
 		targetEnabled,
-		sourceConfig.DefaultVariant,
-		marshalJSON(sourceConfig.Variants),
+		promoteDefaultVariant,
+		promoteVariants,
 		marshalJSON(sourceConfig.TargetingRules),
 		updatedBy,
 	)
