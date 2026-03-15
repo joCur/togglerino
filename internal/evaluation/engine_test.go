@@ -24,6 +24,15 @@ func makeFlag(key string, defaultValue any, lifecycleStatus model.LifecycleStatu
 	}
 }
 
+func makeBoolFlag(key string, lifecycleStatus model.LifecycleStatus) *model.Flag {
+	return &model.Flag{
+		Key:             key,
+		ValueType:       model.ValueTypeBoolean,
+		DefaultValue:    rawJSON(false),
+		LifecycleStatus: lifecycleStatus,
+	}
+}
+
 func makeConfig(enabled bool, defaultVariant string, variants []model.Variant, rules []model.TargetingRule) *model.FlagEnvironmentConfig {
 	return &model.FlagEnvironmentConfig{
 		Enabled:        enabled,
@@ -639,6 +648,243 @@ func TestEngine_SegmentMatchCondition(t *testing.T) {
 			t.Errorf("expected 'default' when inline condition fails, got %q", result.Reason)
 		}
 	})
+}
+
+func TestEngine_BooleanFlag_EnabledNoRules(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
+	config := makeConfig(true, "", nil, nil)
+	ctx := &model.EvaluationContext{UserID: "user-1", Attributes: map[string]any{}}
+
+	result := engine.Evaluate(flag, config, ctx)
+
+	if result.Value != true {
+		t.Errorf("expected enabled boolean flag to return true, got %v", result.Value)
+	}
+	if result.Variant != "" {
+		t.Errorf("expected empty variant for boolean flag, got %q", result.Variant)
+	}
+	if result.Reason != "default" {
+		t.Errorf("expected reason 'default', got %q", result.Reason)
+	}
+}
+
+func TestEngine_BooleanFlag_Disabled(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
+	config := makeConfig(false, "", nil, nil)
+	ctx := &model.EvaluationContext{UserID: "user-1", Attributes: map[string]any{}}
+
+	result := engine.Evaluate(flag, config, ctx)
+
+	if result.Value != false {
+		t.Errorf("expected disabled boolean flag to return false, got %v", result.Value)
+	}
+	if result.Variant != "" {
+		t.Errorf("expected empty variant, got %q", result.Variant)
+	}
+	if result.Reason != "disabled" {
+		t.Errorf("expected reason 'disabled', got %q", result.Reason)
+	}
+}
+
+func TestEngine_BooleanFlag_Archived(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("maintenance-mode", model.LifecycleArchived)
+	config := makeConfig(true, "", nil, nil)
+	ctx := &model.EvaluationContext{UserID: "user-1", Attributes: map[string]any{}}
+
+	result := engine.Evaluate(flag, config, ctx)
+
+	if result.Value != false {
+		t.Errorf("expected archived boolean flag to return false, got %v", result.Value)
+	}
+	if result.Reason != "archived" {
+		t.Errorf("expected reason 'archived', got %q", result.Reason)
+	}
+}
+
+func TestEngine_BooleanFlag_TargetingRuleServesTrue(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
+	config := makeConfig(true, "", nil, []model.TargetingRule{
+		{
+			Conditions: []model.Condition{
+				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
+			},
+			Variant: "true",
+		},
+	})
+	ctx := &model.EvaluationContext{
+		UserID:     "user-1",
+		Attributes: map[string]any{"plan": "enterprise"},
+	}
+
+	result := engine.Evaluate(flag, config, ctx)
+
+	if result.Value != true {
+		t.Errorf("expected rule match to return true, got %v", result.Value)
+	}
+	if result.Variant != "" {
+		t.Errorf("expected empty variant for boolean flag, got %q", result.Variant)
+	}
+	if result.Reason != "rule_match" {
+		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
+	}
+}
+
+func TestEngine_BooleanFlag_TargetingRuleServesFalse(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
+	config := makeConfig(true, "", nil, []model.TargetingRule{
+		{
+			Conditions: []model.Condition{
+				{Attribute: "blocked", Operator: "equals", Value: "true"},
+			},
+			Variant: "false",
+		},
+	})
+	ctx := &model.EvaluationContext{
+		UserID:     "user-1",
+		Attributes: map[string]any{"blocked": "true"},
+	}
+
+	result := engine.Evaluate(flag, config, ctx)
+
+	if result.Value != false {
+		t.Errorf("expected rule match serving 'false' to return false, got %v", result.Value)
+	}
+	if result.Reason != "rule_match" {
+		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
+	}
+}
+
+func TestEngine_BooleanFlag_InvalidVariant(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("test-flag", model.LifecycleActive)
+	config := makeConfig(true, "", nil, []model.TargetingRule{
+		{
+			Conditions: []model.Condition{
+				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
+			},
+			Variant: "on",
+		},
+	})
+	ctx := &model.EvaluationContext{
+		UserID:     "user-1",
+		Attributes: map[string]any{"plan": "enterprise"},
+	}
+
+	result := engine.Evaluate(flag, config, ctx)
+
+	if result.Value != false {
+		t.Errorf("expected invalid variant 'on' to evaluate as false, got %v", result.Value)
+	}
+	if result.Reason != "rule_match" {
+		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
+	}
+}
+
+func TestEngine_BooleanFlag_SegmentMatch(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
+	config := makeConfig(true, "", nil, []model.TargetingRule{
+		{
+			Conditions: []model.Condition{
+				{Attribute: "", Operator: "segment_match", Value: "beta-users"},
+			},
+			Variant: "true",
+		},
+	})
+	segments := map[string]model.Segment{
+		"beta-users": {
+			Key: "beta-users",
+			Conditions: []model.Condition{
+				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
+			},
+		},
+	}
+
+	ctx := &model.EvaluationContext{
+		UserID:     "user-1",
+		Attributes: map[string]any{"plan": "enterprise"},
+	}
+	result := engine.EvaluateWithSegments(flag, config, ctx, segments)
+	if result.Value != true {
+		t.Errorf("expected segment match to return true, got %v", result.Value)
+	}
+	if result.Reason != "rule_match" {
+		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
+	}
+}
+
+func TestEngine_BooleanFlag_MultipleRulesFirstMatchWins(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("test-flag", model.LifecycleActive)
+	config := makeConfig(true, "", nil, []model.TargetingRule{
+		{
+			Conditions: []model.Condition{
+				{Attribute: "blocked", Operator: "equals", Value: "true"},
+			},
+			Variant: "false",
+		},
+		{
+			Conditions: []model.Condition{
+				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
+			},
+			Variant: "true",
+		},
+	})
+
+	ctx := &model.EvaluationContext{
+		UserID:     "user-1",
+		Attributes: map[string]any{"blocked": "true", "plan": "enterprise"},
+	}
+	result := engine.Evaluate(flag, config, ctx)
+	if result.Value != false {
+		t.Errorf("expected first-match-wins to return false, got %v", result.Value)
+	}
+}
+
+func TestEngine_BooleanFlag_PercentageRollout(t *testing.T) {
+	engine := NewEngine()
+	// Flag enabled (default true), rule serves "false" to 50% of US users.
+	// gradual-rollout + user-xyz = bucket 28 (in rollout, gets false)
+	// gradual-rollout + user-abc = bucket 89 (outside rollout, gets default true)
+	flag := makeBoolFlag("gradual-rollout", model.LifecycleActive)
+	config := makeConfig(true, "", nil, []model.TargetingRule{
+		{
+			Conditions: []model.Condition{
+				{Attribute: "country", Operator: "equals", Value: "US"},
+			},
+			Variant:           "false",
+			PercentageRollout: intPtr(50),
+		},
+	})
+
+	ctx := &model.EvaluationContext{
+		UserID:     "user-xyz",
+		Attributes: map[string]any{"country": "US"},
+	}
+	result := engine.Evaluate(flag, config, ctx)
+	if result.Value != false {
+		t.Errorf("expected user in rollout to get false (rule match), got %v", result.Value)
+	}
+	if result.Reason != "rule_match" {
+		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
+	}
+
+	ctx2 := &model.EvaluationContext{
+		UserID:     "user-abc",
+		Attributes: map[string]any{"country": "US"},
+	}
+	result2 := engine.Evaluate(flag, config, ctx2)
+	if result2.Value != true {
+		t.Errorf("expected user outside rollout to get true (default), got %v", result2.Value)
+	}
+	if result2.Reason != "default" {
+		t.Errorf("expected reason 'default', got %q", result2.Reason)
+	}
 }
 
 func TestCache_SegmentStorage(t *testing.T) {
