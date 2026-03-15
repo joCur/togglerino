@@ -887,6 +887,51 @@ func TestEngine_BooleanFlag_PercentageRollout(t *testing.T) {
 	}
 }
 
+func TestEngine_BooleanFlag_Trace(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
+	config := makeConfig(true, "", nil, nil)
+	ctx := &model.EvaluationContext{UserID: "user-1", Attributes: map[string]any{}}
+
+	trace := engine.EvaluateWithTrace(flag, config, ctx, nil)
+
+	if trace.Value != true {
+		t.Errorf("expected trace value true for enabled boolean, got %v", trace.Value)
+	}
+	if trace.Variant != "" {
+		t.Errorf("expected empty variant in trace, got %q", trace.Variant)
+	}
+	if trace.Reason != "default" {
+		t.Errorf("expected reason 'default', got %q", trace.Reason)
+	}
+}
+
+func TestEngine_BooleanFlag_Trace_RuleMatch(t *testing.T) {
+	engine := NewEngine()
+	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
+	config := makeConfig(true, "", nil, []model.TargetingRule{
+		{
+			Conditions: []model.Condition{
+				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
+			},
+			Variant: "true",
+		},
+	})
+	ctx := &model.EvaluationContext{
+		UserID:     "user-1",
+		Attributes: map[string]any{"plan": "enterprise"},
+	}
+
+	trace := engine.EvaluateWithTrace(flag, config, ctx, nil)
+
+	if trace.Value != true {
+		t.Errorf("expected trace value true for rule match, got %v", trace.Value)
+	}
+	if trace.Reason != "rule_match" {
+		t.Errorf("expected reason 'rule_match', got %q", trace.Reason)
+	}
+}
+
 func TestCache_SegmentStorage(t *testing.T) {
 	cache := NewCache()
 	segments := map[string]model.Segment{
