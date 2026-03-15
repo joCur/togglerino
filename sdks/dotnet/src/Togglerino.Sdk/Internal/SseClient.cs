@@ -90,6 +90,7 @@ internal sealed class SseClient : IDisposable
     private readonly string _sdkKey;
     private readonly FlagStore _store;
     private readonly ILogger _logger;
+    private readonly Func<string, CancellationToken, Task> _onFlagUpdate;
     private readonly ResiliencePipeline _resiliencePipeline;
     private CancellationTokenSource? _cts;
     private Task? _readTask;
@@ -99,13 +100,15 @@ internal sealed class SseClient : IDisposable
         string serverUrl,
         string sdkKey,
         FlagStore store,
-        ILogger logger)
+        ILogger logger,
+        Func<string, CancellationToken, Task> onFlagUpdate)
     {
         _httpClient = httpClient;
         _baseUrl = serverUrl.TrimEnd('/');
         _sdkKey = sdkKey;
         _store = store;
         _logger = logger;
+        _onFlagUpdate = onFlagUpdate;
 
         _resiliencePipeline = new ResiliencePipelineBuilder()
             .AddRetry(new RetryStrategyOptions
@@ -163,13 +166,14 @@ internal sealed class SseClient : IDisposable
             {
                 if (evt.EventType == "flag_update")
                 {
-                    var result = new EvaluationResult
+                    try
                     {
-                        Value = evt.Value,
-                        Variant = evt.Variant,
-                        Reason = "stream",
-                    };
-                    _store.ApplyUpdate(evt.FlagKey, result);
+                        await _onFlagUpdate(evt.FlagKey, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to re-fetch flag {FlagKey} after SSE event", evt.FlagKey);
+                    }
                 }
                 else if (evt.EventType == "flag_deleted")
                 {
