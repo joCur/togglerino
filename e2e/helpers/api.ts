@@ -210,6 +210,44 @@ export class ApiHelper {
     if (!res.ok()) throw new Error(`deleteSegment failed: ${res.status()} ${await res.text()}`);
   }
 
+  // --- User Management (admin-only) ---
+
+  async inviteUser(email: string, role: 'admin' | 'member' = 'member'): Promise<{ id: string; token: string; expires_at: string }> {
+    const res = await this.request.post('/api/v1/management/users/invite', {
+      data: { email, role },
+    });
+    if (!res.ok()) throw new Error(`inviteUser failed: ${res.status()} ${await res.text()}`);
+    return await res.json();
+  }
+
+  async acceptInvite(token: string, password: string): Promise<{ email: string }> {
+    const res = await this.request.post('/api/v1/auth/accept-invite', {
+      data: { token, password },
+    });
+    if (!res.ok()) throw new Error(`acceptInvite failed: ${res.status()} ${await res.text()}`);
+    return await res.json();
+  }
+
+  async addProjectMember(projectKey: string, data: { email: string; role: string }) {
+    const res = await this.request.post(`/api/v1/projects/${projectKey}/members`, { data });
+    if (!res.ok()) throw new Error(`addProjectMember failed: ${res.status()} ${await res.text()}`);
+    return await res.json();
+  }
+
+  async listProjectMembers(projectKey: string): Promise<Array<{ user_id: string; role: string; email: string }>> {
+    const res = await this.request.get(`/api/v1/projects/${projectKey}/members`);
+    if (!res.ok()) throw new Error(`listProjectMembers failed: ${res.status()} ${await res.text()}`);
+    return await res.json();
+  }
+
+  async updateProjectMemberRole(projectKey: string, userId: string, role: string) {
+    const res = await this.request.put(`/api/v1/projects/${projectKey}/members/${userId}`, {
+      data: { role },
+    });
+    if (!res.ok()) throw new Error(`updateProjectMemberRole failed: ${res.status()} ${await res.text()}`);
+    return await res.json();
+  }
+
   // --- SDK Key Management ---
 
   async createSDKKey(projectKey: string, envKey: string, name: string): Promise<SDKKey> {

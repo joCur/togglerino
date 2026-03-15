@@ -31,7 +31,8 @@ async function truncateDatabase(): Promise<void> {
   try {
     const { rows } = await client.query(`
       SELECT tablename FROM pg_tables
-      WHERE schemaname = 'public' AND tablename != 'schema_migrations'
+      WHERE schemaname = 'public'
+        AND tablename NOT IN ('schema_migrations', 'roles')
     `);
     if (rows.length > 0) {
       const tables = rows.map(r => `"${r.tablename}"`).join(', ');
