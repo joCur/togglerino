@@ -21,6 +21,7 @@ interface Props {
   projectKey: string
   flagKey: string
   envKey: string
+  valueType?: string
   currentConfig: {
     enabled: boolean
     default_variant: string
@@ -36,6 +37,7 @@ export default function ScheduleChangeDialog({
   flagKey,
   envKey,
   currentConfig,
+  valueType,
 }: Props) {
   const queryClient = useQueryClient()
   const [scheduledAt, setScheduledAt] = useState('')
@@ -104,11 +106,13 @@ export default function ScheduleChangeDialog({
               {currentConfig.enabled ? 'true' : 'false'}
             </span>
           </div>
+          {valueType !== 'boolean' && (
           <div className="text-muted-foreground">
             Default variant: <span className="text-[#d4956a]">{currentConfig.default_variant || '—'}</span>
           </div>
+          )}
           <div className="text-muted-foreground">
-            Variants: {currentConfig.variants.length} · Rules: {currentConfig.targeting_rules.length}
+            {valueType !== 'boolean' && <>Variants: {currentConfig.variants.length} · </>}Rules: {currentConfig.targeting_rules.length}
           </div>
         </div>
 

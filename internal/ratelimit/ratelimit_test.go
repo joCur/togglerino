@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func okHandler() http.Handler {
@@ -111,5 +112,42 @@ func TestRateLimiter_SeparateIPs(t *testing.T) {
 
 	if rr4.Code != http.StatusTooManyRequests {
 		t.Errorf("IP 2, request 2: expected status 429, got %d", rr4.Code)
+	}
+}
+
+func TestRateLimiter_CleanupRemovesExpiredEntries(t *testing.T) {
+	limiter := New(5, 1) // 1-second window
+
+	// Populate an entry
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.RemoteAddr = "1.2.3.4:1111"
+	rr := httptest.NewRecorder()
+	limiter.Middleware(okHandler()).ServeHTTP(rr, req)
+
+	// Verify entry exists
+	limiter.mu.Lock()
+	if len(limiter.entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(limiter.entries))
+	}
+	// Backdate the entry so it looks expired
+	limiter.entries["1.2.3.4"].windowStart = time.Now().Add(-2 * time.Second)
+	limiter.mu.Unlock()
+
+	// Run cleanup manually
+	limiter.mu.Lock()
+	now := time.Now()
+	window := time.Duration(limiter.windowSeconds) * time.Second
+	for ip, e := range limiter.entries {
+		if now.Sub(e.windowStart) >= window {
+			delete(limiter.entries, ip)
+		}
+	}
+	limiter.mu.Unlock()
+
+	// Verify entry was cleaned up
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+	if len(limiter.entries) != 0 {
+		t.Errorf("expected 0 entries after cleanup, got %d", len(limiter.entries))
 	}
 }

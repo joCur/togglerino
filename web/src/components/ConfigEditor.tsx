@@ -88,8 +88,8 @@ export default function ConfigEditor({
   const handleSave = () => {
     updateConfig.mutate({
       enabled: config?.enabled ?? false,
-      default_variant: defaultVariant,
-      variants,
+      default_variant: flag.value_type === 'boolean' ? '' : defaultVariant,
+      variants: flag.value_type === 'boolean' ? [] : variants,
       targeting_rules: rules,
     })
   }
@@ -110,13 +110,12 @@ export default function ConfigEditor({
         </div>
       )}
       <div className={readOnly ? 'pointer-events-none opacity-50' : ''}>
-      {/* Default Variant */}
+      {/* Default Variant — hidden for boolean flags */}
+      {flag.value_type !== 'boolean' && (
       <div className="mb-6">
         <div className="text-[13px] font-medium text-foreground mb-1">Default Variant</div>
         <div className="text-xs text-muted-foreground leading-relaxed mb-2.5">
-          {flag.value_type === 'boolean'
-            ? "Served when no targeting rule matches. Typically 'on' or 'off'."
-            : `The ${flag.value_type} value returned when no targeting rule matches.`}
+          {`The ${flag.value_type} value returned when no targeting rule matches.`}
         </div>
         {variants.length > 0 ? (
           <select
@@ -138,8 +137,10 @@ export default function ConfigEditor({
           />
         )}
       </div>
+      )}
 
-      {/* Variants (collapsible) */}
+      {/* Variants (collapsible) — hidden for boolean flags */}
+      {flag.value_type !== 'boolean' && (
       <Collapsible open={variantsOpen} onOpenChange={setVariantsOpen} className="mb-6">
         <CollapsibleTrigger className="flex items-center gap-2 w-full text-left group">
           <ChevronRight className={cn(
@@ -161,6 +162,7 @@ export default function ConfigEditor({
           />
         </CollapsibleContent>
       </Collapsible>
+      )}
 
       {/* Targeting Rules (collapsible) */}
       <Collapsible open={rulesOpen} onOpenChange={setRulesOpen} className="mb-6">
@@ -180,6 +182,7 @@ export default function ConfigEditor({
           <RuleBuilder
             rules={rules}
             variants={variants}
+            valueType={flag.value_type}
             onChange={setRules}
             projectKey={projectKey}
           />
@@ -241,6 +244,7 @@ export default function ConfigEditor({
         projectKey={projectKey}
         flagKey={flagKey}
         envKey={envKey}
+        valueType={flag.value_type}
         currentConfig={{
           enabled: config?.enabled ?? false,
           default_variant: defaultVariant,
