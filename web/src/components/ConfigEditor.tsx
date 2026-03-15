@@ -182,6 +182,7 @@ export default function ConfigEditor({
           <RuleBuilder
             rules={rules}
             variants={variants}
+            valueType={flag.value_type}
             onChange={setRules}
             projectKey={projectKey}
           />
