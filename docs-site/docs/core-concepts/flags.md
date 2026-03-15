@@ -67,16 +67,21 @@ An arbitrary JSON object or array. Use for complex configuration payloads that d
 { "maxRetries": 3, "timeout": 5000, "features": ["search", "export"] }
 ```
 
-## Variants
+## Boolean Flags
 
-Variants are the named value options a flag can return. Every flag has at least one variant.
+Boolean flags have simplified behavior — the enabled/disabled toggle directly controls the returned value:
 
-For a simple boolean flag, you might have two variants:
+- **Enabled** → returns `true`
+- **Disabled** → returns `false`
+- **Archived** → returns `false`
 
-| Variant Key | Value |
-|-------------|-------|
-| `on` | `true` |
-| `off` | `false` |
+No variant configuration is needed. The dashboard hides the variant editor and default variant selector for boolean flags.
+
+If you add targeting rules to a boolean flag, each rule selects either `true` or `false` as the served value. The rule builder shows a simple true/false dropdown instead of a variant picker.
+
+## Variants (String, Number, JSON Flags)
+
+Variants are the named value options that string, number, and JSON flags can return.
 
 For a string flag running an A/B test, you might have:
 
@@ -86,17 +91,15 @@ For a string flag running an A/B test, you might have:
 | `treatment-a` | `"new-ui-dark"` |
 | `treatment-b` | `"new-ui-light"` |
 
-Targeting rules select which variant to serve to each user. When no rule matches or the flag is disabled, the **default variant** is returned.
+Targeting rules select which variant to serve to each user. When no rule matches, the **default variant** is returned. When the flag is disabled, the flag's **default value** is returned as a safe fallback.
 
 ## Default Variant
 
-Each flag's per-environment configuration specifies a default variant. This is the fallback value returned when:
-
-- No targeting rule matches the evaluation context.
-- The flag is disabled in that environment.
-- The flag is archived.
+Each non-boolean flag's per-environment configuration specifies a default variant. This is the fallback value returned when no targeting rule matches the evaluation context.
 
 Setting a sensible default is important — it's what most users will see until you configure targeting rules.
+
+For boolean flags, the default is implicit: `true` when enabled, `false` when disabled.
 
 ## Tags
 
