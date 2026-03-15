@@ -244,6 +244,7 @@ export default function ConfigEditor({
         projectKey={projectKey}
         flagKey={flagKey}
         envKey={envKey}
+        valueType={flag.value_type}
         currentConfig={{
           enabled: config?.enabled ?? false,
           default_variant: defaultVariant,
