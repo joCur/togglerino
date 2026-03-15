@@ -549,8 +549,7 @@ func (h *FlagHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	// Refresh cache and broadcast for all environments
 	h.refreshAllEnvironments(r.Context(), projectKey, project.ID, flagKey, stream.Event{
 		Type:    "flag_update",
-		Value:   updated.LifecycleStatus == model.LifecycleArchived,
-		Variant: "",
+		FlagKey: flagKey,
 	})
 
 	writeJSON(w, http.StatusOK, updated)
@@ -681,8 +680,6 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 	h.hub.Broadcast(projectKey, envKey, stream.Event{
 		Type:    "flag_update",
 		FlagKey: flagKey,
-		Value:   cfg.Enabled,
-		Variant: cfg.DefaultVariant,
 	})
 
 	writeJSON(w, http.StatusOK, cfg)
@@ -1220,8 +1217,6 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 	h.hub.Broadcast(projectKey, targetEnvKey, stream.Event{
 		Type:    "flag_update",
 		FlagKey: flagKey,
-		Value:   cfg.Enabled,
-		Variant: cfg.DefaultVariant,
 	})
 
 	writeJSON(w, http.StatusOK, cfg)

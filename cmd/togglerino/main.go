@@ -557,12 +557,10 @@ type scheduleEventBroadcaster struct {
 	hub *stream.Hub
 }
 
-func (b scheduleEventBroadcaster) Broadcast(projectKey, envKey string, flagKey string, enabled bool, defaultVariant string) {
+func (b scheduleEventBroadcaster) Broadcast(projectKey, envKey, flagKey string) {
 	b.hub.Broadcast(projectKey, envKey, stream.Event{
 		Type:    "flag_update",
 		FlagKey: flagKey,
-		Value:   enabled,
-		Variant: defaultVariant,
 	})
 }
 
