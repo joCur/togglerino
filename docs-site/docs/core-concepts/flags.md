@@ -67,23 +67,25 @@ An arbitrary JSON object or array. Use for complex configuration payloads that d
 { "maxRetries": 3, "timeout": 5000, "features": ["search", "export"] }
 ```
 
-## Boolean Flags
+## Evaluation by Value Type
 
-Boolean flags have simplified behavior — the enabled/disabled toggle directly controls the returned value:
+How a flag evaluates depends on its value type.
+
+### Boolean flags
+
+Boolean flags are controlled by the enabled/disabled toggle:
 
 - **Enabled** → returns `true`
 - **Disabled** → returns `false`
 - **Archived** → returns `false`
 
-No variant configuration is needed. The dashboard hides the variant editor and default variant selector for boolean flags.
+This is all you need for kill switches, feature gates, and operational toggles. No additional configuration required.
 
-If you add targeting rules to a boolean flag, each rule selects either `true` or `false` as the served value. The rule builder shows a simple true/false dropdown instead of a variant picker.
+You can optionally add targeting rules to serve `true` or `false` to specific users. For example, enable a feature only for users in a beta segment while keeping the flag disabled for everyone else.
 
-## Variants (String, Number, JSON Flags)
+### String, number, and JSON flags
 
-Variants are the named value options that string, number, and JSON flags can return.
-
-For a string flag running an A/B test, you might have:
+These value types use **variants** — named value options the flag can return. For example, a string flag running an A/B test might have:
 
 | Variant Key | Value |
 |-------------|-------|
@@ -91,15 +93,9 @@ For a string flag running an A/B test, you might have:
 | `treatment-a` | `"new-ui-dark"` |
 | `treatment-b` | `"new-ui-light"` |
 
-Targeting rules select which variant to serve to each user. When no rule matches, the **default variant** is returned. When the flag is disabled, the flag's **default value** is returned as a safe fallback.
+Each environment configuration specifies a **default variant** — the fallback returned when no targeting rule matches. Targeting rules select which variant to serve to specific users. When the flag is disabled, the flag's **default value** (set at creation time) is returned as a safe fallback.
 
-## Default Variant
-
-Each non-boolean flag's per-environment configuration specifies a default variant. This is the fallback value returned when no targeting rule matches the evaluation context.
-
-Setting a sensible default is important — it's what most users will see until you configure targeting rules.
-
-For boolean flags, the default is implicit: `true` when enabled, `false` when disabled.
+Setting a sensible default variant is important — it's what most users will see until you configure targeting rules.
 
 ## Tags
 
