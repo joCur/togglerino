@@ -248,6 +248,25 @@ export class ApiHelper {
     return await res.json();
   }
 
+  // --- Custom Roles ---
+
+  async createRole(data: { name: string; description: string; permissions: string[] }) {
+    const res = await this.request.post('/api/v1/roles', { data });
+    if (!res.ok()) throw new Error(`createRole failed: ${res.status()} ${await res.text()}`);
+    return await res.json();
+  }
+
+  async deleteRole(name: string) {
+    const res = await this.request.delete(`/api/v1/roles/${name}`);
+    if (!res.ok()) throw new Error(`deleteRole failed: ${res.status()} ${await res.text()}`);
+  }
+
+  async listRoles(): Promise<Array<{ name: string; permissions: string[]; is_built_in: boolean }>> {
+    const res = await this.request.get('/api/v1/roles');
+    if (!res.ok()) throw new Error(`listRoles failed: ${res.status()} ${await res.text()}`);
+    return await res.json();
+  }
+
   // --- SDK Key Management ---
 
   async createSDKKey(projectKey: string, envKey: string, name: string): Promise<SDKKey> {
