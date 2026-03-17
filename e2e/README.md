@@ -19,39 +19,56 @@ npm test
 This will:
 1. Start PostgreSQL + Togglerino in Docker containers (if not already running)
 2. Truncate the database for a clean state
-3. Run all E2E tests
-4. Tear down containers when done (if started by the test runner)
+3. Run all E2E tests (~89 tests in ~1 minute)
+4. Tear down containers when done
 
 ### Running Against a Local Dev Server
 
-If you're already running Togglerino via `dev.sh`:
-
 ```bash
-E2E_BASE_URL=http://localhost:8090 E2E_DATABASE_URL=postgres://togglerino:togglerino@localhost:5432/togglerino npm test
+E2E_BASE_URL=http://localhost:8090 \
+E2E_DATABASE_URL=postgres://togglerino:togglerino@localhost:5432/togglerino \
+npm test
 ```
+
+> **Tip:** The E2E Docker environment disables auth rate limiting (`RATE_LIMIT_DISABLED=true`). Set this on your dev server too if running permission tests locally.
 
 ## Test Structure
 
 ```
 tests/
 ├── setup/           # Playwright setup project (creates admin, saves session)
-│   └── auth.setup   # Runs once before all smoke tests
+│   └── auth.setup
 ├── smoke/           # Critical path tests (serial, ordered by filename)
 │   ├── 01-setup     # Setup flow verification
 │   ├── 02-auth      # Authentication flows
 │   ├── 03-projects  # Project CRUD + default environments
 │   ├── 04-flags     # Flag lifecycle
 │   └── 05-logout    # Logout (runs last)
-└── features/        # Feature-specific tests (parallel, isolated) — Phase 2+
+└── features/        # Feature tests
+    ├── boolean-flags        # Boolean flag evaluation behavior
+    ├── sdk-evaluation       # SDK key + flag evaluation API
+    ├── targeting-rules      # Condition operators, rollouts
+    ├── segments / segments-ui  # Segment CRUD + segment_match
+    ├── sse-streaming        # Real-time notifications
+    ├── flag-management      # Full flag management UI
+    ├── permissions          # Invite, accept, role restrictions
+    ├── custom-roles         # Role CRUD + enforcement
+    ├── environments         # Environment management
+    ├── sdk-keys-ui          # SDK key generation + revocation
+    ├── unknown-flags        # Unknown flag detection + dismissal
+    ├── flag-templates       # Template CRUD + usage
+    ├── lifecycle            # Lifecycle board
+    ├── kill-switches        # Kill switch dashboard
+    ├── playground           # Evaluation playground
+    ├── personal-access-tokens  # PAT create + revoke
+    └── account              # Profile + password management
 ```
 
 ## Writing Tests
 
-Import fixtures from the helpers:
-
 ```typescript
 import { test, expect } from '../../helpers/fixtures.js';
-import { uniqueProjectKey } from '../../helpers/test-data.js';
+import { uniqueFlagKey } from '../../helpers/test-data.js';
 
 test('my test', async ({ authenticatedPage: page, testProject, apiContext }) => {
   // authenticatedPage — pre-logged-in browser
@@ -72,10 +89,3 @@ test('my test', async ({ authenticatedPage: page, testProject, apiContext }) => 
 ## CI
 
 E2E tests run on every PR as the `test-e2e` job in GitHub Actions. On failure, Playwright HTML reports and traces are uploaded as artifacts (retained 7 days).
-
-## Development Workflow
-
-1. **Implement** the feature
-2. **Plan** test scenarios (happy paths, edge cases)
-3. **Explore** manually with Playwright MCP
-4. **Automate** by writing spec files

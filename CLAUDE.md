@@ -81,6 +81,7 @@ Multi-stage Dockerfile: `node:20-alpine` (frontend build) → `golang:1.25-alpin
 - `OIDC_SKIP_EMAIL_VERIFICATION` — Skip `email_verified` claim check for OIDC login (default: `false`)
 - `METRICS_ENABLED` — Enable Prometheus metrics endpoint (default: `true`)
 - `METRICS_PORT` — Serve metrics on a separate port (optional; if unset, served on main port at `GET /metrics`)
+- `RATE_LIMIT_DISABLED` — Disable auth rate limiting (default: `false`; set `true` for E2E tests)
 
 ## Development Workflow
 
