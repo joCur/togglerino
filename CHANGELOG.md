@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/joCur/togglerino/compare/v1.2.0...v1.3.0) (2026-03-17)
+
+
+### Features
+
+* add E2E test automation with Playwright ([#138](https://github.com/joCur/togglerino/issues/138)) ([dfc5ffa](https://github.com/joCur/togglerino/commit/dfc5ffa15d612a7fd4b04d59ffbe2fd9b3f62def))
+* add server-side SDK evaluation with per-request context ([#146](https://github.com/joCur/togglerino/issues/146)) ([0773d8f](https://github.com/joCur/togglerino/commit/0773d8f02b4ce86f68275157af0953316093077a))
+
 ## [1.2.0](https://github.com/joCur/togglerino/compare/v1.1.0...v1.2.0) (2026-03-15)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/joCur/togglerino/compare/sdk-v0.2.2...sdk-v0.3.0) (2026-03-17)
+
+
+### Features
+
+* add server-side SDK evaluation with per-request context ([#146](https://github.com/joCur/togglerino/issues/146)) ([0773d8f](https://github.com/joCur/togglerino/commit/0773d8f02b4ce86f68275157af0953316093077a))
+
 ## [0.2.2](https://github.com/joCur/togglerino/compare/sdk-v0.2.1...sdk-v0.2.2) (2026-03-15)
 
 
