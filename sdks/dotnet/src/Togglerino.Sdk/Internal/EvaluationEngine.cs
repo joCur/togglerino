@@ -261,8 +261,8 @@ internal static class EvaluationEngine
             {
                 JsonValueKind.String => je.GetString() ?? "",
                 JsonValueKind.Number => je.GetRawText(),
-                JsonValueKind.True => "True",
-                JsonValueKind.False => "False",
+                JsonValueKind.True => "true",
+                JsonValueKind.False => "false",
                 JsonValueKind.Null => "",
                 _ => je.GetRawText(),
             };
@@ -319,10 +319,29 @@ internal static class EvaluationEngine
 
     /// <summary>
     /// Checks if the attribute contains the condition value.
-    /// For strings, checks substring containment.
+    /// For arrays/lists, checks if any element matches. For strings, checks substring containment.
     /// </summary>
     private static bool EvalContains(object? attributeValue, string conditionValue)
     {
+        // Check if attribute is an array (JsonElement array or IEnumerable)
+        if (attributeValue is JsonElement je && je.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in je.EnumerateArray())
+            {
+                if (ToString(item) == conditionValue) return true;
+            }
+            return false;
+        }
+
+        if (attributeValue is IEnumerable<object> list)
+        {
+            foreach (var item in list)
+            {
+                if (ToString(item) == conditionValue) return true;
+            }
+            return false;
+        }
+
         return ToString(attributeValue).Contains(conditionValue, StringComparison.Ordinal);
     }
 
