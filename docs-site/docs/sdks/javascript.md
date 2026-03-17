@@ -227,6 +227,36 @@ When you are done with the client, call `close()` to stop SSE streaming or polli
 client.close()
 ```
 
+## Server-Side Usage
+
+For Node.js servers handling multiple users, use `TogglerioServer` from `@togglerino/sdk/server`. It fetches flag definitions once and evaluates them locally — no network call per request.
+
+```typescript
+import { TogglerioServer } from '@togglerino/sdk/server'
+
+const server = new TogglerioServer({
+  serverUrl: 'https://flags.example.com',
+  sdkKey: 'sdk_your_key_here',
+})
+await server.initialize()
+
+// Per-request — pure local evaluation, no network call
+app.get('/api/features', async (req, res) => {
+  const flags = server.evaluate({ userId: req.userId, attributes: { plan: req.userPlan } })
+  res.json({ newCheckout: flags.getBool('new-checkout', false) })
+})
+
+// Shutdown
+process.on('SIGTERM', () => { server.close() })
+```
+
+Key points:
+- `evaluate()` is synchronous — it runs the full targeting and rollout logic in-memory with zero network overhead.
+- Initialize **once** at application startup and reuse the same `TogglerioServer` instance across all requests. Re-initializing per request defeats the purpose and causes unnecessary network traffic.
+- The server subscribes to SSE updates and keeps its flag definitions current automatically.
+
+See [Client vs. Server SDKs](../core-concepts/client-vs-server-sdks) for guidance on when to use each approach.
+
 ## Full Example
 
 ```typescript

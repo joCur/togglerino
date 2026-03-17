@@ -266,6 +266,36 @@ if err != nil {
 defer client.Close()
 ```
 
+## Server-Side Usage
+
+For Go HTTP servers handling multiple users, use `NewServer` instead of `New`. It fetches flag definitions once and evaluates them locally — no network call per request.
+
+```go
+server, err := togglerino.NewServer(ctx, togglerino.ServerConfig{
+    ServerURL: "https://flags.example.com",
+    SDKKey:    "sdk_your_key_here",
+})
+if err != nil { log.Fatal(err) }
+defer server.Close()
+
+// Per-request — pure local evaluation, no network call
+func handler(w http.ResponseWriter, r *http.Request) {
+    flags := server.Evaluate(togglerino.EvaluationContext{
+        UserID: r.Header.Get("X-User-ID"),
+    })
+    if flags.BoolValue("new-checkout", false) {
+        // serve new checkout
+    }
+}
+```
+
+Key points:
+- `Evaluate()` is synchronous and thread-safe — it runs targeting and rollout logic entirely in-memory.
+- Create the server **once** at startup (e.g., in `main`) and share it across goroutines. Calling `NewServer` per request is unnecessary and wasteful.
+- The server subscribes to SSE updates and keeps its flag definitions current automatically.
+
+See [Client vs. Server SDKs](../core-concepts/client-vs-server-sdks) for guidance on when to use each approach.
+
 ## Full Example
 
 ```go
