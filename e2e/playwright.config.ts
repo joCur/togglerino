@@ -30,13 +30,12 @@ export default defineConfig({
       name: 'chromium',
       use: {
         browserName: 'chromium',
-        // Reuse the authenticated session from setup
         storageState: 'test-results/.auth/user.json',
       },
       dependencies: ['setup'],
       testDir: './tests/smoke',
     },
-    // Feature tests: run after smoke tests with pre-authenticated session
+    // Feature tests: run with pre-authenticated session
     {
       name: 'features',
       use: {

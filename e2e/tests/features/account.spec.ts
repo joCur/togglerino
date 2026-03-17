@@ -22,7 +22,6 @@ test.describe('Account Management', () => {
   test('changes password and changes back', async ({ authenticatedPage: page }) => {
     await page.goto('/account');
 
-    // The password inputs are type="password" within the page
     const pwInputs = page.locator('input[type="password"]');
 
     await pwInputs.nth(0).fill(ADMIN_PASSWORD);
