@@ -213,7 +213,13 @@ func main() {
 	sessionAuth := auth.SessionAuth(sessionStore, userStore)
 	sessionOrPATAuth := auth.SessionOrPATAuth(sessionAuth, userStore, patStore)
 	sdkAuth := auth.SDKAuth(sdkKeyStore)
-	authLimiter := ratelimit.New(10, 60) // 10 requests per minute
+	var authLimiter *ratelimit.Limiter
+	if cfg.RateLimitDisabled {
+		authLimiter = ratelimit.NewNoop()
+		slog.Info("rate limiting disabled")
+	} else {
+		authLimiter = ratelimit.New(10, 60) // 10 requests per minute
+	}
 
 	requireOrgUsersManage := auth.RequireOrgPermission(model.PermOrgUsersManage)
 	requireOrgOIDCManage := auth.RequireOrgPermission(model.PermOrgOIDCManage)

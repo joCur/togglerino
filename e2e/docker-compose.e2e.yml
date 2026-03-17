@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: togglerino
+      POSTGRES_PASSWORD: togglerino
+      POSTGRES_DB: togglerino
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U togglerino"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  togglerino:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://togglerino:togglerino@postgres:5432/togglerino?sslmode=disable
+      PORT: "8080"
+      CORS_ORIGINS: "*"
+      LOG_FORMAT: text
+      RATE_LIMIT_DISABLED: "true"
+    ports:
+      - "9091:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
