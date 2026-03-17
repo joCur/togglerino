@@ -176,6 +176,7 @@ func main() {
 	contextAttributeStore := store.NewContextAttributeStore(pool)
 	contextAttributeHandler := handler.NewContextAttributeHandler(contextAttributeStore, projectStore)
 	evaluateHandler := handler.NewEvaluateHandler(cache, engine, unknownFlagStore, contextAttributeStore, metricsReg, evalTracker)
+	definitionsHandler := handler.NewDefinitionsHandler(cache)
 	playgroundHandler := handler.NewPlaygroundHandler(cache, engine)
 	unknownFlagHandler := handler.NewUnknownFlagHandler(unknownFlagStore, projectStore)
 	segmentHandler := handler.NewSegmentHandler(segmentStore, projectStore, environmentStore, auditStore, hub, cache, pool, webhookDispatcher)
@@ -417,6 +418,7 @@ func main() {
 	// --- SDK-authed routes (client API) ---
 	mux.Handle("POST /api/v1/evaluate", wrap(evaluateHandler.EvaluateAll, sdkAuth))
 	mux.Handle("POST /api/v1/evaluate/{flag}", wrap(evaluateHandler.EvaluateSingle, sdkAuth))
+	mux.Handle("GET /api/v1/definitions", wrap(definitionsHandler.Handle, sdkAuth))
 	mux.Handle("GET /api/v1/stream", wrap(streamHandler.Handle, sdkAuth))
 
 	// Metrics endpoint (public, no auth)

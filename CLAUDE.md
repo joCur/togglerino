@@ -223,6 +223,7 @@ TypeScript package (`@togglerino/mcp`) providing an MCP (Model Context Protocol)
 
 - `POST /api/v1/evaluate` — evaluate all flags
 - `POST /api/v1/evaluate/{flag}` — evaluate single flag
+- `GET /api/v1/definitions` — flag definitions + segments for server-side local evaluation
 - `GET /api/v1/stream` — SSE stream of flag updates
 
 ## Key Patterns
@@ -250,6 +251,7 @@ TypeScript package (`@togglerino/mcp`) providing an MCP (Model Context Protocol)
 - **SQL migrations**: Embedded via `migrations/` package using `embed.FS`, run on startup. Tracks versions in `schema_migrations` table, each migration runs in a transaction. Files: `NNN_name.up.sql` / `NNN_name.down.sql` (only `.up.sql` applied automatically)
 - **OIDC SSO**: Single OIDC provider (configurable via admin UI or env vars). Authorization Code Flow with HMAC-signed state/nonce cookies. Three callback outcomes: existing identity → session, email match → password-confirmed account linking, new user → auto-provisioned with configurable default role. Provider config stored in `oidc_providers` table, identity links in `oidc_identities`. `sync.RWMutex`-protected hot-reloadable provider in `OIDCHandler`
 - **Prometheus metrics**: Optional `/metrics` endpoint (enabled by default) exposes evaluation counts, HTTP request stats, SSE connection gauges, cache state, and DB pool health. Uses `prometheus/client_golang`. Metrics middleware normalizes HTTP paths to route patterns via `r.Pattern`. Optional separate listener via `METRICS_PORT`
+- **Server-side SDK evaluation**: SDKs can fetch flag definitions via `GET /api/v1/definitions` and evaluate locally with per-request context. Definitions include full targeting rules, variants, and segments. The evaluation engine is ported identically to TypeScript and C# with shared JSON test fixtures (`testdata/evaluation_cases.json`) ensuring parity across all implementations. Server-side clients: `TogglerioServer` (JS `@togglerino/sdk/server`), `NewServer` (Go), `TogglerioServer` (.NET)
 - **SPA fallback**: Go file server tries static file first, falls back to `index.html` for React Router
 - **Personal Access Tokens**: PATs provide programmatic access to the management API. Token format `pat_<40 hex>`, stored as SHA-256 hash. `SessionOrPATAuth` middleware accepts either session cookie or PAT Bearer token on management routes. PATs inherit the user's full permissions (RBAC, project roles, environment locks). Created/managed via dashboard account page.
 

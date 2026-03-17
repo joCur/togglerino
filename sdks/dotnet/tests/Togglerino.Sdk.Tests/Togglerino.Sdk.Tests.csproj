@@ -19,4 +19,8 @@
     <ProjectReference Include="../../src/Togglerino.Sdk/Togglerino.Sdk.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="../../../../testdata/evaluation_cases.json" Link="testdata/evaluation_cases.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

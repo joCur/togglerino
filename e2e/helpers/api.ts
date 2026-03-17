@@ -364,4 +364,41 @@ export class SDKClient {
     });
     return { status: res.status, body: await res.json() };
   }
+
+  async getDefinitions(): Promise<DefinitionsResponse> {
+    const res = await fetch(`${this.baseURL}/api/v1/definitions`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) throw new Error(`getDefinitions failed: ${res.status} ${await res.text()}`);
+    return (await res.json()) as DefinitionsResponse;
+  }
+
+  async getDefinitionsRaw(): Promise<{ status: number; body: any }> {
+    const res = await fetch(`${this.baseURL}/api/v1/definitions`, {
+      headers: this.headers(),
+    });
+    return { status: res.status, body: res.ok ? await res.json() : null };
+  }
+}
+
+export interface DefinitionsResponse {
+  flags: Array<{
+    key: string;
+    valueType: string;
+    status: string;
+    config: {
+      enabled: boolean;
+      defaultVariant: string;
+      variants: Array<{ key: string; value: unknown }>;
+      targetingRules: Array<{
+        variant: string;
+        percentage: number;
+        conditions: Array<{ attribute: string; operator: string; value: string }>;
+      }>;
+    };
+  }>;
+  segments: Array<{
+    key: string;
+    conditions: Array<{ attribute: string; operator: string; value: string }>;
+  }>;
 }

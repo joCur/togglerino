@@ -230,6 +230,46 @@ using var client = new TogglerioClient(options);
 
 Disposal stops SSE streaming or polling, completes observable sequences, and cleans up resources. If you provided your own `HttpClient`, it will not be disposed.
 
+## Server-Side Usage
+
+For ASP.NET Core applications handling multiple users, use `TogglerioServer` instead of `TogglerioClient`. It fetches flag definitions once and evaluates them locally — no network call per request.
+
+```csharp
+var server = new TogglerioServer(new TogglerioServerOptions {
+    ServerUrl = "https://flags.example.com",
+    SdkKey = "sdk_your_key_here",
+});
+await server.InitializeAsync();
+
+// Per-request — pure local evaluation, no network call
+app.MapGet("/api/features", (HttpContext ctx) => {
+    var flags = server.Evaluate(new EvaluationContext { UserId = ctx.User.Identity?.Name });
+    return Results.Ok(new { NewCheckout = flags.GetBool("new-checkout", false) });
+});
+```
+
+Register `TogglerioServer` as a singleton in your DI container so it is initialized once and shared across all requests:
+
+```csharp
+builder.Services.AddSingleton<TogglerioServer>(sp =>
+{
+    var server = new TogglerioServer(new TogglerioServerOptions
+    {
+        ServerUrl = "https://flags.example.com",
+        SdkKey = "sdk_your_key_here",
+    });
+    server.InitializeAsync().GetAwaiter().GetResult();
+    return server;
+});
+```
+
+Key points:
+- `Evaluate()` is synchronous — it runs targeting and rollout logic entirely in-memory with zero network overhead.
+- Register as a **singleton** so it is initialized once and reused across all requests. Instantiating per request defeats the purpose and causes unnecessary network traffic.
+- The server subscribes to SSE updates and keeps its flag definitions current automatically.
+
+See [Client vs. Server SDKs](../core-concepts/client-vs-server-sdks) for guidance on when to use each approach.
+
 ## Full Example
 
 ```csharp

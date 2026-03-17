@@ -1,0 +1,988 @@
+[
+  {
+    "name": "archived flag returns default",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "archived",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": []
+      }
+    },
+    "segments": [],
+    "context": { "userId": "", "attributes": {} },
+    "expected": { "value": false, "variant": "", "reason": "archived" }
+  },
+  {
+    "name": "disabled flag returns default",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": false,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": []
+      }
+    },
+    "segments": [],
+    "context": { "userId": "", "attributes": {} },
+    "expected": { "value": false, "variant": "", "reason": "disabled" }
+  },
+  {
+    "name": "archived string flag returns default with empty variant",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "string",
+      "status": "archived",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "default",
+        "variants": [
+          { "key": "default", "value": "off" },
+          { "key": "on-variant", "value": "on" }
+        ],
+        "targetingRules": []
+      }
+    },
+    "segments": [],
+    "context": { "userId": "", "attributes": {} },
+    "expected": { "value": "off", "variant": "", "reason": "archived" }
+  },
+  {
+    "name": "disabled string flag returns default with empty variant",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "string",
+      "status": "active",
+      "config": {
+        "enabled": false,
+        "defaultVariant": "default",
+        "variants": [
+          { "key": "default", "value": "off" },
+          { "key": "on-variant", "value": "on" }
+        ],
+        "targetingRules": []
+      }
+    },
+    "segments": [],
+    "context": { "userId": "", "attributes": {} },
+    "expected": { "value": "off", "variant": "", "reason": "disabled" }
+  },
+  {
+    "name": "enabled boolean flag with no rules returns true (boolean default)",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": []
+      }
+    },
+    "segments": [],
+    "context": { "userId": "", "attributes": {} },
+    "expected": { "value": true, "variant": "", "reason": "default" }
+  },
+  {
+    "name": "equals operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "string",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "default",
+        "variants": [
+          { "key": "default", "value": "off" },
+          { "key": "pro-variant", "value": "pro-features" }
+        ],
+        "targetingRules": [
+          {
+            "variant": "pro-variant",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "equals", "value": "pro" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "plan": "pro" } },
+    "expected": { "value": "pro-features", "variant": "pro-variant", "reason": "rule_match" }
+  },
+  {
+    "name": "equals operator does not match",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "string",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "default",
+        "variants": [
+          { "key": "default", "value": "off" },
+          { "key": "pro-variant", "value": "pro-features" }
+        ],
+        "targetingRules": [
+          {
+            "variant": "pro-variant",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "equals", "value": "pro" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "plan": "free" } },
+    "expected": { "value": "off", "variant": "default", "reason": "default" }
+  },
+  {
+    "name": "not_equals operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "not_equals", "value": "free" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "plan": "pro" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "contains operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "email", "operator": "contains", "value": "@example.com" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "email": "alice@example.com" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "not_contains operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "email", "operator": "not_contains", "value": "@spam.com" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "email": "alice@example.com" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "starts_with operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "country", "operator": "starts_with", "value": "US" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "country": "US-CA" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "ends_with operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "email", "operator": "ends_with", "value": ".com" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "email": "alice@example.com" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "greater_than operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "age", "operator": "greater_than", "value": "18" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "age": 25 } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "greater_than operator does not match",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "age", "operator": "greater_than", "value": "18" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "age": 16 } },
+    "expected": { "value": true, "variant": "", "reason": "default" }
+  },
+  {
+    "name": "less_than operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "age", "operator": "less_than", "value": "18" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "age": 12 } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "gte operator matches at boundary",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "age", "operator": "gte", "value": "18" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "age": 18 } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "lte operator matches at boundary",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "age", "operator": "lte", "value": "18" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "age": 18 } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "in operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "country", "operator": "in", "value": "[\"US\",\"CA\",\"GB\"]" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "country": "CA" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "in operator does not match",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "country", "operator": "in", "value": "[\"US\",\"CA\",\"GB\"]" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "country": "DE" } },
+    "expected": { "value": true, "variant": "", "reason": "default" }
+  },
+  {
+    "name": "not_in operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "country", "operator": "not_in", "value": "[\"US\",\"CA\"]" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "country": "DE" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "exists operator matches when attribute present",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "beta", "operator": "exists", "value": "" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "beta": "true" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "exists operator fails when attribute missing",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "beta", "operator": "exists", "value": "" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": {} },
+    "expected": { "value": true, "variant": "", "reason": "default" }
+  },
+  {
+    "name": "not_exists operator matches when attribute missing",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "beta", "operator": "not_exists", "value": "" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": {} },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "matches operator with regex",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "email", "operator": "matches", "value": "^.*@example\\.com$" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "email": "alice@example.com" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "percentage rollout includes user in bucket",
+    "flag": {
+      "key": "rollout-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": []
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": {} },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "percentage rollout 0 excludes everyone",
+    "flag": {
+      "key": "rollout-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 0,
+            "conditions": []
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": {} },
+    "expected": { "value": true, "variant": "", "reason": "default" }
+  },
+  {
+    "name": "consistent hash is deterministic",
+    "flag": {
+      "key": "hash-test",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 50,
+            "conditions": []
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-42", "attributes": {} },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "multiple conditions all must match (AND logic)",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "equals", "value": "pro" },
+              { "attribute": "country", "operator": "equals", "value": "US" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "plan": "pro", "country": "US" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "multiple conditions fails if one does not match",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "equals", "value": "pro" },
+              { "attribute": "country", "operator": "equals", "value": "US" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "plan": "pro", "country": "DE" } },
+    "expected": { "value": true, "variant": "", "reason": "default" }
+  },
+  {
+    "name": "first matching rule wins",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "string",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "default",
+        "variants": [
+          { "key": "default", "value": "none" },
+          { "key": "rule1", "value": "first" },
+          { "key": "rule2", "value": "second" }
+        ],
+        "targetingRules": [
+          {
+            "variant": "rule1",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "equals", "value": "pro" }
+            ]
+          },
+          {
+            "variant": "rule2",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "not_equals", "value": "free" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "plan": "pro" } },
+    "expected": { "value": "first", "variant": "rule1", "reason": "rule_match" }
+  },
+  {
+    "name": "segment_match operator matches",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "", "operator": "segment_match", "value": "beta-users" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [
+      {
+        "key": "beta-users",
+        "conditions": [
+          { "attribute": "beta", "operator": "equals", "value": "true" }
+        ]
+      }
+    ],
+    "context": { "userId": "user-1", "attributes": { "beta": "true" } },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  },
+  {
+    "name": "segment_match does not match when segment conditions fail",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "", "operator": "segment_match", "value": "beta-users" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [
+      {
+        "key": "beta-users",
+        "conditions": [
+          { "attribute": "beta", "operator": "equals", "value": "true" }
+        ]
+      }
+    ],
+    "context": { "userId": "user-1", "attributes": { "beta": "false" } },
+    "expected": { "value": true, "variant": "", "reason": "default" }
+  },
+  {
+    "name": "segment_match with unknown segment does not match",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "", "operator": "segment_match", "value": "nonexistent" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": {} },
+    "expected": { "value": true, "variant": "", "reason": "default" }
+  },
+  {
+    "name": "number value type returns number",
+    "flag": {
+      "key": "rate-limit",
+      "valueType": "number",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "standard",
+        "variants": [
+          { "key": "standard", "value": 100 },
+          { "key": "premium", "value": 1000 }
+        ],
+        "targetingRules": [
+          {
+            "variant": "premium",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "equals", "value": "enterprise" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "plan": "enterprise" } },
+    "expected": { "value": 1000, "variant": "premium", "reason": "rule_match" }
+  },
+  {
+    "name": "json value type returns object",
+    "flag": {
+      "key": "config-flag",
+      "valueType": "json",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "default",
+        "variants": [
+          { "key": "default", "value": { "columns": 2 } },
+          { "key": "wide", "value": { "columns": 4 } }
+        ],
+        "targetingRules": [
+          {
+            "variant": "wide",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "plan", "operator": "equals", "value": "pro" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": { "plan": "pro" } },
+    "expected": { "value": { "columns": 4 }, "variant": "wide", "reason": "rule_match" }
+  },
+  {
+    "name": "userId is used for targeting via user_id attribute",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "defaultVariant": "false",
+        "variants": [
+          { "key": "true", "value": true },
+          { "key": "false", "value": false }
+        ],
+        "targetingRules": [
+          {
+            "variant": "true",
+            "percentage": 100,
+            "conditions": [
+              { "attribute": "user_id", "operator": "equals", "value": "user-42" }
+            ]
+          }
+        ]
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-42", "attributes": {} },
+    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+  }
+]
