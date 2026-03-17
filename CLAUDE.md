@@ -46,6 +46,16 @@ cd mcp && npm install && npm run build     # Build MCP server
 cd mcp && npm test                         # Run MCP server tests
 ```
 
+### E2E Tests
+
+```bash
+cd e2e && npm install && npm test          # Run E2E tests (starts Docker containers)
+cd e2e && npm run test:ui                  # Playwright UI mode
+cd e2e && npm run test:headed              # Run with visible browser
+```
+
+E2E tests use Playwright against the full stack (React + Go + Postgres). They auto-start Docker containers if no server is detected. To run against a local dev server: `E2E_BASE_URL=http://localhost:8090 E2E_DATABASE_URL=postgres://togglerino:togglerino@localhost:5432/togglerino npm test`. See `e2e/CLAUDE.md` for test writing conventions.
+
 ### Docker
 
 ```bash
@@ -71,6 +81,7 @@ Multi-stage Dockerfile: `node:20-alpine` (frontend build) → `golang:1.25-alpin
 - `OIDC_SKIP_EMAIL_VERIFICATION` — Skip `email_verified` claim check for OIDC login (default: `false`)
 - `METRICS_ENABLED` — Enable Prometheus metrics endpoint (default: `true`)
 - `METRICS_PORT` — Serve metrics on a separate port (optional; if unset, served on main port at `GET /metrics`)
+- `RATE_LIMIT_DISABLED` — Disable auth rate limiting (default: `false`; set `true` for E2E tests)
 
 ## Development Workflow
 
@@ -250,9 +261,11 @@ PostgreSQL 16. Core tables: `users`, `sessions`, `projects`, `environments`, `fl
 
 Go tests require a running PostgreSQL instance. Tests use `testPool()` helper that reads `DATABASE_URL` (falls back to default local connection). Run `docker compose up` to get a local database before running `go test ./...`.
 
+E2E tests (`e2e/`) use Playwright to test the full stack via browser and API. They auto-start Docker containers (Postgres + Togglerino) or can run against an existing dev server. See `e2e/CLAUDE.md` for test writing conventions and `e2e/README.md` for setup.
+
 ## CI/CD
 
-- **`.github/workflows/ci.yml`**: Seven jobs — `test-go` (postgres service container, builds frontend for `go:embed`, runs `go test`), `test-sdks` (JS + React SDK tests), `test-dotnet-sdk` (.NET SDK tests), `test-go-sdk` (Go SDK tests), `test-mcp` (MCP server tests), `lint-frontend` (`npm run lint`), `build` (gates on all six, full binary build). Runs on push/PR to `main`.
+- **`.github/workflows/ci.yml`**: Eight jobs — `test-go` (postgres service container, builds frontend for `go:embed`, runs `go test`), `test-sdks` (JS + React SDK tests), `test-dotnet-sdk` (.NET SDK tests), `test-go-sdk` (Go SDK tests), `test-mcp` (MCP server tests), `lint-frontend` (`npm run lint`), `test-e2e` (Playwright E2E against Docker-composed full stack), `build` (gates on all seven + build-docs, full binary build). Runs on push/PR to `main`.
 - **`.github/workflows/release.yml`**: Uses `release-please-action@v4` (`release-type: simple`). On release, builds and pushes Docker image to **ghcr.io** with semver + `latest` tags. Changelog auto-generated from Conventional Commits.
 
 ## Documentation Site
