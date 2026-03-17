@@ -1,6 +1,7 @@
 import { test, expect } from '../../helpers/fixtures.js';
 import { SDKClient } from '../../helpers/api.js';
 import { uniqueFlagKey } from '../../helpers/test-data.js';
+import type { Page } from '@playwright/test';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:9091';
 
@@ -8,16 +9,14 @@ const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:9091';
  * Helper: expand an environment collapsible section on the flag detail page.
  * The collapsible trigger contains the env name + Lock/Promote/ON|OFF text.
  */
-async function expandEnvSection(page: any, envName: string) {
-  // Find the collapsible trigger button that contains this environment name
+async function expandEnvSection(page: Page, envName: string) {
   const trigger = page.locator('[data-slot="collapsible-trigger"]').filter({ hasText: envName }).first();
-  // Check if already expanded
   const expanded = await trigger.getAttribute('aria-expanded');
   if (expanded !== 'true') {
     await trigger.click();
+    // Wait for collapsible content to render
+    await expect(page.getByText('Configuration:')).toBeVisible();
   }
-  // Wait for content to be visible
-  await page.waitForTimeout(200);
 }
 
 test.describe('Flag Management', () => {

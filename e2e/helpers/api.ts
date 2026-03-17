@@ -248,6 +248,14 @@ export class ApiHelper {
     return await res.json();
   }
 
+  // --- Lifecycle ---
+
+  async getLifecycleSummary(projectKey: string): Promise<{ active: number; potentially_stale: number; stale: number; archived: number }> {
+    const res = await this.request.get(`/api/v1/projects/${projectKey}/lifecycle/summary`);
+    if (!res.ok()) throw new Error(`getLifecycleSummary failed: ${res.status()} ${await res.text()}`);
+    return await res.json();
+  }
+
   // --- Custom Roles ---
 
   async createRole(data: { name: string; description: string; permissions: string[] }) {

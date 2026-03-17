@@ -1,9 +1,9 @@
-import { test as base, type Page } from '@playwright/test';
+import { test as base, type Page, type APIRequestContext } from '@playwright/test';
 import { ApiHelper, type Project } from './api.js';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, uniqueProjectKey } from './test-data.js';
 
 /** Shared API context to avoid multiple logins (rate limit: 10 req/60s). */
-let sharedApiContext: { context: any; api: ApiHelper } | null = null;
+let sharedApiContext: { context: APIRequestContext; api: ApiHelper } | null = null;
 
 type Fixtures = {
   authenticatedPage: Page;

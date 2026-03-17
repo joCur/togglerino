@@ -32,9 +32,7 @@ test.describe('Flag Lifecycle Board', () => {
     await apiContext.archiveFlag(testProject.key, archivedKey, true);
 
     // Verify via lifecycle API
-    const res = await apiContext.request.get(`/api/v1/projects/${testProject.key}/lifecycle/summary`);
-    expect(res.ok()).toBeTruthy();
-    const summary = await res.json();
+    const summary = await apiContext.getLifecycleSummary(testProject.key);
     expect(summary.active).toBeGreaterThanOrEqual(1);
     expect(summary.archived).toBeGreaterThanOrEqual(1);
   });

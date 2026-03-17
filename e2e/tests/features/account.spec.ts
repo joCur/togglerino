@@ -22,9 +22,6 @@ test.describe('Account Management', () => {
   test('changes password and changes back', async ({ authenticatedPage: page }) => {
     await page.goto('/account');
 
-    // Find the Change Password section
-    const pwSection = page.locator('text=Change Password').locator('..');
-
     // The password inputs are type="password" within the page
     const pwInputs = page.locator('input[type="password"]');
 
