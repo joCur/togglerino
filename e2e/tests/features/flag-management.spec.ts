@@ -61,8 +61,8 @@ test.describe('Flag Management', () => {
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
     // Variants are flag-level, shown above environment tabs as VariantChips.
-    // Click the "+ Add" button to open the add popover.
-    await page.getByRole('button', { name: 'Add' }).click();
+    // Click the "+ Add" chip button (the dashed pill-shaped button near the variant chips).
+    await page.locator('button:has-text("Add"):not(:has-text("Add rule"))').first().click();
 
     // Fill in the variant name and value in the popover
     await page.getByPlaceholder('variant-name').fill('treatment');
@@ -189,10 +189,11 @@ test.describe('Flag Management', () => {
     const stagingEnv = envs.find((e: any) => e.key === 'staging');
     expect(stagingEnv).toBeDefined();
 
-    const { environment_configs } = await apiContext.getFlag(testProject.key, key);
+    const { flag, environment_configs } = await apiContext.getFlag(testProject.key, key);
     const stagingConfig = environment_configs.find((c: any) => c.environment_id === stagingEnv!.id);
     expect(stagingConfig).toBeDefined();
-    expect(stagingConfig!.variants?.length).toBe(2);
+    // Variants are flag-level (not per-environment), so check on the flag
+    expect(flag.variants?.length).toBe(2);
     expect(stagingConfig!.targeting_rules?.length).toBe(1);
   });
 
