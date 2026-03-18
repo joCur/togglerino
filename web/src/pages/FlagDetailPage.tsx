@@ -567,7 +567,7 @@ export default function FlagDetailPage() {
                   projectKey={key!}
                   flagKey={flagKey!}
                   allConfigs={data.environment_configs}
-                  environments={environments}
+                  environments={environments ?? []}
                   variants={flag.variants ?? []}
                   readOnly={!envWritable || !!config?.locked}
                 />

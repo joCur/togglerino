@@ -278,7 +278,7 @@ export default function ConfigEditor({
               if (!sourceEnv) return
               const sourceConfig = allConfigs.find((c) => c.environment_id === sourceEnv.id)
               if (!sourceConfig) return
-              setVariants(structuredClone(sourceConfig.variants ?? []))
+              setVariants(structuredClone(flag?.variants ?? []))
               setRules(structuredClone(sourceConfig.targeting_rules ?? []))
               setDefaultVariant(sourceConfig.fallthrough_variant ?? '')
               setCopySourceEnv(null)

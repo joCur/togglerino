@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { compareFlag } from '@/lib/flag-diff'
-import type { FieldDiff, VariantDiff } from '@/lib/flag-diff'
+import type { FieldDiff } from '@/lib/flag-diff'
 import type { Environment, FlagEnvironmentConfig, TargetingRule } from '@/api/types'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
@@ -95,12 +95,12 @@ export default function CompareTab({ environments, environmentConfigs }: Compare
   const allMatch =
     comparison.enabled.status === 'match' &&
     comparison.fallthroughVariant.status === 'match' &&
-    comparison.variants.status === 'match' &&
+    comparison.offVariant.status === 'match' &&
     comparison.rules.status === 'match'
 
   const gridCols = `160px repeat(${sortedEnvs.length}, minmax(0, 1fr))`
 
-  function shouldShow(field: FieldDiff | VariantDiff) {
+  function shouldShow(field: FieldDiff) {
     return !showDiffsOnly || field.status === 'differs'
   }
 

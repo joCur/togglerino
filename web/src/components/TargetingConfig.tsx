@@ -306,7 +306,6 @@ export default function TargetingConfig({
               if (!sourceEnv) return
               const sourceConfig = allConfigs.find((c) => c.environment_id === sourceEnv.id)
               if (!sourceConfig) return
-              setVariants(structuredClone(sourceConfig.variants ?? []))
               setRules(structuredClone(sourceConfig.targeting_rules ?? []))
               setFallthroughVariant(sourceConfig.fallthrough_variant ?? '')
               setOffVariant(sourceConfig.off_variant ?? '')

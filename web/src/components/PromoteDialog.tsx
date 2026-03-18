@@ -64,8 +64,8 @@ export default function PromoteDialog({
 }: PromoteDialogProps) {
   const sourceDefault = sourceConfig?.fallthrough_variant ?? 'none'
   const targetDefault = targetConfig?.fallthrough_variant ?? 'none'
-  const sourceVariants = formatValue(sourceConfig?.variants ?? [])
-  const targetVariants = formatValue(targetConfig?.variants ?? [])
+  const sourceVariants = '(flag-level)'
+  const targetVariants = '(flag-level)'
   const sourceRules = formatValue(sourceConfig?.targeting_rules ?? [])
   const targetRules = formatValue(targetConfig?.targeting_rules ?? [])
 
