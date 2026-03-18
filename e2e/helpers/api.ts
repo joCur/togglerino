@@ -402,11 +402,12 @@ export interface DefinitionsResponse {
     key: string;
     valueType: string;
     status: string;
+    defaultValue: unknown;
+    variants: Array<{ name: string; value: unknown }>;
     config: {
       enabled: boolean;
       fallthroughVariant: string;
       offVariant: string;
-      variants: Array<{ name: string; value: unknown }>;
       targetingRules: Array<{
         variant: string;
         percentage: number;

@@ -80,7 +80,7 @@ export default function VariantEditor({ variants, valueType, onChange }: Props) 
         <div key={i} className="flex flex-col md:flex-row md:items-center gap-2">
           <Input
             className="w-full md:flex-none md:w-[110px] font-mono text-xs"
-            placeholder="Key"
+            placeholder="Name"
             value={v.name}
             onChange={(e) => updateKey(i, e.target.value)}
           />

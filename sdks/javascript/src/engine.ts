@@ -30,10 +30,10 @@ export function evaluate(
 
   const config = flag.config
 
-  // 1. If flag is archived, return fallthrough variant value with reason "archived".
+  // 1. If flag is archived, return default value with reason "archived".
   if (flag.status === 'archived') {
     return {
-      value: lookupVariantValue(flag.variants, config.fallthroughVariant, flag.defaultValue),
+      value: flag.defaultValue,
       variant: '',
       reason: 'archived',
     }

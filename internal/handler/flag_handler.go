@@ -358,6 +358,52 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Update variants if provided.
 	if req.Variants != nil && string(req.Variants) != "null" && string(req.Variants) != "[]" {
+		var variants []model.Variant
+		if err := json.Unmarshal(req.Variants, &variants); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid variants")
+			return
+		}
+
+		// Validate minimum two variants.
+		if len(variants) < 2 {
+			writeError(w, http.StatusBadRequest, "at least two variants are required")
+			return
+		}
+
+		// Validate unique variant names.
+		seen := make(map[string]bool, len(variants))
+		for _, v := range variants {
+			if seen[v.Name] {
+				writeError(w, http.StatusBadRequest, "variant names must be unique")
+				return
+			}
+			seen[v.Name] = true
+		}
+
+		// Boolean flags: enforce exactly two variants with values true/false.
+		if flag.ValueType == model.ValueTypeBoolean {
+			if len(variants) != 2 {
+				writeError(w, http.StatusBadRequest, "boolean flags must have exactly two variants")
+				return
+			}
+			hasTrue, hasFalse := false, false
+			for _, v := range variants {
+				var val any
+				if err := json.Unmarshal(v.Value, &val); err == nil {
+					if val == true {
+						hasTrue = true
+					}
+					if val == false {
+						hasFalse = true
+					}
+				}
+			}
+			if !hasTrue || !hasFalse {
+				writeError(w, http.StatusBadRequest, "boolean flag variants must contain one true and one false value")
+				return
+			}
+		}
+
 		if err := h.flags.UpdateFlagVariants(r.Context(), flag.ID, req.Variants); err != nil {
 			slog.Error("failed to update flag variants", "error", err)
 			writeError(w, http.StatusInternalServerError, "failed to update flag variants")

@@ -10,10 +10,10 @@ func evaluateFlag(flag FlagDefinition, ctx EvaluationContext, segments []Segment
 
 	config := flag.Config
 
-	// 1. If flag is archived, return the fallthrough variant value with reason "archived".
+	// 1. If flag is archived, return default value with reason "archived".
 	if flag.Status == "archived" {
 		return EvaluationResult{
-			Value:   findVariantValue(flag.Variants, config.FallthroughVariant, flag.DefaultValue),
+			Value:   flag.DefaultValue,
 			Variant: "",
 			Reason:  "archived",
 		}

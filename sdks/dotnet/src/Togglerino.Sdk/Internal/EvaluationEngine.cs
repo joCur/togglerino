@@ -34,7 +34,7 @@ internal static class EvaluationEngine
         {
             return new EvaluationResult
             {
-                Value = flag.DefaultValue ?? LookupVariantValue(flag.Variants, config.FallthroughVariant, null),
+                Value = flag.DefaultValue ?? default,
                 Variant = "",
                 Reason = "archived",
             };
