@@ -68,13 +68,15 @@ test.describe('Flag Management', () => {
     await page.getByPlaceholder('variant-name').fill('treatment');
     await page.getByPlaceholder('Value').fill('new-experience');
 
-    // Click "Add Variant" button in the popover to save immediately
-    await page.getByRole('button', { name: 'Add Variant' }).click();
-
-    // Wait for the API response (auto-saves)
-    await page.waitForResponse(resp =>
-      resp.url().includes(`/flags/${key}`) && resp.request().method() === 'PUT'
+    // Click "Add Variant" button in the popover — this auto-saves via PUT to the flag
+    const savePromise = page.waitForResponse(resp =>
+      resp.url().includes(`/flags/${key}`) && resp.request().method() === 'PUT' && resp.status() === 200
     );
+    await page.getByRole('button', { name: 'Add Variant' }).click();
+    await savePromise;
+
+    // Small delay for cache invalidation
+    await page.waitForTimeout(500);
 
     // Verify via API that variants were saved on the flag
     const { flag } = await apiContext.getFlag(testProject.key, key);

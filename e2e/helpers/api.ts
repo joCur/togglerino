@@ -19,6 +19,7 @@ export interface Flag {
   flag_type: 'release' | 'experiment' | 'operational' | 'kill-switch' | 'permission';
   default_value: unknown;
   tags: string[];
+  variants: Array<{ name: string; value: unknown }>;
   lifecycle_status: 'active' | 'potentially_stale' | 'stale' | 'archived';
 }
 
