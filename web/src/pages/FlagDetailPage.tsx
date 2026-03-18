@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, User, PaginatedResponse } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, Variant, User, PaginatedResponse } from '../api/types.ts'
 import NotFoundState from '../components/NotFoundState.tsx'
 import TargetingConfig from '../components/TargetingConfig.tsx'
 import VariantChips from '../components/VariantChips.tsx'
@@ -61,6 +61,7 @@ export default function FlagDetailPage() {
   const [promoteState, setPromoteState] = useState<{ sourceEnvKey: string; targetEnvKey: string } | null>(null)
   const [lockDialogState, setLockDialogState] = useState<{ open: boolean; envKey: string; envName: string } | null>(null)
   const [lockReason, setLockReason] = useState('')
+  const [flagVariants, setFlagVariants] = useState<Variant[] | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const { data, isLoading, error } = useQuery({
@@ -400,9 +401,9 @@ export default function FlagDetailPage() {
         <div className="mb-6">
           <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Variants</div>
           <VariantChips
-            variants={data.environment_configs[0]?.variants ?? []}
+            variants={flagVariants ?? data.environment_configs[0]?.variants ?? []}
             valueType={flag.value_type}
-            onChange={() => {/* TODO: sync variant changes across all environments */}}
+            onChange={setFlagVariants}
             readonly={!canWrite || flag.value_type === 'boolean'}
           />
         </div>
@@ -552,6 +553,7 @@ export default function FlagDetailPage() {
                   flagKey={flagKey!}
                   allConfigs={data.environment_configs}
                   environments={environments}
+                  variants={flagVariants ?? data.environment_configs[0]?.variants ?? []}
                   readOnly={!envWritable || !!config?.locked}
                 />
               </TabsContent>

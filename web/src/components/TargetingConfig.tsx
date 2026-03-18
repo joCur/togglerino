@@ -40,6 +40,7 @@ interface TargetingConfigProps {
   flagKey: string
   allConfigs: FlagEnvironmentConfig[]
   environments: Environment[]
+  variants: Variant[]
   readOnly?: boolean
 }
 
@@ -91,13 +92,13 @@ export default function TargetingConfig({
   flagKey,
   allConfigs,
   environments,
+  variants,
   readOnly,
 }: TargetingConfigProps) {
   const queryClient = useQueryClient()
   const [enabled, setEnabled] = useState(config?.enabled ?? false)
   const [offVariant, setOffVariant] = useState(config?.off_variant ?? (flag.value_type === 'boolean' ? 'false' : ''))
   const [fallthroughVariant, setFallthroughVariant] = useState(config?.fallthrough_variant ?? (flag.value_type === 'boolean' ? 'false' : ''))
-  const [variants, setVariants] = useState<Variant[]>(config?.variants ?? [])
   const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
   const [saved, setSaved] = useState(false)
   const [copySourceEnv, setCopySourceEnv] = useState<string | null>(null)
