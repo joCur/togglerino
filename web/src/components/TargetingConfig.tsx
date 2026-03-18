@@ -156,7 +156,7 @@ export default function TargetingConfig({
             enabled
               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
               : 'bg-muted text-muted-foreground border border-muted-foreground/20 hover:bg-muted/80',
-            (readOnly || !config || togglePending) && 'opacity-50 cursor-not-allowed',
+            (readOnly || !config) && 'opacity-50 cursor-not-allowed',
           )}
         >
           {enabled ? (
