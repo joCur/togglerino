@@ -89,31 +89,31 @@ func TestServerNew_FetchesDefinitions(t *testing.T) {
 				ValueType:    "boolean",
 				Status:       "active",
 				DefaultValue: false,
+				Variants:  boolVariants(),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "true",
 					OffVariant:         "false",
-					Variants:           boolVariants(),
 				},
 			},
 			{
 				Key:       "welcome-msg",
 				ValueType: "string",
 				Status:    "active",
+				Variants:  makeVariants("greeting", "Hello!"),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "greeting",
-					Variants:           makeVariants("greeting", "Hello!"),
 				},
 			},
 			{
 				Key:       "max-uploads",
 				ValueType: "number",
 				Status:    "active",
+				Variants:  makeVariants("ten", float64(10)),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "ten",
-					Variants:           makeVariants("ten", float64(10)),
 				},
 			},
 		},
@@ -169,10 +169,10 @@ func TestServerEvaluate_DifferentContextsProduceDifferentResults(t *testing.T) {
 				Key:       "feature-x",
 				ValueType: "string",
 				Status:    "active",
+				Variants:  makeVariants("on", "enabled", "off", "disabled"),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "off",
-					Variants:           makeVariants("on", "enabled", "off", "disabled"),
 					TargetingRules: []TargetingRuleDefinition{
 						{
 							Variant:    "on",
@@ -188,10 +188,10 @@ func TestServerEvaluate_DifferentContextsProduceDifferentResults(t *testing.T) {
 				Key:       "admin-flag",
 				ValueType: "string",
 				Status:    "active",
+				Variants:  makeVariants("on", "admin-access", "off", "no-access"),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "off",
-					Variants:           makeVariants("on", "admin-access", "off", "no-access"),
 					TargetingRules: []TargetingRuleDefinition{
 						{
 							Variant: "on",
@@ -244,41 +244,41 @@ func TestServerEvaluate_AllGetters(t *testing.T) {
 				ValueType:    "boolean",
 				Status:       "active",
 				DefaultValue: false,
+				Variants:  boolVariants(),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "true",
 					OffVariant:         "false",
-					Variants:           boolVariants(),
 				},
 			},
 			{
 				Key:       "str-flag",
 				ValueType: "string",
 				Status:    "active",
+				Variants:  makeVariants("v1", "hello"),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "v1",
-					Variants:           makeVariants("v1", "hello"),
 				},
 			},
 			{
 				Key:       "num-flag",
 				ValueType: "number",
 				Status:    "active",
+				Variants:  makeVariants("v1", float64(42)),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "v1",
-					Variants:           makeVariants("v1", float64(42)),
 				},
 			},
 			{
 				Key:       "json-flag",
 				ValueType: "json",
 				Status:    "active",
+				Variants:  makeVariants("v1", map[string]any{"key": "val"}),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "v1",
-					Variants:           makeVariants("v1", map[string]any{"key": "val"}),
 				},
 			},
 		},
@@ -386,10 +386,10 @@ func TestServerEvaluate_TypeMismatchReturnsDefault(t *testing.T) {
 				Key:       "str-flag",
 				ValueType: "string",
 				Status:    "active",
+				Variants:  makeVariants("v1", "hello"),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "v1",
-					Variants:           makeVariants("v1", "hello"),
 				},
 			},
 		},
@@ -424,10 +424,10 @@ func TestServerEvaluate_WithSegments(t *testing.T) {
 				Key:       "premium-feature",
 				ValueType: "string",
 				Status:    "active",
+				Variants:  makeVariants("premium", "premium-access", "basic", "basic-access"),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "basic",
-					Variants:           makeVariants("premium", "premium-access", "basic", "basic-access"),
 					TargetingRules: []TargetingRuleDefinition{
 						{
 							Variant: "premium",
@@ -487,11 +487,11 @@ func TestServerClose(t *testing.T) {
 				ValueType:    "boolean",
 				Status:       "active",
 				DefaultValue: false,
+				Variants:  boolVariants(),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "true",
 					OffVariant:         "false",
-					Variants:           boolVariants(),
 				},
 			},
 		},
@@ -521,11 +521,11 @@ func TestServerClose_SSE(t *testing.T) {
 				ValueType:    "boolean",
 				Status:       "active",
 				DefaultValue: false,
+				Variants:  boolVariants(),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "true",
 					OffVariant:         "false",
-					Variants:           boolVariants(),
 				},
 			},
 		},
@@ -554,11 +554,11 @@ func TestServerPolling_RefetchesDefinitions(t *testing.T) {
 				ValueType:    "boolean",
 				Status:       "active",
 				DefaultValue: false,
+				Variants:  boolVariants(),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "true",
 					OffVariant:         "false",
-					Variants:           boolVariants(),
 				},
 			},
 		},
@@ -596,11 +596,11 @@ func TestServerSSE_RefetchesOnFlagUpdate(t *testing.T) {
 			ValueType:    "boolean",
 			Status:       "active",
 			DefaultValue: false,
+			Variants:  boolVariants(),
 			Config: FlagDefinitionConfig{
 				Enabled:            true,
 				FallthroughVariant: "true",
 				OffVariant:         "false",
-				Variants:           boolVariants(),
 			},
 		},
 	}
@@ -665,11 +665,11 @@ func TestServerSSE_RefetchesOnFlagUpdate(t *testing.T) {
 			ValueType:    "boolean",
 			Status:       "active",
 			DefaultValue: false,
+			Variants:  boolVariants(),
 			Config: FlagDefinitionConfig{
 				Enabled:            false,
 				FallthroughVariant: "true",
 				OffVariant:         "false",
-				Variants:           boolVariants(),
 			},
 		},
 	}
@@ -706,11 +706,11 @@ func TestServerSSE_RefetchesOnFlagDeleted(t *testing.T) {
 			ValueType:    "boolean",
 			Status:       "active",
 			DefaultValue: false,
+			Variants:  boolVariants(),
 			Config: FlagDefinitionConfig{
 				Enabled:            true,
 				FallthroughVariant: "true",
 				OffVariant:         "false",
-				Variants:           boolVariants(),
 			},
 		},
 		{
@@ -718,11 +718,11 @@ func TestServerSSE_RefetchesOnFlagDeleted(t *testing.T) {
 			ValueType:    "boolean",
 			Status:       "active",
 			DefaultValue: false,
+			Variants:  boolVariants(),
 			Config: FlagDefinitionConfig{
 				Enabled:            true,
 				FallthroughVariant: "true",
 				OffVariant:         "false",
-				Variants:           boolVariants(),
 			},
 		},
 	}
@@ -778,11 +778,11 @@ func TestServerSSE_RefetchesOnFlagDeleted(t *testing.T) {
 			ValueType:    "boolean",
 			Status:       "active",
 			DefaultValue: false,
+			Variants:  boolVariants(),
 			Config: FlagDefinitionConfig{
 				Enabled:            true,
 				FallthroughVariant: "true",
 				OffVariant:         "false",
-				Variants:           boolVariants(),
 			},
 		},
 	}
@@ -869,11 +869,11 @@ func TestServerEvaluate_ConcurrentSafe(t *testing.T) {
 				ValueType:    "boolean",
 				Status:       "active",
 				DefaultValue: false,
+				Variants:  boolVariants(),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "true",
 					OffVariant:         "false",
-					Variants:           boolVariants(),
 				},
 			},
 		},
@@ -913,11 +913,11 @@ func TestServerEvaluate_DisabledFlag(t *testing.T) {
 				ValueType:    "boolean",
 				Status:       "active",
 				DefaultValue: false,
+				Variants:  boolVariants(),
 				Config: FlagDefinitionConfig{
 					Enabled:            false,
 					FallthroughVariant: "true",
 					OffVariant:         "false",
-					Variants:           boolVariants(),
 				},
 			},
 		},
@@ -958,11 +958,11 @@ func TestServerEvaluate_NilAttributes(t *testing.T) {
 				ValueType:    "boolean",
 				Status:       "active",
 				DefaultValue: false,
+				Variants:  boolVariants(),
 				Config: FlagDefinitionConfig{
 					Enabled:            true,
 					FallthroughVariant: "true",
 					OffVariant:         "false",
-					Variants:           boolVariants(),
 				},
 			},
 		},
