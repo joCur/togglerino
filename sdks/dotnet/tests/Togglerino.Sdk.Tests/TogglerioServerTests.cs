@@ -17,10 +17,15 @@ public class TogglerioServerTests
                 "key": "dark-mode",
                 "valueType": "boolean",
                 "status": "active",
+                "defaultValue": true,
                 "config": {
                     "enabled": true,
-                    "defaultVariant": "",
-                    "variants": [],
+                    "fallthroughVariant": "on",
+                    "offVariant": "off",
+                    "variants": [
+                        { "name": "on", "value": true },
+                        { "name": "off", "value": false }
+                    ],
                     "targetingRules": []
                 }
             },
@@ -28,12 +33,14 @@ public class TogglerioServerTests
                 "key": "greeting",
                 "valueType": "string",
                 "status": "active",
+                "defaultValue": null,
                 "config": {
                     "enabled": true,
-                    "defaultVariant": "en",
+                    "fallthroughVariant": "en",
+                    "offVariant": null,
                     "variants": [
-                        { "key": "en", "value": "hello" },
-                        { "key": "es", "value": "hola" }
+                        { "name": "en", "value": "hello" },
+                        { "name": "es", "value": "hola" }
                     ],
                     "targetingRules": []
                 }
@@ -42,12 +49,14 @@ public class TogglerioServerTests
                 "key": "max-items",
                 "valueType": "number",
                 "status": "active",
+                "defaultValue": null,
                 "config": {
                     "enabled": true,
-                    "defaultVariant": "high",
+                    "fallthroughVariant": "high",
+                    "offVariant": null,
                     "variants": [
-                        { "key": "high", "value": 42 },
-                        { "key": "low", "value": 10 }
+                        { "name": "high", "value": 42 },
+                        { "name": "low", "value": 10 }
                     ],
                     "targetingRules": []
                 }
@@ -56,11 +65,13 @@ public class TogglerioServerTests
                 "key": "config",
                 "valueType": "json",
                 "status": "active",
+                "defaultValue": null,
                 "config": {
                     "enabled": true,
-                    "defaultVariant": "v1",
+                    "fallthroughVariant": "v1",
+                    "offVariant": null,
                     "variants": [
-                        { "key": "v1", "value": { "theme": "dark" } }
+                        { "name": "v1", "value": { "theme": "dark" } }
                     ],
                     "targetingRules": []
                 }
@@ -217,12 +228,14 @@ public class TogglerioServerTests
                     "key": "beta-feature",
                     "valueType": "string",
                     "status": "active",
+                    "defaultValue": null,
                     "config": {
                         "enabled": true,
-                        "defaultVariant": "off",
+                        "fallthroughVariant": "off",
+                        "offVariant": null,
                         "variants": [
-                            { "key": "on", "value": "enabled" },
-                            { "key": "off", "value": "disabled" }
+                            { "name": "on", "value": "enabled" },
+                            { "name": "off", "value": "disabled" }
                         ],
                         "targetingRules": [
                             {
@@ -264,13 +277,18 @@ public class TogglerioServerTests
                     "key": "premium-feature",
                     "valueType": "boolean",
                     "status": "active",
+                    "defaultValue": true,
                     "config": {
                         "enabled": true,
-                        "defaultVariant": "",
-                        "variants": [],
+                        "fallthroughVariant": "on",
+                        "offVariant": "off",
+                        "variants": [
+                            { "name": "on", "value": true },
+                            { "name": "off", "value": false }
+                        ],
                         "targetingRules": [
                             {
-                                "variant": "false",
+                                "variant": "off",
                                 "percentage": null,
                                 "conditions": [
                                     {
@@ -327,10 +345,15 @@ public class TogglerioServerTests
                     "key": "disabled-flag",
                     "valueType": "boolean",
                     "status": "active",
+                    "defaultValue": true,
                     "config": {
                         "enabled": false,
-                        "defaultVariant": "",
-                        "variants": [],
+                        "fallthroughVariant": "on",
+                        "offVariant": "off",
+                        "variants": [
+                            { "name": "on", "value": true },
+                            { "name": "off", "value": false }
+                        ],
                         "targetingRules": []
                     }
                 }
