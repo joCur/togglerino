@@ -88,13 +88,14 @@ type FlagOwner struct {
 }
 
 type FlagEnvironmentConfig struct {
-	ID             string          `json:"id"`
-	FlagID         string          `json:"flag_id"`
-	EnvironmentID  string          `json:"environment_id"`
-	Enabled        bool            `json:"enabled"`
-	DefaultVariant string          `json:"default_variant"`
-	Variants       []Variant       `json:"variants"`
-	TargetingRules []TargetingRule `json:"targeting_rules"`
+	ID                 string          `json:"id"`
+	FlagID             string          `json:"flag_id"`
+	EnvironmentID      string          `json:"environment_id"`
+	Enabled            bool            `json:"enabled"`
+	OffVariant         string          `json:"off_variant"`
+	FallthroughVariant string          `json:"fallthrough_variant"`
+	Variants           []Variant       `json:"variants"`
+	TargetingRules     []TargetingRule `json:"targeting_rules"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	UpdatedBy      *string         `json:"updated_by,omitempty"`
 	UpdatedByUser  *FlagOwner      `json:"updated_by_user,omitempty"`
@@ -106,7 +107,7 @@ type FlagEnvironmentConfig struct {
 }
 
 type Variant struct {
-	Key   string          `json:"key"`
+	Name  string          `json:"name"`
 	Value json.RawMessage `json:"value"`
 }
 
@@ -204,7 +205,7 @@ type EvaluationTrace struct {
 	Variant        string      `json:"variant"`
 	Reason         string      `json:"reason"`
 	Steps          []TraceStep `json:"steps"`
-	DefaultVariant string      `json:"default_variant"`
+	FallthroughVariant string      `json:"fallthrough_variant"`
 	SelectedStep   int         `json:"selected_step"`
 }
 
