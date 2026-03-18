@@ -113,19 +113,6 @@ export default function FlagDetailPage() {
     },
   })
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ envKey, config }: { envKey: string; config: FlagEnvironmentConfig }) =>
-      api.put(`/projects/${key}/flags/${flagKey}/environments/${envKey}`, {
-        enabled: !config.enabled,
-        fallthrough_variant: config.fallthrough_variant,
-        off_variant: config.off_variant,
-        variants: config.variants,
-        targeting_rules: config.targeting_rules,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
-    },
-  })
 
   const ownerMutation = useMutation({
     mutationFn: (ownerId: string | null) => {
@@ -566,10 +553,6 @@ export default function FlagDetailPage() {
                   allConfigs={data.environment_configs}
                   environments={environments}
                   readOnly={!envWritable || !!config?.locked}
-                  onToggle={() => {
-                    if (config) toggleMutation.mutate({ envKey: env.key, config })
-                  }}
-                  togglePending={toggleMutation.isPending}
                 />
               </TabsContent>
             )

@@ -41,8 +41,6 @@ interface TargetingConfigProps {
   allConfigs: FlagEnvironmentConfig[]
   environments: Environment[]
   readOnly?: boolean
-  onToggle: () => void
-  togglePending?: boolean
 }
 
 function variantOptions(flag: Flag, variants: Variant[]) {
@@ -94,11 +92,9 @@ export default function TargetingConfig({
   allConfigs,
   environments,
   readOnly,
-  onToggle,
-  togglePending,
 }: TargetingConfigProps) {
   const queryClient = useQueryClient()
-  const enabled = config?.enabled ?? false
+  const [enabled, setEnabled] = useState(config?.enabled ?? false)
   const [offVariant, setOffVariant] = useState(config?.off_variant ?? (flag.value_type === 'boolean' ? 'false' : ''))
   const [fallthroughVariant, setFallthroughVariant] = useState(config?.fallthrough_variant ?? (flag.value_type === 'boolean' ? 'false' : ''))
   const [variants, setVariants] = useState<Variant[]>(config?.variants ?? [])
@@ -153,8 +149,8 @@ export default function TargetingConfig({
         <span>Targeting is</span>
         <button
           type="button"
-          onClick={onToggle}
-          disabled={readOnly || !config || togglePending}
+          onClick={() => setEnabled(!enabled)}
+          disabled={readOnly || !config}
           className={cn(
             'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
             enabled
