@@ -19,11 +19,12 @@ type fixtureCase struct {
 }
 
 type fixtureFlag struct {
-	Key       string            `json:"key"`
-	ValueType string            `json:"valueType"`
-	Status    string            `json:"status"`
-	Variants  []fixtureVariant  `json:"variants"`
-	Config    fixtureFlagConfig `json:"config"`
+	Key          string            `json:"key"`
+	ValueType    string            `json:"valueType"`
+	Status       string            `json:"status"`
+	DefaultValue json.RawMessage   `json:"defaultValue"`
+	Variants     []fixtureVariant  `json:"variants"`
+	Config       fixtureFlagConfig `json:"config"`
 }
 
 type fixtureFlagConfig struct {
@@ -123,15 +124,6 @@ func toFlag(f fixtureFlag) *model.Flag {
 		lifecycle = model.LifecycleActive
 	}
 
-	// Compute DefaultValue from the fallthrough variant's value in the config.
-	var defaultValue json.RawMessage
-	for _, v := range f.Variants {
-		if v.Name == f.Config.FallthroughVariant {
-			defaultValue = v.Value
-			break
-		}
-	}
-
 	variants := make([]model.Variant, len(f.Variants))
 	for i, v := range f.Variants {
 		variants[i] = model.Variant{
@@ -144,7 +136,7 @@ func toFlag(f fixtureFlag) *model.Flag {
 		Key:             f.Key,
 		ValueType:       model.ValueType(f.ValueType),
 		LifecycleStatus: lifecycle,
-		DefaultValue:    defaultValue,
+		DefaultValue:    f.DefaultValue,
 		Variants:        variants,
 	}
 }

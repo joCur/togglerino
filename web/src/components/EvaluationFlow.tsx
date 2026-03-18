@@ -73,7 +73,7 @@ export default function EvaluationFlow({ config }: Props) {
 
       {/* Fallthrough variant */}
       <span className="px-2 py-1 rounded border bg-muted/50 text-foreground border-muted-foreground/10 whitespace-nowrap">
-        Default: <span className="text-[#d4956a]">{defaultVariant || '—'}</span>
+        Fallthrough: <span className="text-[#d4956a]">{defaultVariant || '—'}</span>
       </span>
     </div>
   )
