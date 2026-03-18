@@ -60,27 +60,25 @@ test.describe('Flag Management', () => {
 
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
-    // Development tab is auto-selected (first environment)
-    // Open the Variants collapsible — use the button that shows "Variants (0)"
-    await page.getByRole('button', { name: /^Variants/ }).click();
+    // Variants are flag-level, shown above environment tabs as VariantChips.
+    // Click the "+ Add" button to open the add popover.
+    await page.getByRole('button', { name: 'Add' }).click();
 
-    // Click "+ Add Variant"
-    await page.getByRole('button', { name: '+ Add Variant' }).click();
+    // Fill in the variant name and value in the popover
+    await page.getByPlaceholder('variant-name').fill('treatment');
+    await page.getByPlaceholder('Value').fill('new-experience');
 
-    // Fill in the variant key and value
-    await page.getByPlaceholder('Key').last().fill('treatment');
-    await page.getByPlaceholder('Value').last().fill('new-experience');
+    // Click "Add Variant" button in the popover to save immediately
+    await page.getByRole('button', { name: 'Add Variant' }).click();
 
-    // Save the configuration
-    await page.getByRole('button', { name: 'Save Configuration' }).click();
-    await expect(page.getByText('Saved')).toBeVisible();
+    // Wait for the API response (auto-saves)
+    await page.waitForResponse(resp =>
+      resp.url().includes(`/flags/${key}`) && resp.request().method() === 'PUT'
+    );
 
-    // Verify via API that variants were saved
-    const envs = await apiContext.listEnvironments(testProject.key);
-    const devEnv = envs.find((e: any) => e.key === 'development');
-    const { environment_configs } = await apiContext.getFlag(testProject.key, key);
-    const devConfig = environment_configs.find((c: any) => c.environment_id === devEnv!.id);
-    expect(devConfig?.variants).toContainEqual(
+    // Verify via API that variants were saved on the flag
+    const { flag } = await apiContext.getFlag(testProject.key, key);
+    expect(flag.variants).toContainEqual(
       expect.objectContaining({ name: 'treatment' })
     );
   });
@@ -220,7 +218,7 @@ test.describe('Flag Management', () => {
 
     // Wait for dialog to close and verify locked state
     await expect(dialog).not.toBeVisible();
-    await expect(page.getByText('Locked')).toBeVisible();
+    await expect(page.getByText('Locked by')).toBeVisible();
 
     // Unlock the flag
     await page.getByRole('button', { name: 'Unlock' }).click();

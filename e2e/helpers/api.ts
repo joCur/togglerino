@@ -184,7 +184,7 @@ export class ApiHelper {
       enabled: boolean;
       fallthrough_variant: string;
       off_variant?: string;
-      variants: Array<{ name: string; value: unknown }>;
+      variants?: Array<{ name: string; value: unknown }>;
       targeting_rules?: Array<{
         conditions: Array<{ attribute: string; operator: string; value: unknown }>;
         variant: string;
@@ -192,6 +192,23 @@ export class ApiHelper {
       }>;
     },
   ) {
+    // Variants are flag-level — if provided, update the flag first.
+    if (config.variants && config.variants.length > 0) {
+      const flagRes = await this.request.get(`/api/v1/projects/${projectKey}/flags/${flagKey}`);
+      if (flagRes.ok()) {
+        const flagData = (await flagRes.json()) as { flag: Flag };
+        await this.request.put(`/api/v1/projects/${projectKey}/flags/${flagKey}`, {
+          data: {
+            name: flagData.flag.name,
+            description: flagData.flag.description,
+            tags: flagData.flag.tags,
+            flag_type: flagData.flag.flag_type,
+            variants: config.variants,
+          },
+        });
+      }
+    }
+
     const res = await this.request.put(
       `/api/v1/projects/${projectKey}/flags/${flagKey}/environments/${envKey}`,
       {
