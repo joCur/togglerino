@@ -20,7 +20,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": true
     },
     "segments": [],
     "context": {
@@ -54,7 +55,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": true
     },
     "segments": [],
     "context": {
@@ -88,7 +90,8 @@
           "name": "on-variant",
           "value": "on"
         }
-      ]
+      ],
+      "defaultValue": "off"
     },
     "segments": [],
     "context": {
@@ -122,7 +125,8 @@
           "name": "on-variant",
           "value": "on"
         }
-      ]
+      ],
+      "defaultValue": "off"
     },
     "segments": [],
     "context": {
@@ -156,7 +160,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": true
     },
     "segments": [],
     "context": {
@@ -202,7 +207,8 @@
           "name": "pro-variant",
           "value": "pro-features"
         }
-      ]
+      ],
+      "defaultValue": "off"
     },
     "segments": [],
     "context": {
@@ -250,7 +256,8 @@
           "name": "pro-variant",
           "value": "pro-features"
         }
-      ]
+      ],
+      "defaultValue": "off"
     },
     "segments": [],
     "context": {
@@ -298,7 +305,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -346,7 +354,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -394,7 +403,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -442,7 +452,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -490,7 +501,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -538,7 +550,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -586,7 +599,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -634,7 +648,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -682,7 +697,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -730,7 +746,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -778,7 +795,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -826,7 +844,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -874,7 +893,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -922,7 +942,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -970,7 +991,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1016,7 +1038,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1062,7 +1085,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1104,7 +1128,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1144,7 +1169,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1184,7 +1210,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1235,7 +1262,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1289,7 +1317,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1353,7 +1382,8 @@
           "name": "rule2",
           "value": "second"
         }
-      ]
+      ],
+      "defaultValue": "none"
     },
     "segments": [],
     "context": {
@@ -1401,7 +1431,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [
       {
@@ -1460,7 +1491,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [
       {
@@ -1519,7 +1551,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1565,7 +1598,8 @@
           "name": "premium",
           "value": 1000
         }
-      ]
+      ],
+      "defaultValue": 100
     },
     "segments": [],
     "context": {
@@ -1617,7 +1651,10 @@
             "columns": 4
           }
         }
-      ]
+      ],
+      "defaultValue": {
+        "columns": 2
+      }
     },
     "segments": [],
     "context": {
@@ -1667,7 +1704,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1701,7 +1739,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {
@@ -1735,7 +1774,8 @@
           "name": "false",
           "value": false
         }
-      ]
+      ],
+      "defaultValue": false
     },
     "segments": [],
     "context": {

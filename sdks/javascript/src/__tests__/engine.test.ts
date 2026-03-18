@@ -9,10 +9,12 @@ interface TestCase {
     key: string
     valueType: string
     status: string
+    defaultValue: unknown
+    variants: { name: string; value: unknown }[]
     config: {
       enabled: boolean
-      defaultVariant: string
-      variants: { key: string; value: unknown }[]
+      fallthroughVariant: string
+      offVariant: string
       targetingRules: {
         variant: string
         percentage: number | null
