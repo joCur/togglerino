@@ -32,14 +32,14 @@ func TestPlaygroundHandler_SingleFlag(t *testing.T) {
 			ValueType:       "boolean",
 			DefaultValue:    rawJSON(false),
 			LifecycleStatus: model.LifecycleActive,
-		},
-		Config: model.FlagEnvironmentConfig{
-			Enabled:        true,
-			FallthroughVariant: "off",
 			Variants: []model.Variant{
 				{Name: "off", Value: rawJSON(false)},
 				{Name: "on", Value: rawJSON(true)},
 			},
+		},
+		Config: model.FlagEnvironmentConfig{
+			Enabled:        true,
+			FallthroughVariant: "off",
 		},
 	})
 
@@ -112,14 +112,14 @@ func TestPlaygroundHandler_AllFlags(t *testing.T) {
 				ValueType:       "boolean",
 				DefaultValue:    rawJSON(false),
 				LifecycleStatus: model.LifecycleActive,
-			},
-			Config: model.FlagEnvironmentConfig{
-				Enabled:        true,
-				FallthroughVariant: "off",
 				Variants: []model.Variant{
 					{Name: "off", Value: rawJSON(false)},
 					{Name: "on", Value: rawJSON(true)},
 				},
+			},
+			Config: model.FlagEnvironmentConfig{
+				Enabled:        true,
+				FallthroughVariant: "off",
 			},
 		},
 		"flag-b": {
@@ -128,14 +128,14 @@ func TestPlaygroundHandler_AllFlags(t *testing.T) {
 				ValueType:       "string",
 				DefaultValue:    rawJSON("default"),
 				LifecycleStatus: model.LifecycleActive,
-			},
-			Config: model.FlagEnvironmentConfig{
-				Enabled:        false,
-				FallthroughVariant: "off",
 				Variants: []model.Variant{
 					{Name: "off", Value: rawJSON("off-val")},
 					{Name: "on", Value: rawJSON("on-val")},
 				},
+			},
+			Config: model.FlagEnvironmentConfig{
+				Enabled:        false,
+				FallthroughVariant: "off",
 			},
 		},
 	}

@@ -114,9 +114,8 @@ func TestEvaluateAll_OverrideRecordsMetrics(t *testing.T) {
 			LifecycleStatus: model.LifecycleActive,
 		},
 		Config: model.FlagEnvironmentConfig{
-			Enabled:        true,
+			Enabled:            true,
 			FallthroughVariant: "off",
-			Variants:       []model.Variant{{Name: "off", Value: rawJSON(false)}},
 		},
 	})
 
@@ -157,9 +156,8 @@ func TestEvaluateHandler_NilMetricsDoesNotPanic(t *testing.T) {
 			LifecycleStatus: model.LifecycleActive,
 		},
 		Config: model.FlagEnvironmentConfig{
-			Enabled:        true,
+			Enabled:            true,
 			FallthroughVariant: "off",
-			Variants:       []model.Variant{{Name: "off", Value: rawJSON(false)}},
 		},
 	})
 

@@ -28,18 +28,18 @@ type definitionsResponse struct {
 }
 
 type flagDefinition struct {
-	Key          string               `json:"key"`
-	ValueType    model.ValueType      `json:"valueType"`
+	Key          string                `json:"key"`
+	ValueType    model.ValueType       `json:"valueType"`
 	Status       model.LifecycleStatus `json:"status"`
-	DefaultValue json.RawMessage      `json:"defaultValue"`
-	Config       flagConfigDefinition `json:"config"`
+	DefaultValue json.RawMessage       `json:"defaultValue"`
+	Variants     []variantDefinition   `json:"variants"`
+	Config       flagConfigDefinition  `json:"config"`
 }
 
 type flagConfigDefinition struct {
 	Enabled            bool                      `json:"enabled"`
 	FallthroughVariant string                    `json:"fallthroughVariant"`
 	OffVariant         string                    `json:"offVariant"`
-	Variants           []variantDefinition       `json:"variants"`
 	TargetingRules     []targetingRuleDefinition `json:"targetingRules"`
 }
 
@@ -89,8 +89,8 @@ func (h *DefinitionsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func convertFlag(fd evaluation.FlagData) flagDefinition {
-	variants := make([]variantDefinition, 0, len(fd.Config.Variants))
-	for _, v := range fd.Config.Variants {
+	variants := make([]variantDefinition, 0, len(fd.Flag.Variants))
+	for _, v := range fd.Flag.Variants {
 		variants = append(variants, variantDefinition{
 			Name:  v.Name,
 			Value: v.Value,
@@ -112,11 +112,11 @@ func convertFlag(fd evaluation.FlagData) flagDefinition {
 		ValueType:    fd.Flag.ValueType,
 		Status:       fd.Flag.LifecycleStatus,
 		DefaultValue: fd.Flag.DefaultValue,
+		Variants:     variants,
 		Config: flagConfigDefinition{
 			Enabled:            fd.Config.Enabled,
 			FallthroughVariant: fd.Config.FallthroughVariant,
 			OffVariant:         fd.Config.OffVariant,
-			Variants:           variants,
 			TargetingRules:     rules,
 		},
 	}

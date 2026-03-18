@@ -39,14 +39,14 @@ func TestDefinitions_ReturnsFlagsAndSegments(t *testing.T) {
 			Key:             "flag-bool",
 			ValueType:       model.ValueTypeBoolean,
 			LifecycleStatus: model.LifecycleActive,
-		},
-		Config: model.FlagEnvironmentConfig{
-			Enabled:        true,
-			FallthroughVariant: "on",
 			Variants: []model.Variant{
 				{Name: "on", Value: rawJSON(true)},
 				{Name: "off", Value: rawJSON(false)},
 			},
+		},
+		Config: model.FlagEnvironmentConfig{
+			Enabled:            true,
+			FallthroughVariant: "on",
 			TargetingRules: []model.TargetingRule{
 				{
 					Variant:           "on",
@@ -99,8 +99,8 @@ func TestDefinitions_ReturnsFlagsAndSegments(t *testing.T) {
 	if f.Config.FallthroughVariant != "on" {
 		t.Errorf("expected fallthroughVariant 'on', got %q", f.Config.FallthroughVariant)
 	}
-	if len(f.Config.Variants) != 2 {
-		t.Fatalf("expected 2 variants, got %d", len(f.Config.Variants))
+	if len(f.Variants) != 2 {
+		t.Fatalf("expected 2 variants, got %d", len(f.Variants))
 	}
 
 	// Verify targeting rules
@@ -180,11 +180,11 @@ func TestDefinitions_IncludesArchivedFlags(t *testing.T) {
 			Key:             "active-flag",
 			ValueType:       model.ValueTypeBoolean,
 			LifecycleStatus: model.LifecycleActive,
+			Variants:        []model.Variant{{Name: "on", Value: rawJSON(true)}},
 		},
 		Config: model.FlagEnvironmentConfig{
-			Enabled:        true,
+			Enabled:            true,
 			FallthroughVariant: "on",
-			Variants:       []model.Variant{{Name: "on", Value: rawJSON(true)}},
 		},
 	})
 	cache.SetFlag("proj", "dev", "archived-flag", evaluation.FlagData{
@@ -192,11 +192,11 @@ func TestDefinitions_IncludesArchivedFlags(t *testing.T) {
 			Key:             "archived-flag",
 			ValueType:       model.ValueTypeString,
 			LifecycleStatus: model.LifecycleArchived,
+			Variants:        []model.Variant{{Name: "default", Value: rawJSON("hello")}},
 		},
 		Config: model.FlagEnvironmentConfig{
-			Enabled:        false,
+			Enabled:            false,
 			FallthroughVariant: "default",
-			Variants:       []model.Variant{{Name: "default", Value: rawJSON("hello")}},
 		},
 	})
 
@@ -300,11 +300,11 @@ func TestDefinitions_NilPercentageDefaultsTo100(t *testing.T) {
 			Key:             "flag-no-pct",
 			ValueType:       model.ValueTypeBoolean,
 			LifecycleStatus: model.LifecycleActive,
+			Variants:        []model.Variant{{Name: "on", Value: rawJSON(true)}},
 		},
 		Config: model.FlagEnvironmentConfig{
-			Enabled:        true,
+			Enabled:            true,
 			FallthroughVariant: "on",
-			Variants:       []model.Variant{{Name: "on", Value: rawJSON(true)}},
 			TargetingRules: []model.TargetingRule{
 				{
 					Variant:           "on",

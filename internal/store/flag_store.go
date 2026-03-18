@@ -30,15 +30,33 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 	}
 	defer tx.Rollback(ctx)
 
+	// Compute flag-level variants from environment overrides (all envs should have the same variants).
+	flagVariants := json.RawMessage(`[]`)
+	if envOverrides != nil {
+		for _, override := range envOverrides {
+			if override.Variants != nil && string(override.Variants) != "[]" {
+				flagVariants = override.Variants
+				break
+			}
+		}
+	}
+
 	var f model.Flag
+	var variantsJSON json.RawMessage
 	err = tx.QueryRow(ctx,
-		`INSERT INTO flags (project_id, key, name, description, value_type, flag_type, default_value, tags, owner_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
-		projectID, key, name, description, valueType, flagType, defaultValue, tags, ownerID,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
+		`INSERT INTO flags (project_id, key, name, description, value_type, flag_type, default_value, tags, owner_id, variants)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, variants, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
+		projectID, key, name, description, valueType, flagType, defaultValue, tags, ownerID, flagVariants,
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &variantsJSON, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("creating flag: %w", err)
+	}
+	if err := json.Unmarshal(variantsJSON, &f.Variants); err != nil {
+		return nil, fmt.Errorf("unmarshalling flag variants: %w", err)
+	}
+	if f.Variants == nil {
+		f.Variants = []model.Variant{}
 	}
 
 	// Get all environments for this project
@@ -75,7 +93,6 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 
 		fallthroughVariant := ""
 		offVariant := ""
-		variants := json.RawMessage(`[]`)
 		targetingRules := json.RawMessage(`[]`)
 
 		if envOverrides != nil {
@@ -88,9 +105,6 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 				} else {
 					offVariant = fallthroughVariant
 				}
-				if override.Variants != nil {
-					variants = override.Variants
-				}
 				if override.TargetingRules != nil {
 					targetingRules = override.TargetingRules
 				}
@@ -98,8 +112,8 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 		}
 
 		_, err := tx.Exec(ctx,
-			`INSERT INTO flag_environment_configs (flag_id, environment_id, enabled, fallthrough_variant, off_variant, variants, targeting_rules) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-			f.ID, env.ID, enabled, fallthroughVariant, offVariant, variants, targetingRules,
+			`INSERT INTO flag_environment_configs (flag_id, environment_id, enabled, fallthrough_variant, off_variant, targeting_rules) VALUES ($1, $2, $3, $4, $5, $6)`,
+			f.ID, env.ID, enabled, fallthroughVariant, offVariant, targetingRules,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating flag environment config for env %s: %w", env.ID, err)
@@ -121,7 +135,7 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 // search query, lifecycle status filter, flag type filter, owner filter, and unevaluated days filter.
 // Returns the flags, total count (before pagination), and any error.
 func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag string, search string, lifecycleStatus string, flagType string, owner string, unevaluatedDays string, limit, offset int) ([]model.Flag, int, error) {
-	query := `SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id, f.last_evaluated_at,
+	query := `SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.variants, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id, f.last_evaluated_at,
 	       u.id, u.email, u.display_name,
 	       COUNT(*) OVER() AS total_count
 		FROM flags f
@@ -187,15 +201,22 @@ func (s *FlagStore) ListByProject(ctx context.Context, projectID string, tag str
 		var f model.Flag
 		var ownerUserID, ownerEmail *string
 		var ownerDisplayName *string
-		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt,
+		var variantsJSON json.RawMessage
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &variantsJSON, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt,
 			&ownerUserID, &ownerEmail, &ownerDisplayName, &totalCount); err != nil {
 			return nil, 0, fmt.Errorf("scanning flag: %w", err)
+		}
+		if err := json.Unmarshal(variantsJSON, &f.Variants); err != nil {
+			return nil, 0, fmt.Errorf("unmarshalling variants: %w", err)
 		}
 		if ownerUserID != nil {
 			f.Owner = &model.FlagOwner{ID: *ownerUserID, Email: *ownerEmail, DisplayName: ownerDisplayName}
 		}
 		if f.Tags == nil {
 			f.Tags = []string{}
+		}
+		if f.Variants == nil {
+			f.Variants = []model.Variant{}
 		}
 		flags = append(flags, f)
 	}
@@ -221,17 +242,21 @@ func (s *FlagStore) FindByKey(ctx context.Context, projectID, key string) (*mode
 	var f model.Flag
 	var ownerUserID, ownerEmail *string
 	var ownerDisplayName *string
+	var variantsJSON json.RawMessage
 	err := s.pool.QueryRow(ctx,
-		`SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id, f.last_evaluated_at,
+		`SELECT f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.variants, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at, f.owner_id, f.last_evaluated_at,
 		       u.id, u.email, u.display_name
 		 FROM flags f
 		 LEFT JOIN users u ON f.owner_id = u.id
 		 WHERE f.project_id = $1 AND f.key = $2`,
 		projectID, key,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt,
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &variantsJSON, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt,
 		&ownerUserID, &ownerEmail, &ownerDisplayName)
 	if err != nil {
 		return nil, fmt.Errorf("finding flag by key: %w", err)
+	}
+	if err := json.Unmarshal(variantsJSON, &f.Variants); err != nil {
+		return nil, fmt.Errorf("unmarshalling variants: %w", err)
 	}
 	if ownerUserID != nil {
 		f.Owner = &model.FlagOwner{ID: *ownerUserID, Email: *ownerEmail, DisplayName: ownerDisplayName}
@@ -239,22 +264,32 @@ func (s *FlagStore) FindByKey(ctx context.Context, projectID, key string) (*mode
 	if f.Tags == nil {
 		f.Tags = []string{}
 	}
+	if f.Variants == nil {
+		f.Variants = []model.Variant{}
+	}
 	return &f, nil
 }
 
 // Update updates a flag's metadata (name, description, tags, flag_type, owner_id).
 func (s *FlagStore) Update(ctx context.Context, flagID, name, description string, tags []string, flagType model.FlagType, ownerID *string) (*model.Flag, error) {
 	var f model.Flag
+	var variantsJSON json.RawMessage
 	err := s.pool.QueryRow(ctx,
 		`UPDATE flags SET name=$2, description=$3, tags=$4, flag_type=$5, owner_id=$6, updated_at=NOW() WHERE id=$1
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, variants, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
 		flagID, name, description, tags, flagType, ownerID,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &variantsJSON, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("updating flag: %w", err)
 	}
+	if err := json.Unmarshal(variantsJSON, &f.Variants); err != nil {
+		return nil, fmt.Errorf("unmarshalling variants: %w", err)
+	}
 	if f.Tags == nil {
 		f.Tags = []string{}
+	}
+	if f.Variants == nil {
+		f.Variants = []model.Variant{}
 	}
 	return &f, nil
 }
@@ -262,16 +297,23 @@ func (s *FlagStore) Update(ctx context.Context, flagID, name, description string
 // SetLifecycleStatus sets the lifecycle status of a flag.
 func (s *FlagStore) SetLifecycleStatus(ctx context.Context, flagID string, status model.LifecycleStatus) (*model.Flag, error) {
 	var f model.Flag
+	var variantsJSON json.RawMessage
 	err := s.pool.QueryRow(ctx,
 		`UPDATE flags SET lifecycle_status=$2, lifecycle_status_changed_at=NOW(), updated_at=NOW() WHERE id=$1
-		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
+		 RETURNING id, project_id, key, name, description, value_type, flag_type, default_value, tags, variants, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at`,
 		flagID, status,
-	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
+	).Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &variantsJSON, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("setting flag lifecycle status: %w", err)
 	}
+	if err := json.Unmarshal(variantsJSON, &f.Variants); err != nil {
+		return nil, fmt.Errorf("unmarshalling variants: %w", err)
+	}
 	if f.Tags == nil {
 		f.Tags = []string{}
+	}
+	if f.Variants == nil {
+		f.Variants = []model.Variant{}
 	}
 	return &f, nil
 }
@@ -279,7 +321,7 @@ func (s *FlagStore) SetLifecycleStatus(ctx context.Context, flagID string, statu
 // ListNonArchived returns all flags that are not archived (for cache loading and staleness checks).
 func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at
+		`SELECT id, project_id, key, name, description, value_type, flag_type, default_value, tags, variants, lifecycle_status, lifecycle_status_changed_at, created_at, updated_at, owner_id, last_evaluated_at
 		 FROM flags WHERE lifecycle_status != 'archived'`)
 	if err != nil {
 		return nil, fmt.Errorf("listing non-archived flags: %w", err)
@@ -289,11 +331,18 @@ func (s *FlagStore) ListNonArchived(ctx context.Context) ([]model.Flag, error) {
 	var flags []model.Flag
 	for rows.Next() {
 		var f model.Flag
-		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt); err != nil {
+		var variantsJSON json.RawMessage
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.ValueType, &f.FlagType, &f.DefaultValue, &f.Tags, &variantsJSON, &f.LifecycleStatus, &f.LifecycleStatusChangedAt, &f.CreatedAt, &f.UpdatedAt, &f.OwnerID, &f.LastEvaluatedAt); err != nil {
 			return nil, fmt.Errorf("scanning flag: %w", err)
+		}
+		if err := json.Unmarshal(variantsJSON, &f.Variants); err != nil {
+			return nil, fmt.Errorf("unmarshalling variants: %w", err)
 		}
 		if f.Tags == nil {
 			f.Tags = []string{}
+		}
+		if f.Variants == nil {
+			f.Variants = []model.Variant{}
 		}
 		flags = append(flags, f)
 	}
@@ -361,7 +410,7 @@ func (s *FlagStore) Delete(ctx context.Context, flagID string) error {
 func (s *FlagStore) GetEnvironmentConfig(ctx context.Context, flagID, environmentID string) (*model.FlagEnvironmentConfig, error) {
 	row := s.pool.QueryRow(ctx,
 		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.fallthrough_variant, fec.off_variant,
-		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
+		        fec.targeting_rules, fec.updated_at, fec.updated_by,
 		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
 		        u.id, u.email, u.display_name,
 		        lu.id, lu.email, lu.display_name
@@ -378,7 +427,7 @@ func (s *FlagStore) GetEnvironmentConfig(ctx context.Context, flagID, environmen
 func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string) ([]model.FlagEnvironmentConfig, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.fallthrough_variant, fec.off_variant,
-		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
+		        fec.targeting_rules, fec.updated_at, fec.updated_by,
 		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
 		        u.id, u.email, u.display_name,
 		        lu.id, lu.email, lu.display_name
@@ -417,7 +466,7 @@ func (s *FlagStore) GetEnvironmentConfigsByFlagIDs(ctx context.Context, flagIDs 
 
 	rows, err := s.pool.Query(ctx,
 		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.fallthrough_variant, fec.off_variant,
-		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
+		        fec.targeting_rules, fec.updated_at, fec.updated_by,
 		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
 		        u.id, u.email, u.display_name,
 		        lu.id, lu.email, lu.display_name
@@ -449,16 +498,28 @@ func (s *FlagStore) GetEnvironmentConfigsByFlagIDs(ctx context.Context, flagIDs 
 // UpdateEnvironmentConfig updates the flag config for a specific environment.
 // This includes enabled, fallthrough_variant, off_variant, variants (JSON), and targeting_rules (JSON).
 // updatedBy optionally records which user made the change.
-func (s *FlagStore) UpdateEnvironmentConfig(ctx context.Context, flagID, environmentID string, enabled bool, fallthroughVariant, offVariant string, variants json.RawMessage, targetingRules json.RawMessage, updatedBy *string) (*model.FlagEnvironmentConfig, error) {
+func (s *FlagStore) UpdateEnvironmentConfig(ctx context.Context, flagID, environmentID string, enabled bool, fallthroughVariant, offVariant string, targetingRules json.RawMessage, updatedBy *string) (*model.FlagEnvironmentConfig, error) {
 	row := s.pool.QueryRow(ctx,
 		`UPDATE flag_environment_configs
-		 SET enabled=$3, fallthrough_variant=$4, off_variant=$5, variants=$6, targeting_rules=$7, updated_at=NOW(), updated_by=$8
+		 SET enabled=$3, fallthrough_variant=$4, off_variant=$5, targeting_rules=$6, updated_at=NOW(), updated_by=$7
 		 WHERE flag_id=$1 AND environment_id=$2
-		 RETURNING id, flag_id, environment_id, enabled, fallthrough_variant, off_variant, variants, targeting_rules, updated_at, updated_by,
+		 RETURNING id, flag_id, environment_id, enabled, fallthrough_variant, off_variant, targeting_rules, updated_at, updated_by,
 		           locked, locked_by, locked_at, lock_reason`,
-		flagID, environmentID, enabled, fallthroughVariant, offVariant, variants, targetingRules, updatedBy,
+		flagID, environmentID, enabled, fallthroughVariant, offVariant, targetingRules, updatedBy,
 	)
 	return scanFlagEnvConfig(row)
+}
+
+// UpdateFlagVariants updates the variants for a flag (flag-level, not per-environment).
+func (s *FlagStore) UpdateFlagVariants(ctx context.Context, flagID string, variants json.RawMessage) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE flags SET variants = $2, updated_at = NOW() WHERE id = $1`,
+		flagID, variants,
+	)
+	if err != nil {
+		return fmt.Errorf("updating flag variants: %w", err)
+	}
+	return nil
 }
 
 // ProjectKeyByFlagID returns the project key for a flag (used by schedule checker).
@@ -565,21 +626,15 @@ func (s *FlagStore) IsEnvironmentConfigLocked(ctx context.Context, flagID, envir
 
 func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	var cfg model.FlagEnvironmentConfig
-	var variantsJSON, rulesJSON json.RawMessage
+	var rulesJSON json.RawMessage
 	err := row.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-		&cfg.FallthroughVariant, &cfg.OffVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&cfg.FallthroughVariant, &cfg.OffVariant, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
 		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason)
 	if err != nil {
 		return nil, fmt.Errorf("scanning flag environment config: %w", err)
 	}
-	if err := json.Unmarshal(variantsJSON, &cfg.Variants); err != nil {
-		return nil, fmt.Errorf("unmarshalling variants: %w", err)
-	}
 	if err := json.Unmarshal(rulesJSON, &cfg.TargetingRules); err != nil {
 		return nil, fmt.Errorf("unmarshalling targeting rules: %w", err)
-	}
-	if cfg.Variants == nil {
-		cfg.Variants = []model.Variant{}
 	}
 	if cfg.TargetingRules == nil {
 		cfg.TargetingRules = []model.TargetingRule{}
@@ -589,27 +644,21 @@ func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 
 func scanFlagEnvConfigWithUser(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	var cfg model.FlagEnvironmentConfig
-	var variantsJSON, rulesJSON json.RawMessage
+	var rulesJSON json.RawMessage
 	var updatedByUserID, updatedByEmail *string
 	var updatedByDisplayName *string
 	var lockedByUserID, lockedByEmail *string
 	var lockedByDisplayName *string
 	err := row.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-		&cfg.FallthroughVariant, &cfg.OffVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&cfg.FallthroughVariant, &cfg.OffVariant, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
 		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason,
 		&updatedByUserID, &updatedByEmail, &updatedByDisplayName,
 		&lockedByUserID, &lockedByEmail, &lockedByDisplayName)
 	if err != nil {
 		return nil, fmt.Errorf("scanning flag environment config: %w", err)
 	}
-	if err := json.Unmarshal(variantsJSON, &cfg.Variants); err != nil {
-		return nil, fmt.Errorf("unmarshalling variants: %w", err)
-	}
 	if err := json.Unmarshal(rulesJSON, &cfg.TargetingRules); err != nil {
 		return nil, fmt.Errorf("unmarshalling targeting rules: %w", err)
-	}
-	if cfg.Variants == nil {
-		cfg.Variants = []model.Variant{}
 	}
 	if cfg.TargetingRules == nil {
 		cfg.TargetingRules = []model.TargetingRule{}
@@ -627,26 +676,20 @@ func scanFlagEnvConfigWithUser(row pgx.Row) (*model.FlagEnvironmentConfig, error
 // that includes the LEFT JOIN on users for the updated_by field.
 func scanEnvironmentConfigRowWithUser(rows pgx.Rows) (model.FlagEnvironmentConfig, error) {
 	var cfg model.FlagEnvironmentConfig
-	var variantsJSON, rulesJSON json.RawMessage
+	var rulesJSON json.RawMessage
 	var updatedByUserID, updatedByEmail *string
 	var updatedByDisplayName *string
 	var lockedByUserID, lockedByEmail *string
 	var lockedByDisplayName *string
 	if err := rows.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-		&cfg.FallthroughVariant, &cfg.OffVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&cfg.FallthroughVariant, &cfg.OffVariant, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
 		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason,
 		&updatedByUserID, &updatedByEmail, &updatedByDisplayName,
 		&lockedByUserID, &lockedByEmail, &lockedByDisplayName); err != nil {
 		return cfg, fmt.Errorf("scanning environment config: %w", err)
 	}
-	if err := json.Unmarshal(variantsJSON, &cfg.Variants); err != nil {
-		return cfg, fmt.Errorf("unmarshalling variants: %w", err)
-	}
 	if err := json.Unmarshal(rulesJSON, &cfg.TargetingRules); err != nil {
 		return cfg, fmt.Errorf("unmarshalling targeting rules: %w", err)
-	}
-	if cfg.Variants == nil {
-		cfg.Variants = []model.Variant{}
 	}
 	if cfg.TargetingRules == nil {
 		cfg.TargetingRules = []model.TargetingRule{}

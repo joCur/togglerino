@@ -106,7 +106,6 @@ export default function KillSwitchDashboardPage() {
         enabled: !config.enabled,
         fallthrough_variant: config.fallthrough_variant,
         off_variant: config.off_variant,
-        variants: config.variants,
         targeting_rules: config.targeting_rules,
       })
     },

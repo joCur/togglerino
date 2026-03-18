@@ -35,7 +35,7 @@ func (e *Engine) EvaluateWithSegments(flag *model.Flag, config *model.FlagEnviro
 
 	// 2. If targeting is off, return off variant with reason "disabled".
 	if !config.Enabled {
-		value := lookupVariantValue(config.Variants, config.OffVariant, flag.DefaultValue)
+		value := lookupVariantValue(flag.Variants, config.OffVariant, flag.DefaultValue)
 		return &model.EvaluationResult{
 			Value:   value,
 			Variant: config.OffVariant,
@@ -52,7 +52,7 @@ func (e *Engine) EvaluateWithSegments(flag *model.Flag, config *model.FlagEnviro
 					continue
 				}
 			}
-			value := lookupVariantValue(config.Variants, rule.Variant, flag.DefaultValue)
+			value := lookupVariantValue(flag.Variants, rule.Variant, flag.DefaultValue)
 			return &model.EvaluationResult{
 				Value:   value,
 				Variant: rule.Variant,
@@ -62,7 +62,7 @@ func (e *Engine) EvaluateWithSegments(flag *model.Flag, config *model.FlagEnviro
 	}
 
 	// 4. Return fallthrough variant.
-	value := lookupVariantValue(config.Variants, config.FallthroughVariant, flag.DefaultValue)
+	value := lookupVariantValue(flag.Variants, config.FallthroughVariant, flag.DefaultValue)
 	return &model.EvaluationResult{
 		Value:   value,
 		Variant: config.FallthroughVariant,

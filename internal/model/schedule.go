@@ -35,6 +35,5 @@ type ConfigSnapshotPayload struct {
 	Enabled            bool            `json:"enabled"`
 	OffVariant         string          `json:"off_variant"`
 	FallthroughVariant string          `json:"fallthrough_variant"`
-	Variants           json.RawMessage `json:"variants"`
 	TargetingRules     json.RawMessage `json:"targeting_rules"`
 }

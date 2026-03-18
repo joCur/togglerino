@@ -636,44 +636,56 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.Variants == nil {
-		req.Variants = json.RawMessage(`[]`)
-	}
 	if req.TargetingRules == nil {
 		req.TargetingRules = json.RawMessage(`[]`)
 	}
 
-	// Parse variants for validation
-	var variants []model.Variant
-	if err := json.Unmarshal(req.Variants, &variants); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid variants")
-		return
-	}
-
-	// Boolean flags: enforce exactly two variants with values true/false, validate targeting rules.
-	if flag.ValueType == model.ValueTypeBoolean {
-		if len(variants) != 2 {
-			writeError(w, http.StatusBadRequest, "boolean flags must have exactly two variants")
+	// Variants are now flag-level. If the request includes variants, update the flag's variants.
+	if req.Variants != nil && string(req.Variants) != "[]" {
+		var variants []model.Variant
+		if err := json.Unmarshal(req.Variants, &variants); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid variants")
 			return
 		}
-		hasTrue, hasFalse := false, false
-		for _, v := range variants {
-			var val any
-			if err := json.Unmarshal(v.Value, &val); err == nil {
-				if val == true {
-					hasTrue = true
-				}
-				if val == false {
-					hasFalse = true
+
+		// Boolean flags: enforce exactly two variants with values true/false.
+		if flag.ValueType == model.ValueTypeBoolean {
+			if len(variants) != 2 {
+				writeError(w, http.StatusBadRequest, "boolean flags must have exactly two variants")
+				return
+			}
+			hasTrue, hasFalse := false, false
+			for _, v := range variants {
+				var val any
+				if err := json.Unmarshal(v.Value, &val); err == nil {
+					if val == true {
+						hasTrue = true
+					}
+					if val == false {
+						hasFalse = true
+					}
 				}
 			}
-		}
-		if !hasTrue || !hasFalse {
-			writeError(w, http.StatusBadRequest, "boolean flag variants must contain one true and one false value")
-			return
+			if !hasTrue || !hasFalse {
+				writeError(w, http.StatusBadRequest, "boolean flag variants must contain one true and one false value")
+				return
+			}
 		}
 
-		// Validate targeting rule variant names for boolean flags.
+		if err := h.flags.UpdateFlagVariants(r.Context(), flag.ID, req.Variants); err != nil {
+			slog.Error("failed to update flag variants", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update flag variants")
+			return
+		}
+		// Update the in-memory flag for variant validation below
+		flag.Variants = variants
+	}
+
+	// Use the flag's variants for validation
+	variants := flag.Variants
+
+	// Validate targeting rule variant names for boolean flags.
+	if flag.ValueType == model.ValueTypeBoolean {
 		if req.TargetingRules != nil && string(req.TargetingRules) != "[]" {
 			var rules []model.TargetingRule
 			if err := json.Unmarshal(req.TargetingRules, &rules); err == nil {
@@ -724,7 +736,7 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		updatedBy = &user.ID
 	}
 
-	cfg, err := h.flags.UpdateEnvironmentConfig(r.Context(), flag.ID, env.ID, req.Enabled, req.FallthroughVariant, req.OffVariant, req.Variants, req.TargetingRules, updatedBy)
+	cfg, err := h.flags.UpdateEnvironmentConfig(r.Context(), flag.ID, env.ID, req.Enabled, req.FallthroughVariant, req.OffVariant, req.TargetingRules, updatedBy)
 	if err != nil {
 		slog.Error("failed to update environment config", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update environment config")
@@ -1006,7 +1018,7 @@ func (h *FlagHandler) bulkEnableDisable(ctx context.Context, project *model.Proj
 	}
 
 	cfg, err := h.flags.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, enable, oldConfig.FallthroughVariant, oldConfig.OffVariant,
-		marshalJSON(oldConfig.Variants), marshalJSON(oldConfig.TargetingRules), updatedBy)
+		marshalJSON(oldConfig.TargetingRules), updatedBy)
 	if err != nil {
 		return fmt.Errorf("failed to update environment config")
 	}
@@ -1277,7 +1289,6 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 		targetEnabled,
 		sourceConfig.FallthroughVariant,
 		sourceConfig.OffVariant,
-		marshalJSON(sourceConfig.Variants),
 		marshalJSON(sourceConfig.TargetingRules),
 		updatedBy,
 	)

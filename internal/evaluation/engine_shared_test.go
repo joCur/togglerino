@@ -132,16 +132,6 @@ func toFlag(f fixtureFlag) *model.Flag {
 		}
 	}
 
-	return &model.Flag{
-		Key:             f.Key,
-		ValueType:       model.ValueType(f.ValueType),
-		LifecycleStatus: lifecycle,
-		DefaultValue:    defaultValue,
-	}
-}
-
-// toConfig converts a fixture flag config to the backend *model.FlagEnvironmentConfig.
-func toConfig(f fixtureFlag) *model.FlagEnvironmentConfig {
 	variants := make([]model.Variant, len(f.Config.Variants))
 	for i, v := range f.Config.Variants {
 		variants[i] = model.Variant{
@@ -150,6 +140,17 @@ func toConfig(f fixtureFlag) *model.FlagEnvironmentConfig {
 		}
 	}
 
+	return &model.Flag{
+		Key:             f.Key,
+		ValueType:       model.ValueType(f.ValueType),
+		LifecycleStatus: lifecycle,
+		DefaultValue:    defaultValue,
+		Variants:        variants,
+	}
+}
+
+// toConfig converts a fixture flag config to the backend *model.FlagEnvironmentConfig.
+func toConfig(f fixtureFlag) *model.FlagEnvironmentConfig {
 	rules := make([]model.TargetingRule, len(f.Config.TargetingRules))
 	for i, r := range f.Config.TargetingRules {
 		rules[i] = model.TargetingRule{
@@ -166,7 +167,6 @@ func toConfig(f fixtureFlag) *model.FlagEnvironmentConfig {
 		Enabled:            f.Config.Enabled,
 		OffVariant:         f.Config.OffVariant,
 		FallthroughVariant: f.Config.FallthroughVariant,
-		Variants:           variants,
 		TargetingRules:     rules,
 	}
 }

@@ -71,6 +71,7 @@ type Flag struct {
 	FlagType                 FlagType        `json:"flag_type"`
 	DefaultValue             json.RawMessage `json:"default_value"`
 	Tags                     []string        `json:"tags"`
+	Variants                 []Variant       `json:"variants"`
 	LifecycleStatus          LifecycleStatus `json:"lifecycle_status"`
 	LifecycleStatusChangedAt *time.Time      `json:"lifecycle_status_changed_at"`
 	CreatedAt                time.Time       `json:"created_at"`
@@ -94,7 +95,6 @@ type FlagEnvironmentConfig struct {
 	Enabled            bool            `json:"enabled"`
 	OffVariant         string          `json:"off_variant"`
 	FallthroughVariant string          `json:"fallthrough_variant"`
-	Variants           []Variant       `json:"variants"`
 	TargetingRules     []TargetingRule `json:"targeting_rules"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	UpdatedBy      *string         `json:"updated_by,omitempty"`

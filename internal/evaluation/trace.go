@@ -37,7 +37,7 @@ func (e *Engine) EvaluateWithTrace(flag *model.Flag, config *model.FlagEnvironme
 	})
 	if !enabledPassed {
 		trace.SelectedStep = 1
-		trace.Value = lookupVariantValue(config.Variants, config.OffVariant, flag.DefaultValue)
+		trace.Value = lookupVariantValue(flag.Variants, config.OffVariant, flag.DefaultValue)
 		trace.Variant = config.OffVariant
 		trace.Reason = "disabled"
 		return trace
@@ -114,12 +114,12 @@ func (e *Engine) EvaluateWithTrace(flag *model.Flag, config *model.FlagEnvironme
 		trace.Reason = "rule_match"
 		matchedRule := config.TargetingRules[*trace.Steps[matchedStepIndex].RuleIndex]
 		trace.Variant = matchedRule.Variant
-		trace.Value = lookupVariantValue(config.Variants, matchedRule.Variant, flag.DefaultValue)
+		trace.Value = lookupVariantValue(flag.Variants, matchedRule.Variant, flag.DefaultValue)
 	} else {
 		trace.SelectedStep = -1
 		trace.Reason = "default"
 		trace.Variant = config.FallthroughVariant
-		trace.Value = lookupVariantValue(config.Variants, config.FallthroughVariant, flag.DefaultValue)
+		trace.Value = lookupVariantValue(flag.Variants, config.FallthroughVariant, flag.DefaultValue)
 	}
 
 	return trace

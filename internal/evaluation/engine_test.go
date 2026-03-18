@@ -33,21 +33,27 @@ func makeBoolFlag(key string, lifecycleStatus model.LifecycleStatus) *model.Flag
 	}
 }
 
-func makeConfig(enabled bool, fallthroughVariant string, variants []model.Variant, rules []model.TargetingRule) *model.FlagEnvironmentConfig {
+// withVariants sets variants on a flag and returns it (for chaining).
+func withVariants(flag *model.Flag, variants []model.Variant) *model.Flag {
+	flag.Variants = variants
+	return flag
+}
+
+func makeConfig(flag *model.Flag, enabled bool, fallthroughVariant string, variants []model.Variant, rules []model.TargetingRule) *model.FlagEnvironmentConfig {
+	flag.Variants = variants
 	return &model.FlagEnvironmentConfig{
 		Enabled:            enabled,
 		FallthroughVariant: fallthroughVariant,
-		Variants:           variants,
 		TargetingRules:     rules,
 	}
 }
 
-func makeConfigWithOff(enabled bool, fallthroughVariant, offVariant string, variants []model.Variant, rules []model.TargetingRule) *model.FlagEnvironmentConfig {
+func makeConfigWithOff(flag *model.Flag, enabled bool, fallthroughVariant, offVariant string, variants []model.Variant, rules []model.TargetingRule) *model.FlagEnvironmentConfig {
+	flag.Variants = variants
 	return &model.FlagEnvironmentConfig{
 		Enabled:            enabled,
 		OffVariant:         offVariant,
 		FallthroughVariant: fallthroughVariant,
-		Variants:           variants,
 		TargetingRules:     rules,
 	}
 }
@@ -55,7 +61,7 @@ func makeConfigWithOff(enabled bool, fallthroughVariant, offVariant string, vari
 func TestEngine_FlagDisabled(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfigWithOff(false, "on", "off", []model.Variant{
+	config := makeConfigWithOff(flag, false, "on", "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, nil)
@@ -80,7 +86,7 @@ func TestEngine_FlagDisabled(t *testing.T) {
 func TestEngine_FlagArchived(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "default-val", model.LifecycleArchived)
-	config := makeConfig(true, "on", []model.Variant{
+	config := makeConfig(flag, true, "on", []model.Variant{
 		{Name: "on", Value: rawJSON("on-val")},
 	}, nil)
 	ctx := &model.EvaluationContext{
@@ -101,7 +107,7 @@ func TestEngine_FlagArchived(t *testing.T) {
 func TestEngine_NoRulesEnabled(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, nil)
@@ -126,7 +132,7 @@ func TestEngine_NoRulesEnabled(t *testing.T) {
 func TestEngine_SingleRuleMatches(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -160,7 +166,7 @@ func TestEngine_SingleRuleMatches(t *testing.T) {
 func TestEngine_SingleRuleDoesNotMatch(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -191,7 +197,7 @@ func TestEngine_SingleRuleDoesNotMatch(t *testing.T) {
 func TestEngine_MultipleRulesFirstMatchWins(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "none", model.LifecycleActive)
-	config := makeConfig(true, "default", []model.Variant{
+	config := makeConfig(flag, true, "default", []model.Variant{
 		{Name: "default", Value: rawJSON("none")},
 		{Name: "beta", Value: rawJSON("beta-experience")},
 		{Name: "vip", Value: rawJSON("vip-experience")},
@@ -237,7 +243,7 @@ func TestEngine_PercentageRollout_InBucket(t *testing.T) {
 	// With 50% rollout, bucket 28 < 50, so user IS in rollout.
 	engine := NewEngine()
 	flag := makeFlag("rollout-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -274,7 +280,7 @@ func TestEngine_PercentageRollout_OutOfBucket(t *testing.T) {
 	// With 50% rollout, bucket 89 >= 50, so user is NOT in rollout.
 	engine := NewEngine()
 	flag := makeFlag("rollout-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -308,7 +314,7 @@ func TestEngine_PercentageRollout_OutOfBucket(t *testing.T) {
 func TestEngine_ComplexConditionsANDLogic(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "default", model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON("default")},
 		{Name: "premium", Value: rawJSON("premium-feature")},
 	}, []model.TargetingRule{
@@ -390,7 +396,7 @@ func TestEngine_ComplexConditionsANDLogic(t *testing.T) {
 func TestEngine_ExistsNotExistsOperators(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -433,7 +439,7 @@ func TestEngine_ExistsNotExistsOperators(t *testing.T) {
 	})
 
 	// Test not_exists operator.
-	configNotExists := makeConfig(true, "off", []model.Variant{
+	configNotExists := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -473,7 +479,7 @@ func TestEngine_ExistsNotExistsOperators(t *testing.T) {
 func TestEngine_VariantNotFound_FallbackToDefault(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "fallback-value", model.LifecycleActive)
-	config := makeConfig(true, "nonexistent-variant", []model.Variant{
+	config := makeConfig(flag, true, "nonexistent-variant", []model.Variant{
 		{Name: "on", Value: rawJSON(true)},
 	}, nil)
 	ctx := &model.EvaluationContext{
@@ -500,7 +506,7 @@ func TestEngine_PercentageRollout_100Percent(t *testing.T) {
 	// 100% rollout means all users should be included.
 	engine := NewEngine()
 	flag := makeFlag("full-rollout", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -533,7 +539,7 @@ func TestEngine_PercentageRollout_0Percent(t *testing.T) {
 	// 0% rollout means no users should be included.
 	engine := NewEngine()
 	flag := makeFlag("zero-rollout", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -562,7 +568,7 @@ func TestEngine_PercentageRollout_0Percent(t *testing.T) {
 func TestEngine_SegmentMatchCondition(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
+	config := makeConfig(flag, true, "off", []model.Variant{
 		{Name: "off", Value: rawJSON(false)},
 		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
@@ -629,7 +635,7 @@ func TestEngine_SegmentMatchCondition(t *testing.T) {
 	})
 
 	t.Run("segment_match mixed with inline conditions", func(t *testing.T) {
-		mixedConfig := makeConfig(true, "off", []model.Variant{
+		mixedConfig := makeConfig(flag, true, "off", []model.Variant{
 			{Name: "off", Value: rawJSON(false)},
 			{Name: "on", Value: rawJSON(true)},
 		}, []model.TargetingRule{
@@ -666,7 +672,7 @@ func TestEngine_SegmentMatchCondition(t *testing.T) {
 func TestEngine_BooleanFlag_EnabledNoRules(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
-	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "true", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, nil)
@@ -688,7 +694,7 @@ func TestEngine_BooleanFlag_EnabledNoRules(t *testing.T) {
 func TestEngine_BooleanFlag_Disabled(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
-	config := makeConfigWithOff(false, "true", "false", []model.Variant{
+	config := makeConfigWithOff(flag, false, "true", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, nil)
@@ -710,7 +716,7 @@ func TestEngine_BooleanFlag_Disabled(t *testing.T) {
 func TestEngine_BooleanFlag_Archived(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("maintenance-mode", model.LifecycleArchived)
-	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "true", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, nil)
@@ -729,7 +735,7 @@ func TestEngine_BooleanFlag_Archived(t *testing.T) {
 func TestEngine_BooleanFlag_TargetingRuleServesTrue(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
-	config := makeConfigWithOff(true, "false", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "false", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, []model.TargetingRule{
@@ -761,7 +767,7 @@ func TestEngine_BooleanFlag_TargetingRuleServesTrue(t *testing.T) {
 func TestEngine_BooleanFlag_TargetingRuleServesFalse(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
-	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "true", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, []model.TargetingRule{
@@ -793,7 +799,7 @@ func TestEngine_BooleanFlag_TargetingRuleServesFalse(t *testing.T) {
 func TestEngine_BooleanFlag_InvalidVariant(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("test-flag", model.LifecycleActive)
-	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "true", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, []model.TargetingRule{
@@ -826,7 +832,7 @@ func TestEngine_BooleanFlag_InvalidVariant(t *testing.T) {
 func TestEngine_BooleanFlag_SegmentMatch(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
-	config := makeConfigWithOff(true, "false", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "false", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, []model.TargetingRule{
@@ -865,7 +871,7 @@ func TestEngine_BooleanFlag_SegmentMatch(t *testing.T) {
 func TestEngine_BooleanFlag_MultipleRulesFirstMatchWins(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("test-flag", model.LifecycleActive)
-	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "true", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, []model.TargetingRule{
@@ -902,7 +908,7 @@ func TestEngine_BooleanFlag_PercentageRollout(t *testing.T) {
 	// gradual-rollout + user-xyz = bucket 28 (in rollout, gets false)
 	// gradual-rollout + user-abc = bucket 89 (outside rollout, gets fallthrough true)
 	flag := makeBoolFlag("gradual-rollout", model.LifecycleActive)
-	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "true", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, []model.TargetingRule{
@@ -949,7 +955,7 @@ func TestEngine_BooleanFlag_PercentageRollout(t *testing.T) {
 func TestEngine_BooleanFlag_Trace(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
-	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "true", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, nil)
@@ -971,7 +977,7 @@ func TestEngine_BooleanFlag_Trace(t *testing.T) {
 func TestEngine_BooleanFlag_Trace_RuleMatch(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
-	config := makeConfigWithOff(true, "false", "false", []model.Variant{
+	config := makeConfigWithOff(flag, true, "false", "false", []model.Variant{
 		{Name: "true", Value: rawJSON(true)},
 		{Name: "false", Value: rawJSON(false)},
 	}, []model.TargetingRule{

@@ -401,7 +401,7 @@ export default function FlagDetailPage() {
         <div className="mb-6">
           <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Variants</div>
           <VariantChips
-            variants={flagVariants ?? data.environment_configs[0]?.variants ?? []}
+            variants={flagVariants ?? flag.variants ?? []}
             valueType={flag.value_type}
             onChange={setFlagVariants}
             readonly={!canWrite || flag.value_type === 'boolean'}
@@ -553,7 +553,7 @@ export default function FlagDetailPage() {
                   flagKey={flagKey!}
                   allConfigs={data.environment_configs}
                   environments={environments}
-                  variants={flagVariants ?? data.environment_configs[0]?.variants ?? []}
+                  variants={flagVariants ?? flag.variants ?? []}
                   readOnly={!envWritable || !!config?.locked}
                 />
               </TabsContent>

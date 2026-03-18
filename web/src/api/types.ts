@@ -62,6 +62,7 @@ export interface Flag {
   flag_type: FlagPurpose
   default_value: unknown
   tags: string[]
+  variants: Variant[]
   lifecycle_status: LifecycleStatus
   lifecycle_status_changed_at: string | null
   last_evaluated_at: string | null
@@ -101,7 +102,6 @@ export interface FlagEnvironmentConfig {
   enabled: boolean
   fallthrough_variant: string
   off_variant: string
-  variants: Variant[]
   targeting_rules: TargetingRule[]
   updated_at: string
   updated_by?: string
