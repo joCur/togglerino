@@ -127,9 +127,22 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	envEnabled := projectSettings.ResolveEnvironmentDefaults(envKeys, req.EnvironmentOverrides)
 
-	// Boolean flags: enforce canonical variants, validate targeting rules.
+	// Boolean flags: auto-populate variants and defaults, validate targeting rules.
 	if req.ValueType == model.ValueTypeBoolean {
-		for key, override := range req.EnvironmentOverrides {
+		boolVariants := json.RawMessage(`[{"name":"true","value":true},{"name":"false","value":false}]`)
+		// Ensure every environment gets boolean variants and sensible defaults.
+		if req.EnvironmentOverrides == nil {
+			req.EnvironmentOverrides = make(map[string]model.EnvironmentDefault)
+		}
+		for _, ek := range envKeys {
+			override := req.EnvironmentOverrides[ek]
+			override.Variants = boolVariants
+			if override.FallthroughVariant == "" {
+				override.FallthroughVariant = "true"
+			}
+			if override.OffVariant == "" {
+				override.OffVariant = "false"
+			}
 			if override.TargetingRules != nil && string(override.TargetingRules) != "[]" {
 				var rules []model.TargetingRule
 				if err := json.Unmarshal(override.TargetingRules, &rules); err == nil {
@@ -141,7 +154,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			req.EnvironmentOverrides[key] = override
+			req.EnvironmentOverrides[ek] = override
 		}
 	}
 
