@@ -26,14 +26,15 @@ type fixtureFlag struct {
 }
 
 type fixtureFlagConfig struct {
-	Enabled        bool                   `json:"enabled"`
-	DefaultVariant string                 `json:"defaultVariant"`
-	Variants       []fixtureVariant       `json:"variants"`
-	TargetingRules []fixtureTargetingRule `json:"targetingRules"`
+	Enabled            bool                   `json:"enabled"`
+	OffVariant         string                 `json:"offVariant"`
+	FallthroughVariant string                 `json:"fallthroughVariant"`
+	Variants           []fixtureVariant       `json:"variants"`
+	TargetingRules     []fixtureTargetingRule `json:"targetingRules"`
 }
 
 type fixtureVariant struct {
-	Key   string          `json:"key"`
+	Name  string          `json:"name"`
 	Value json.RawMessage `json:"value"`
 }
 
@@ -122,10 +123,10 @@ func toFlag(f fixtureFlag) *model.Flag {
 		lifecycle = model.LifecycleActive
 	}
 
-	// Compute DefaultValue from the default variant's value in the config.
+	// Compute DefaultValue from the fallthrough variant's value in the config.
 	var defaultValue json.RawMessage
 	for _, v := range f.Config.Variants {
-		if v.Key == f.Config.DefaultVariant {
+		if v.Name == f.Config.FallthroughVariant {
 			defaultValue = v.Value
 			break
 		}
@@ -144,7 +145,7 @@ func toConfig(f fixtureFlag) *model.FlagEnvironmentConfig {
 	variants := make([]model.Variant, len(f.Config.Variants))
 	for i, v := range f.Config.Variants {
 		variants[i] = model.Variant{
-			Key:   v.Key,
+			Name:  v.Name,
 			Value: v.Value,
 		}
 	}
@@ -162,10 +163,11 @@ func toConfig(f fixtureFlag) *model.FlagEnvironmentConfig {
 	}
 
 	return &model.FlagEnvironmentConfig{
-		Enabled:        f.Config.Enabled,
-		DefaultVariant: f.Config.DefaultVariant,
-		Variants:       variants,
-		TargetingRules: rules,
+		Enabled:            f.Config.Enabled,
+		OffVariant:         f.Config.OffVariant,
+		FallthroughVariant: f.Config.FallthroughVariant,
+		Variants:           variants,
+		TargetingRules:     rules,
 	}
 }
 

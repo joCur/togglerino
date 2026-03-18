@@ -33,21 +33,31 @@ func makeBoolFlag(key string, lifecycleStatus model.LifecycleStatus) *model.Flag
 	}
 }
 
-func makeConfig(enabled bool, defaultVariant string, variants []model.Variant, rules []model.TargetingRule) *model.FlagEnvironmentConfig {
+func makeConfig(enabled bool, fallthroughVariant string, variants []model.Variant, rules []model.TargetingRule) *model.FlagEnvironmentConfig {
 	return &model.FlagEnvironmentConfig{
-		Enabled:        enabled,
-		DefaultVariant: defaultVariant,
-		Variants:       variants,
-		TargetingRules: rules,
+		Enabled:            enabled,
+		FallthroughVariant: fallthroughVariant,
+		Variants:           variants,
+		TargetingRules:     rules,
+	}
+}
+
+func makeConfigWithOff(enabled bool, fallthroughVariant, offVariant string, variants []model.Variant, rules []model.TargetingRule) *model.FlagEnvironmentConfig {
+	return &model.FlagEnvironmentConfig{
+		Enabled:            enabled,
+		OffVariant:         offVariant,
+		FallthroughVariant: fallthroughVariant,
+		Variants:           variants,
+		TargetingRules:     rules,
 	}
 }
 
 func TestEngine_FlagDisabled(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(false, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+	config := makeConfigWithOff(false, "on", "off", []model.Variant{
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, nil)
 	ctx := &model.EvaluationContext{
 		UserID:     "user-1",
@@ -62,13 +72,16 @@ func TestEngine_FlagDisabled(t *testing.T) {
 	if result.Value != false {
 		t.Errorf("expected value false, got %v", result.Value)
 	}
+	if result.Variant != "off" {
+		t.Errorf("expected variant 'off', got %q", result.Variant)
+	}
 }
 
 func TestEngine_FlagArchived(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "default-val", model.LifecycleArchived)
 	config := makeConfig(true, "on", []model.Variant{
-		{Key: "on", Value: rawJSON("on-val")},
+		{Name: "on", Value: rawJSON("on-val")},
 	}, nil)
 	ctx := &model.EvaluationContext{
 		UserID:     "user-1",
@@ -89,8 +102,8 @@ func TestEngine_NoRulesEnabled(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, nil)
 	ctx := &model.EvaluationContext{
 		UserID:     "user-1",
@@ -114,8 +127,8 @@ func TestEngine_SingleRuleMatches(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -148,8 +161,8 @@ func TestEngine_SingleRuleDoesNotMatch(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -179,9 +192,9 @@ func TestEngine_MultipleRulesFirstMatchWins(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "none", model.LifecycleActive)
 	config := makeConfig(true, "default", []model.Variant{
-		{Key: "default", Value: rawJSON("none")},
-		{Key: "beta", Value: rawJSON("beta-experience")},
-		{Key: "vip", Value: rawJSON("vip-experience")},
+		{Name: "default", Value: rawJSON("none")},
+		{Name: "beta", Value: rawJSON("beta-experience")},
+		{Name: "vip", Value: rawJSON("vip-experience")},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -225,8 +238,8 @@ func TestEngine_PercentageRollout_InBucket(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("rollout-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -262,8 +275,8 @@ func TestEngine_PercentageRollout_OutOfBucket(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("rollout-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -296,8 +309,8 @@ func TestEngine_ComplexConditionsANDLogic(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "default", model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON("default")},
-		{Key: "premium", Value: rawJSON("premium-feature")},
+		{Name: "off", Value: rawJSON("default")},
+		{Name: "premium", Value: rawJSON("premium-feature")},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -378,8 +391,8 @@ func TestEngine_ExistsNotExistsOperators(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -421,8 +434,8 @@ func TestEngine_ExistsNotExistsOperators(t *testing.T) {
 
 	// Test not_exists operator.
 	configNotExists := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -461,7 +474,7 @@ func TestEngine_VariantNotFound_FallbackToDefault(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "fallback-value", model.LifecycleActive)
 	config := makeConfig(true, "nonexistent-variant", []model.Variant{
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "on", Value: rawJSON(true)},
 	}, nil)
 	ctx := &model.EvaluationContext{
 		UserID:     "user-1",
@@ -488,8 +501,8 @@ func TestEngine_PercentageRollout_100Percent(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("full-rollout", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -521,8 +534,8 @@ func TestEngine_PercentageRollout_0Percent(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("zero-rollout", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -550,8 +563,8 @@ func TestEngine_SegmentMatchCondition(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
 	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -617,8 +630,8 @@ func TestEngine_SegmentMatchCondition(t *testing.T) {
 
 	t.Run("segment_match mixed with inline conditions", func(t *testing.T) {
 		mixedConfig := makeConfig(true, "off", []model.Variant{
-			{Key: "off", Value: rawJSON(false)},
-			{Key: "on", Value: rawJSON(true)},
+			{Name: "off", Value: rawJSON(false)},
+			{Name: "on", Value: rawJSON(true)},
 		}, []model.TargetingRule{
 			{
 				Conditions: []model.Condition{
@@ -653,7 +666,10 @@ func TestEngine_SegmentMatchCondition(t *testing.T) {
 func TestEngine_BooleanFlag_EnabledNoRules(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
-	config := makeConfig(true, "", nil, nil)
+	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, nil)
 	ctx := &model.EvaluationContext{UserID: "user-1", Attributes: map[string]any{}}
 
 	result := engine.Evaluate(flag, config, ctx)
@@ -661,8 +677,8 @@ func TestEngine_BooleanFlag_EnabledNoRules(t *testing.T) {
 	if result.Value != true {
 		t.Errorf("expected enabled boolean flag to return true, got %v", result.Value)
 	}
-	if result.Variant != "" {
-		t.Errorf("expected empty variant for boolean flag, got %q", result.Variant)
+	if result.Variant != "true" {
+		t.Errorf("expected variant 'true' for boolean flag, got %q", result.Variant)
 	}
 	if result.Reason != "default" {
 		t.Errorf("expected reason 'default', got %q", result.Reason)
@@ -672,7 +688,10 @@ func TestEngine_BooleanFlag_EnabledNoRules(t *testing.T) {
 func TestEngine_BooleanFlag_Disabled(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
-	config := makeConfig(false, "", nil, nil)
+	config := makeConfigWithOff(false, "true", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, nil)
 	ctx := &model.EvaluationContext{UserID: "user-1", Attributes: map[string]any{}}
 
 	result := engine.Evaluate(flag, config, ctx)
@@ -680,8 +699,8 @@ func TestEngine_BooleanFlag_Disabled(t *testing.T) {
 	if result.Value != false {
 		t.Errorf("expected disabled boolean flag to return false, got %v", result.Value)
 	}
-	if result.Variant != "" {
-		t.Errorf("expected empty variant, got %q", result.Variant)
+	if result.Variant != "false" {
+		t.Errorf("expected variant 'false', got %q", result.Variant)
 	}
 	if result.Reason != "disabled" {
 		t.Errorf("expected reason 'disabled', got %q", result.Reason)
@@ -691,7 +710,10 @@ func TestEngine_BooleanFlag_Disabled(t *testing.T) {
 func TestEngine_BooleanFlag_Archived(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("maintenance-mode", model.LifecycleArchived)
-	config := makeConfig(true, "", nil, nil)
+	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, nil)
 	ctx := &model.EvaluationContext{UserID: "user-1", Attributes: map[string]any{}}
 
 	result := engine.Evaluate(flag, config, ctx)
@@ -707,7 +729,10 @@ func TestEngine_BooleanFlag_Archived(t *testing.T) {
 func TestEngine_BooleanFlag_TargetingRuleServesTrue(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
-	config := makeConfig(true, "", nil, []model.TargetingRule{
+	config := makeConfigWithOff(true, "false", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
 				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
@@ -725,8 +750,8 @@ func TestEngine_BooleanFlag_TargetingRuleServesTrue(t *testing.T) {
 	if result.Value != true {
 		t.Errorf("expected rule match to return true, got %v", result.Value)
 	}
-	if result.Variant != "" {
-		t.Errorf("expected empty variant for boolean flag, got %q", result.Variant)
+	if result.Variant != "true" {
+		t.Errorf("expected variant 'true' for boolean flag, got %q", result.Variant)
 	}
 	if result.Reason != "rule_match" {
 		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
@@ -736,7 +761,10 @@ func TestEngine_BooleanFlag_TargetingRuleServesTrue(t *testing.T) {
 func TestEngine_BooleanFlag_TargetingRuleServesFalse(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
-	config := makeConfig(true, "", nil, []model.TargetingRule{
+	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
 				{Attribute: "blocked", Operator: "equals", Value: "true"},
@@ -754,6 +782,9 @@ func TestEngine_BooleanFlag_TargetingRuleServesFalse(t *testing.T) {
 	if result.Value != false {
 		t.Errorf("expected rule match serving 'false' to return false, got %v", result.Value)
 	}
+	if result.Variant != "false" {
+		t.Errorf("expected variant 'false', got %q", result.Variant)
+	}
 	if result.Reason != "rule_match" {
 		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
 	}
@@ -762,7 +793,10 @@ func TestEngine_BooleanFlag_TargetingRuleServesFalse(t *testing.T) {
 func TestEngine_BooleanFlag_InvalidVariant(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("test-flag", model.LifecycleActive)
-	config := makeConfig(true, "", nil, []model.TargetingRule{
+	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
 				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
@@ -777,8 +811,12 @@ func TestEngine_BooleanFlag_InvalidVariant(t *testing.T) {
 
 	result := engine.Evaluate(flag, config, ctx)
 
+	// "on" variant not found, falls back to flag.DefaultValue (false).
 	if result.Value != false {
-		t.Errorf("expected invalid variant 'on' to evaluate as false, got %v", result.Value)
+		t.Errorf("expected invalid variant 'on' to evaluate as false (default), got %v", result.Value)
+	}
+	if result.Variant != "on" {
+		t.Errorf("expected variant 'on', got %q", result.Variant)
 	}
 	if result.Reason != "rule_match" {
 		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
@@ -788,7 +826,10 @@ func TestEngine_BooleanFlag_InvalidVariant(t *testing.T) {
 func TestEngine_BooleanFlag_SegmentMatch(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
-	config := makeConfig(true, "", nil, []model.TargetingRule{
+	config := makeConfigWithOff(true, "false", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
 				{Attribute: "", Operator: "segment_match", Value: "beta-users"},
@@ -813,6 +854,9 @@ func TestEngine_BooleanFlag_SegmentMatch(t *testing.T) {
 	if result.Value != true {
 		t.Errorf("expected segment match to return true, got %v", result.Value)
 	}
+	if result.Variant != "true" {
+		t.Errorf("expected variant 'true', got %q", result.Variant)
+	}
 	if result.Reason != "rule_match" {
 		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
 	}
@@ -821,7 +865,10 @@ func TestEngine_BooleanFlag_SegmentMatch(t *testing.T) {
 func TestEngine_BooleanFlag_MultipleRulesFirstMatchWins(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("test-flag", model.LifecycleActive)
-	config := makeConfig(true, "", nil, []model.TargetingRule{
+	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
 				{Attribute: "blocked", Operator: "equals", Value: "true"},
@@ -844,15 +891,21 @@ func TestEngine_BooleanFlag_MultipleRulesFirstMatchWins(t *testing.T) {
 	if result.Value != false {
 		t.Errorf("expected first-match-wins to return false, got %v", result.Value)
 	}
+	if result.Variant != "false" {
+		t.Errorf("expected variant 'false', got %q", result.Variant)
+	}
 }
 
 func TestEngine_BooleanFlag_PercentageRollout(t *testing.T) {
 	engine := NewEngine()
-	// Flag enabled (default true), rule serves "false" to 50% of US users.
+	// Flag enabled (fallthrough=true), rule serves "false" to 50% of US users.
 	// gradual-rollout + user-xyz = bucket 28 (in rollout, gets false)
-	// gradual-rollout + user-abc = bucket 89 (outside rollout, gets default true)
+	// gradual-rollout + user-abc = bucket 89 (outside rollout, gets fallthrough true)
 	flag := makeBoolFlag("gradual-rollout", model.LifecycleActive)
-	config := makeConfig(true, "", nil, []model.TargetingRule{
+	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
 				{Attribute: "country", Operator: "equals", Value: "US"},
@@ -870,6 +923,9 @@ func TestEngine_BooleanFlag_PercentageRollout(t *testing.T) {
 	if result.Value != false {
 		t.Errorf("expected user in rollout to get false (rule match), got %v", result.Value)
 	}
+	if result.Variant != "false" {
+		t.Errorf("expected variant 'false', got %q", result.Variant)
+	}
 	if result.Reason != "rule_match" {
 		t.Errorf("expected reason 'rule_match', got %q", result.Reason)
 	}
@@ -880,7 +936,10 @@ func TestEngine_BooleanFlag_PercentageRollout(t *testing.T) {
 	}
 	result2 := engine.Evaluate(flag, config, ctx2)
 	if result2.Value != true {
-		t.Errorf("expected user outside rollout to get true (default), got %v", result2.Value)
+		t.Errorf("expected user outside rollout to get true (fallthrough), got %v", result2.Value)
+	}
+	if result2.Variant != "true" {
+		t.Errorf("expected variant 'true', got %q", result2.Variant)
 	}
 	if result2.Reason != "default" {
 		t.Errorf("expected reason 'default', got %q", result2.Reason)
@@ -890,7 +949,10 @@ func TestEngine_BooleanFlag_PercentageRollout(t *testing.T) {
 func TestEngine_BooleanFlag_Trace(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("maintenance-mode", model.LifecycleActive)
-	config := makeConfig(true, "", nil, nil)
+	config := makeConfigWithOff(true, "true", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, nil)
 	ctx := &model.EvaluationContext{UserID: "user-1", Attributes: map[string]any{}}
 
 	trace := engine.EvaluateWithTrace(flag, config, ctx, nil)
@@ -898,8 +960,8 @@ func TestEngine_BooleanFlag_Trace(t *testing.T) {
 	if trace.Value != true {
 		t.Errorf("expected trace value true for enabled boolean, got %v", trace.Value)
 	}
-	if trace.Variant != "" {
-		t.Errorf("expected empty variant in trace, got %q", trace.Variant)
+	if trace.Variant != "true" {
+		t.Errorf("expected variant 'true' in trace, got %q", trace.Variant)
 	}
 	if trace.Reason != "default" {
 		t.Errorf("expected reason 'default', got %q", trace.Reason)
@@ -909,7 +971,10 @@ func TestEngine_BooleanFlag_Trace(t *testing.T) {
 func TestEngine_BooleanFlag_Trace_RuleMatch(t *testing.T) {
 	engine := NewEngine()
 	flag := makeBoolFlag("beta-feature", model.LifecycleActive)
-	config := makeConfig(true, "", nil, []model.TargetingRule{
+	config := makeConfigWithOff(true, "false", "false", []model.Variant{
+		{Name: "true", Value: rawJSON(true)},
+		{Name: "false", Value: rawJSON(false)},
+	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
 				{Attribute: "plan", Operator: "equals", Value: "enterprise"},
@@ -927,6 +992,9 @@ func TestEngine_BooleanFlag_Trace_RuleMatch(t *testing.T) {
 	if trace.Value != true {
 		t.Errorf("expected trace value true for rule match, got %v", trace.Value)
 	}
+	if trace.Variant != "true" {
+		t.Errorf("expected variant 'true', got %q", trace.Variant)
+	}
 	if trace.Reason != "rule_match" {
 		t.Errorf("expected reason 'rule_match', got %q", trace.Reason)
 	}
@@ -935,7 +1003,7 @@ func TestEngine_BooleanFlag_Trace_RuleMatch(t *testing.T) {
 func TestCache_SegmentStorage(t *testing.T) {
 	cache := NewCache()
 	segments := map[string]model.Segment{
-		"beta": {Key: "beta", Conditions: []model.Condition{{Attribute: "plan", Operator: "equals", Value: "pro"}}},
+		"beta": {Name: "beta", Conditions: []model.Condition{{Attribute: "plan", Operator: "equals", Value: "pro"}}},
 	}
 	cache.SetSegments("myproject", segments)
 	got := cache.GetSegments("myproject")

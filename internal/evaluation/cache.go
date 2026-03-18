@@ -307,7 +307,7 @@ func scanFlagRow(row rowScanner) (projectKey, envKey string, fd FlagData, err er
 		&fd.Config.FlagID,
 		&fd.Config.EnvironmentID,
 		&fd.Config.Enabled,
-		&fd.Config.DefaultVariant,
+		&fd.Config.FallthroughVariant,
 		&variantsJSON,
 		&targetingRulesJSON,
 		&fecUpdatedAt,

@@ -24,11 +24,6 @@ func (e *Engine) Evaluate(flag *model.Flag, config *model.FlagEnvironmentConfig,
 // EvaluateWithSegments evaluates a flag for a given context, resolving segment_match conditions
 // against the provided segments map. Segments are keyed by segment key.
 func (e *Engine) EvaluateWithSegments(flag *model.Flag, config *model.FlagEnvironmentConfig, ctx *model.EvaluationContext, segments map[string]model.Segment) *model.EvaluationResult {
-	// Boolean flags use a simplified evaluation path.
-	if flag.ValueType == model.ValueTypeBoolean {
-		return e.evaluateBoolean(flag, config, ctx, segments)
-	}
-
 	// 1. If flag is archived, return default value with reason "archived".
 	if flag.LifecycleStatus == model.LifecycleArchived {
 		return &model.EvaluationResult{
@@ -38,11 +33,12 @@ func (e *Engine) EvaluateWithSegments(flag *model.Flag, config *model.FlagEnviro
 		}
 	}
 
-	// 2. If config is disabled, return default value with reason "disabled".
+	// 2. If targeting is off, return off variant with reason "disabled".
 	if !config.Enabled {
+		value := lookupVariantValue(config.Variants, config.OffVariant, flag.DefaultValue)
 		return &model.EvaluationResult{
-			Value:   rawToAny(flag.DefaultValue),
-			Variant: "",
+			Value:   value,
+			Variant: config.OffVariant,
 			Reason:  "disabled",
 		}
 	}
@@ -50,15 +46,12 @@ func (e *Engine) EvaluateWithSegments(flag *model.Flag, config *model.FlagEnviro
 	// 3. Evaluate targeting rules in order.
 	for _, rule := range config.TargetingRules {
 		if matchesAllConditions(rule.Conditions, ctx, segments) {
-			// Check percentage rollout.
 			if rule.PercentageRollout != nil {
 				bucket := ConsistentHash(flag.Key, ctx.UserID)
 				if bucket >= *rule.PercentageRollout {
-					// User is outside the rollout percentage; continue to next rule.
 					continue
 				}
 			}
-			// Rule matched.
 			value := lookupVariantValue(config.Variants, rule.Variant, flag.DefaultValue)
 			return &model.EvaluationResult{
 				Value:   value,
@@ -68,11 +61,11 @@ func (e *Engine) EvaluateWithSegments(flag *model.Flag, config *model.FlagEnviro
 		}
 	}
 
-	// 4. Return default variant.
-	value := lookupVariantValue(config.Variants, config.DefaultVariant, flag.DefaultValue)
+	// 4. Return fallthrough variant.
+	value := lookupVariantValue(config.Variants, config.FallthroughVariant, flag.DefaultValue)
 	return &model.EvaluationResult{
 		Value:   value,
-		Variant: config.DefaultVariant,
+		Variant: config.FallthroughVariant,
 		Reason:  "default",
 	}
 }
@@ -109,48 +102,15 @@ func matchesAllConditions(conditions []model.Condition, ctx *model.EvaluationCon
 	return true
 }
 
-// lookupVariantValue finds the value for a variant key in the variants list.
+// lookupVariantValue finds the value for a variant name in the variants list.
 // If the variant is not found, returns the flag's default value.
-func lookupVariantValue(variants []model.Variant, variantKey string, defaultValue json.RawMessage) any {
+func lookupVariantValue(variants []model.Variant, variantName string, defaultValue json.RawMessage) any {
 	for _, v := range variants {
-		if v.Key == variantKey {
+		if v.Name == variantName {
 			return rawToAny(v.Value)
 		}
 	}
 	return rawToAny(defaultValue)
-}
-
-// evaluateBoolean handles the simplified evaluation path for boolean flags.
-// For boolean flags: enabled = true, disabled = false, archived = false.
-// Targeting rules use "true"/"false" strings as variant values.
-func (e *Engine) evaluateBoolean(flag *model.Flag, config *model.FlagEnvironmentConfig, ctx *model.EvaluationContext, segments map[string]model.Segment) *model.EvaluationResult {
-	if flag.LifecycleStatus == model.LifecycleArchived {
-		return &model.EvaluationResult{Value: false, Variant: "", Reason: "archived"}
-	}
-
-	if !config.Enabled {
-		return &model.EvaluationResult{Value: false, Variant: "", Reason: "disabled"}
-	}
-
-	// Evaluate targeting rules.
-	for _, rule := range config.TargetingRules {
-		if matchesAllConditions(rule.Conditions, ctx, segments) {
-			if rule.PercentageRollout != nil {
-				bucket := ConsistentHash(flag.Key, ctx.UserID)
-				if bucket >= *rule.PercentageRollout {
-					continue
-				}
-			}
-			return &model.EvaluationResult{
-				Value:   rule.Variant == "true",
-				Variant: "",
-				Reason:  "rule_match",
-			}
-		}
-	}
-
-	// Default: enabled = true
-	return &model.EvaluationResult{Value: true, Variant: "", Reason: "default"}
 }
 
 // rawToAny converts json.RawMessage to a Go value.

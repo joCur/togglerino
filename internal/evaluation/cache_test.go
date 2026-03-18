@@ -16,7 +16,7 @@ func TestCache_SetAndGetFlags(t *testing.T) {
 	flags := map[string]evaluation.FlagData{
 		"dark-mode": {
 			Flag:   model.Flag{Key: "dark-mode", ValueType: model.ValueTypeBoolean},
-			Config: model.FlagEnvironmentConfig{Enabled: true, DefaultVariant: "on"},
+			Config: model.FlagEnvironmentConfig{Enabled: true, FallthroughVariant: "on"},
 		},
 	}
 	c.Set("web-app", "production", flags)

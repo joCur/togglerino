@@ -7,37 +7,39 @@
       "status": "archived",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "true",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": []
       }
     },
     "segments": [],
     "context": { "userId": "", "attributes": {} },
-    "expected": { "value": false, "variant": "", "reason": "archived" }
+    "expected": { "value": true, "variant": "", "reason": "archived" }
   },
   {
-    "name": "disabled flag returns default",
+    "name": "disabled flag returns off variant",
     "flag": {
       "key": "test-flag",
       "valueType": "boolean",
       "status": "active",
       "config": {
         "enabled": false,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "true",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": []
       }
     },
     "segments": [],
     "context": { "userId": "", "attributes": {} },
-    "expected": { "value": false, "variant": "", "reason": "disabled" }
+    "expected": { "value": false, "variant": "false", "reason": "disabled" }
   },
   {
     "name": "archived string flag returns default with empty variant",
@@ -47,10 +49,11 @@
       "status": "archived",
       "config": {
         "enabled": true,
-        "defaultVariant": "default",
+        "offVariant": "default",
+        "fallthroughVariant": "default",
         "variants": [
-          { "key": "default", "value": "off" },
-          { "key": "on-variant", "value": "on" }
+          { "name": "default", "value": "off" },
+          { "name": "on-variant", "value": "on" }
         ],
         "targetingRules": []
       }
@@ -60,44 +63,46 @@
     "expected": { "value": "off", "variant": "", "reason": "archived" }
   },
   {
-    "name": "disabled string flag returns default with empty variant",
+    "name": "disabled string flag returns off variant",
     "flag": {
       "key": "test-flag",
       "valueType": "string",
       "status": "active",
       "config": {
         "enabled": false,
-        "defaultVariant": "default",
+        "offVariant": "default",
+        "fallthroughVariant": "default",
         "variants": [
-          { "key": "default", "value": "off" },
-          { "key": "on-variant", "value": "on" }
+          { "name": "default", "value": "off" },
+          { "name": "on-variant", "value": "on" }
         ],
         "targetingRules": []
       }
     },
     "segments": [],
     "context": { "userId": "", "attributes": {} },
-    "expected": { "value": "off", "variant": "", "reason": "disabled" }
+    "expected": { "value": "off", "variant": "default", "reason": "disabled" }
   },
   {
-    "name": "enabled boolean flag with no rules returns true (boolean default)",
+    "name": "enabled boolean flag with no rules returns fallthrough variant",
     "flag": {
       "key": "test-flag",
       "valueType": "boolean",
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "true",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": []
       }
     },
     "segments": [],
     "context": { "userId": "", "attributes": {} },
-    "expected": { "value": true, "variant": "", "reason": "default" }
+    "expected": { "value": true, "variant": "true", "reason": "default" }
   },
   {
     "name": "equals operator matches",
@@ -107,10 +112,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "default",
+        "offVariant": "default",
+        "fallthroughVariant": "default",
         "variants": [
-          { "key": "default", "value": "off" },
-          { "key": "pro-variant", "value": "pro-features" }
+          { "name": "default", "value": "off" },
+          { "name": "pro-variant", "value": "pro-features" }
         ],
         "targetingRules": [
           {
@@ -135,10 +141,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "default",
+        "offVariant": "default",
+        "fallthroughVariant": "default",
         "variants": [
-          { "key": "default", "value": "off" },
-          { "key": "pro-variant", "value": "pro-features" }
+          { "name": "default", "value": "off" },
+          { "name": "pro-variant", "value": "pro-features" }
         ],
         "targetingRules": [
           {
@@ -163,10 +170,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -181,7 +189,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "plan": "pro" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "contains operator matches",
@@ -191,10 +199,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -209,7 +218,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "email": "alice@example.com" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "not_contains operator matches",
@@ -219,10 +228,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -237,7 +247,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "email": "alice@example.com" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "starts_with operator matches",
@@ -247,10 +257,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -265,7 +276,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "country": "US-CA" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "ends_with operator matches",
@@ -275,10 +286,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -293,7 +305,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "email": "alice@example.com" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "greater_than operator matches",
@@ -303,10 +315,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -321,7 +334,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "age": 25 } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "greater_than operator does not match",
@@ -331,10 +344,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -349,7 +363,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "age": 16 } },
-    "expected": { "value": true, "variant": "", "reason": "default" }
+    "expected": { "value": false, "variant": "false", "reason": "default" }
   },
   {
     "name": "less_than operator matches",
@@ -359,10 +373,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -377,7 +392,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "age": 12 } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "gte operator matches at boundary",
@@ -387,10 +402,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -405,7 +421,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "age": 18 } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "lte operator matches at boundary",
@@ -415,10 +431,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -433,7 +450,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "age": 18 } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "in operator matches",
@@ -443,10 +460,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -461,7 +479,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "country": "CA" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "in operator does not match",
@@ -471,10 +489,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -489,7 +508,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "country": "DE" } },
-    "expected": { "value": true, "variant": "", "reason": "default" }
+    "expected": { "value": false, "variant": "false", "reason": "default" }
   },
   {
     "name": "not_in operator matches",
@@ -499,10 +518,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -517,7 +537,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "country": "DE" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "exists operator matches when attribute present",
@@ -527,10 +547,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -545,7 +566,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "beta": "true" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "exists operator fails when attribute missing",
@@ -555,10 +576,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -573,7 +595,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": {} },
-    "expected": { "value": true, "variant": "", "reason": "default" }
+    "expected": { "value": false, "variant": "false", "reason": "default" }
   },
   {
     "name": "not_exists operator matches when attribute missing",
@@ -583,10 +605,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -601,7 +624,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": {} },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "matches operator with regex",
@@ -611,10 +634,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -629,7 +653,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "email": "alice@example.com" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "percentage rollout includes user in bucket",
@@ -639,10 +663,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -655,7 +680,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": {} },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "percentage rollout 0 excludes everyone",
@@ -665,10 +690,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -681,7 +707,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": {} },
-    "expected": { "value": true, "variant": "", "reason": "default" }
+    "expected": { "value": false, "variant": "false", "reason": "default" }
   },
   {
     "name": "consistent hash is deterministic",
@@ -691,10 +717,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -707,7 +734,7 @@
     },
     "segments": [],
     "context": { "userId": "user-42", "attributes": {} },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "multiple conditions all must match (AND logic)",
@@ -717,10 +744,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -736,7 +764,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "plan": "pro", "country": "US" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "multiple conditions fails if one does not match",
@@ -746,10 +774,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -765,7 +794,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": { "plan": "pro", "country": "DE" } },
-    "expected": { "value": true, "variant": "", "reason": "default" }
+    "expected": { "value": false, "variant": "false", "reason": "default" }
   },
   {
     "name": "first matching rule wins",
@@ -775,11 +804,12 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "default",
+        "offVariant": "default",
+        "fallthroughVariant": "default",
         "variants": [
-          { "key": "default", "value": "none" },
-          { "key": "rule1", "value": "first" },
-          { "key": "rule2", "value": "second" }
+          { "name": "default", "value": "none" },
+          { "name": "rule1", "value": "first" },
+          { "name": "rule2", "value": "second" }
         ],
         "targetingRules": [
           {
@@ -811,10 +841,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -836,7 +867,7 @@
       }
     ],
     "context": { "userId": "user-1", "attributes": { "beta": "true" } },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
   },
   {
     "name": "segment_match does not match when segment conditions fail",
@@ -846,10 +877,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -871,7 +903,7 @@
       }
     ],
     "context": { "userId": "user-1", "attributes": { "beta": "false" } },
-    "expected": { "value": true, "variant": "", "reason": "default" }
+    "expected": { "value": false, "variant": "false", "reason": "default" }
   },
   {
     "name": "segment_match with unknown segment does not match",
@@ -881,10 +913,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -899,7 +932,7 @@
     },
     "segments": [],
     "context": { "userId": "user-1", "attributes": {} },
-    "expected": { "value": true, "variant": "", "reason": "default" }
+    "expected": { "value": false, "variant": "false", "reason": "default" }
   },
   {
     "name": "number value type returns number",
@@ -909,10 +942,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "standard",
+        "offVariant": "standard",
+        "fallthroughVariant": "standard",
         "variants": [
-          { "key": "standard", "value": 100 },
-          { "key": "premium", "value": 1000 }
+          { "name": "standard", "value": 100 },
+          { "name": "premium", "value": 1000 }
         ],
         "targetingRules": [
           {
@@ -937,10 +971,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "default",
+        "offVariant": "default",
+        "fallthroughVariant": "default",
         "variants": [
-          { "key": "default", "value": { "columns": 2 } },
-          { "key": "wide", "value": { "columns": 4 } }
+          { "name": "default", "value": { "columns": 2 } },
+          { "name": "wide", "value": { "columns": 4 } }
         ],
         "targetingRules": [
           {
@@ -965,10 +1000,11 @@
       "status": "active",
       "config": {
         "enabled": true,
-        "defaultVariant": "false",
+        "offVariant": "false",
+        "fallthroughVariant": "false",
         "variants": [
-          { "key": "true", "value": true },
-          { "key": "false", "value": false }
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
         ],
         "targetingRules": [
           {
@@ -983,6 +1019,48 @@
     },
     "segments": [],
     "context": { "userId": "user-42", "attributes": {} },
-    "expected": { "value": true, "variant": "", "reason": "rule_match" }
+    "expected": { "value": true, "variant": "true", "reason": "rule_match" }
+  },
+  {
+    "name": "boolean flag with fallthroughVariant false returns false",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": true,
+        "offVariant": "false",
+        "fallthroughVariant": "false",
+        "variants": [
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
+        ],
+        "targetingRules": []
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": {} },
+    "expected": { "value": false, "variant": "false", "reason": "default" }
+  },
+  {
+    "name": "boolean flag disabled with custom offVariant true returns true",
+    "flag": {
+      "key": "test-flag",
+      "valueType": "boolean",
+      "status": "active",
+      "config": {
+        "enabled": false,
+        "offVariant": "true",
+        "fallthroughVariant": "false",
+        "variants": [
+          { "name": "true", "value": true },
+          { "name": "false", "value": false }
+        ],
+        "targetingRules": []
+      }
+    },
+    "segments": [],
+    "context": { "userId": "user-1", "attributes": {} },
+    "expected": { "value": true, "variant": "true", "reason": "disabled" }
   }
 ]

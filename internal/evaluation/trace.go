@@ -7,15 +7,10 @@ import (
 // EvaluateWithTrace mirrors EvaluateWithSegments but returns a detailed trace
 // of every evaluation step for the playground feature.
 func (e *Engine) EvaluateWithTrace(flag *model.Flag, config *model.FlagEnvironmentConfig, ctx *model.EvaluationContext, segments map[string]model.Segment) *model.EvaluationTrace {
-	// Boolean flags use a simplified evaluation path.
-	if flag.ValueType == model.ValueTypeBoolean {
-		return e.evaluateBooleanWithTrace(flag, config, ctx, segments)
-	}
-
 	trace := &model.EvaluationTrace{
-		FlagKey:        flag.Key,
-		DefaultVariant: config.DefaultVariant,
-		SelectedStep:   -1,
+		FlagKey:            flag.Key,
+		FallthroughVariant: config.FallthroughVariant,
+		SelectedStep:       -1,
 	}
 
 	// Step 1: Lifecycle check.
@@ -42,7 +37,8 @@ func (e *Engine) EvaluateWithTrace(flag *model.Flag, config *model.FlagEnvironme
 	})
 	if !enabledPassed {
 		trace.SelectedStep = 1
-		trace.Value = rawToAny(flag.DefaultValue)
+		trace.Value = lookupVariantValue(config.Variants, config.OffVariant, flag.DefaultValue)
+		trace.Variant = config.OffVariant
 		trace.Reason = "disabled"
 		return trace
 	}
@@ -122,8 +118,8 @@ func (e *Engine) EvaluateWithTrace(flag *model.Flag, config *model.FlagEnvironme
 	} else {
 		trace.SelectedStep = -1
 		trace.Reason = "default"
-		trace.Variant = config.DefaultVariant
-		trace.Value = lookupVariantValue(config.Variants, config.DefaultVariant, flag.DefaultValue)
+		trace.Variant = config.FallthroughVariant
+		trace.Value = lookupVariantValue(config.Variants, config.FallthroughVariant, flag.DefaultValue)
 	}
 
 	return trace
@@ -185,115 +181,4 @@ func traceSegmentCondition(cond model.Condition, ctx *model.EvaluationContext, s
 	}
 	ct.Passed = allPassed
 	return ct
-}
-
-// evaluateBooleanWithTrace mirrors evaluateBoolean but returns a detailed trace.
-func (e *Engine) evaluateBooleanWithTrace(flag *model.Flag, config *model.FlagEnvironmentConfig, ctx *model.EvaluationContext, segments map[string]model.Segment) *model.EvaluationTrace {
-	trace := &model.EvaluationTrace{
-		FlagKey:      flag.Key,
-		SelectedStep: -1,
-	}
-
-	// Step 1: Lifecycle check.
-	lifecyclePassed := flag.LifecycleStatus != model.LifecycleArchived
-	trace.Steps = append(trace.Steps, model.TraceStep{
-		Type:   "lifecycle_check",
-		Status: string(flag.LifecycleStatus),
-		Passed: lifecyclePassed,
-	})
-	if !lifecyclePassed {
-		trace.SelectedStep = 0
-		trace.Value = false
-		trace.Reason = "archived"
-		return trace
-	}
-
-	// Step 2: Enabled check.
-	enabled := config.Enabled
-	trace.Steps = append(trace.Steps, model.TraceStep{
-		Type:    "enabled_check",
-		Enabled: &enabled,
-		Passed:  enabled,
-	})
-	if !enabled {
-		trace.SelectedStep = 1
-		trace.Value = false
-		trace.Reason = "disabled"
-		return trace
-	}
-
-	// Step 3: Evaluate targeting rules.
-	matchedStepIndex := -1
-	for i, rule := range config.TargetingRules {
-		stepIndex := len(trace.Steps)
-
-		if matchedStepIndex >= 0 {
-			ruleIdx := i
-			trace.Steps = append(trace.Steps, model.TraceStep{
-				Type:      "rule",
-				RuleIndex: &ruleIdx,
-				Variant:   rule.Variant,
-				Skipped:   true,
-				Passed:    false,
-			})
-			continue
-		}
-
-		condTraces := traceConditions(rule.Conditions, ctx, segments)
-		allPassed := true
-		for _, ct := range condTraces {
-			if !ct.Passed {
-				allPassed = false
-				break
-			}
-		}
-
-		ruleIdx := i
-		matched := false
-		step := model.TraceStep{
-			Type:       "rule",
-			RuleIndex:  &ruleIdx,
-			Variant:    rule.Variant,
-			Conditions: condTraces,
-		}
-
-		if allPassed {
-			if rule.PercentageRollout != nil {
-				bucket := ConsistentHash(flag.Key, ctx.UserID)
-				inRollout := bucket < *rule.PercentageRollout
-				step.PercentageRollout = rule.PercentageRollout
-				step.HashBucket = &bucket
-				step.InRollout = &inRollout
-				if inRollout {
-					matched = true
-				}
-			} else {
-				matched = true
-			}
-		}
-
-		step.Matched = &matched
-		step.Passed = matched
-		trace.Steps = append(trace.Steps, step)
-
-		if matched {
-			matchedStepIndex = stepIndex
-		}
-	}
-
-	// Determine final result.
-	if matchedStepIndex >= 0 {
-		trace.SelectedStep = matchedStepIndex
-		trace.Reason = "rule_match"
-		matchedRule := config.TargetingRules[*trace.Steps[matchedStepIndex].RuleIndex]
-		trace.Value = matchedRule.Variant == "true"
-		trace.Variant = ""
-	} else {
-		trace.SelectedStep = -1
-		trace.Reason = "default"
-		trace.Value = true
-		trace.Variant = ""
-	}
-
-	return trace
 }
