@@ -3,6 +3,7 @@ import type { Variant } from '../api/types.ts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { X, Plus, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -48,6 +49,7 @@ export default function VariantChips({
   const canRemove = variants.length > 2
 
   const startEdit = (index: number) => {
+    if (isBoolean || readonly) return
     setEditingIndex(index)
     setEditName(variants[index].name)
     setEditValue(formatValue(variants[index].value))

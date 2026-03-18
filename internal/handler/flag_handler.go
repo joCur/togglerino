@@ -344,15 +344,25 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name        string         `json:"name"`
-		Description string         `json:"description"`
-		Tags        []string       `json:"tags"`
-		FlagType    model.FlagType `json:"flag_type"`
-		OwnerID     *string        `json:"owner_id"`
+		Name        string          `json:"name"`
+		Description string          `json:"description"`
+		Tags        []string        `json:"tags"`
+		FlagType    model.FlagType  `json:"flag_type"`
+		OwnerID     *string         `json:"owner_id"`
+		Variants    json.RawMessage `json:"variants"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+
+	// Update variants if provided.
+	if req.Variants != nil && string(req.Variants) != "null" && string(req.Variants) != "[]" {
+		if err := h.flags.UpdateFlagVariants(r.Context(), flag.ID, req.Variants); err != nil {
+			slog.Error("failed to update flag variants", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update flag variants")
+			return
+		}
 	}
 
 	flagTypeToUse := req.FlagType

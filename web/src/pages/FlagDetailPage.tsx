@@ -115,6 +115,23 @@ export default function FlagDetailPage() {
   })
 
 
+  const variantSaveMutation = useMutation({
+    mutationFn: (variants: Variant[]) => {
+      const f = data!.flag
+      return api.put(`/projects/${key}/flags/${flagKey}`, {
+        name: f.name,
+        description: f.description,
+        tags: f.tags,
+        flag_type: f.flag_type,
+        variants,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
+      setFlagVariants(null)
+    },
+  })
+
   const ownerMutation = useMutation({
     mutationFn: (ownerId: string | null) => {
       const f = data!.flag
@@ -399,7 +416,31 @@ export default function FlagDetailPage() {
       {/* Variants (flag-level, shared across environments) */}
       {data && (
         <div className="mb-6">
-          <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Variants</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Variants</div>
+            {flagVariants && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-muted-foreground"
+                  onClick={() => setFlagVariants(null)}
+                >
+                  Discard
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={variantSaveMutation.isPending}
+                  onClick={() => {
+                    variantSaveMutation.mutate(flagVariants)
+                  }}
+                >
+                  {variantSaveMutation.isPending ? 'Saving...' : 'Save variants'}
+                </Button>
+              </div>
+            )}
+          </div>
           <VariantChips
             variants={flagVariants ?? flag.variants ?? []}
             valueType={flag.value_type}
