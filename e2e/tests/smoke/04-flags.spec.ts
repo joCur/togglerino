@@ -104,8 +104,13 @@ test.describe('Flags', () => {
     // Verify it's on first
     await expect(page.getByRole('button', { name: /^ON$/i })).toBeVisible();
 
-    // Toggle it off
+    // Toggle it off (local state change)
     await page.getByRole('button', { name: /^ON$/i }).click();
+    await expect(page.getByRole('button', { name: /^OFF$/i })).toBeVisible();
+
+    // Save the change
+    const saveBtn = page.getByRole('button', { name: /save/i });
+    await saveBtn.click();
 
     // Wait for the API response
     await page.waitForResponse(resp =>

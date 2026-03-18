@@ -199,7 +199,6 @@ export class ApiHelper {
           enabled: config.enabled,
           fallthrough_variant: config.fallthrough_variant,
           off_variant: config.off_variant ?? config.fallthrough_variant,
-          variants: config.variants.map(v => ({ name: v.name, value: v.value })),
           targeting_rules: config.targeting_rules ?? [],
         },
       },

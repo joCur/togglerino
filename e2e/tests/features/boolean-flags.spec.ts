@@ -149,13 +149,18 @@ test.describe('Boolean Flag Evaluation', () => {
     const before = await client.evaluateFlag(flagKey);
     expect(before.value).toBe(false);
 
-    // Toggle ON via UI — click the "Targeting is OFF" button
+    // Toggle ON via UI — click the "Targeting is OFF" button, then save
     await page.goto(`/projects/${testProject.key}/flags/${flagKey}`);
     const toggleBtn = page.getByRole('button', { name: /^OFF$/i });
     await expect(toggleBtn).toBeVisible();
     await toggleBtn.click();
-    // Wait for the toggle to show ON state
-    await expect(page.getByRole('button', { name: /^ON$/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /^ON$/i })).toBeVisible();
+
+    // Save the change
+    await page.getByRole('button', { name: /save/i }).click();
+    await page.waitForResponse(resp =>
+      resp.url().includes(`/flags/${flagKey}/environments/`) && resp.request().method() === 'PUT'
+    );
 
     // Now evaluates to true
     const after = await client.evaluateFlag(flagKey);

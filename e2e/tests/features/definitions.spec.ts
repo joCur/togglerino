@@ -43,8 +43,8 @@ test.describe('Definitions Endpoint', () => {
     expect(flag!.config.enabled).toBe(true);
     expect(flag!.config.fallthroughVariant).toBe('off');
     expect(flag!.config.offVariant).toBe('off');
-    expect(flag!.config.variants).toHaveLength(2);
-    expect(flag!.config.variants.map(v => v.name).sort()).toEqual(['off', 'pro']);
+    expect(flag!.variants).toHaveLength(2);
+    expect(flag!.variants.map(v => v.name).sort()).toEqual(['off', 'pro']);
 
     // Targeting rule should be present with condition
     expect(flag!.config.targetingRules).toHaveLength(1);
