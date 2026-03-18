@@ -72,9 +72,9 @@ function VariantEditPopover({
   }
 
   return (
-    <Popover open={open} onOpenChange={handleOpen}>
+    <Popover open={open} onOpenChange={handleOpen} modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-64" align="start">
+      <PopoverContent className="w-64 z-[100]" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
         <div className="flex flex-col gap-3">
           <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/50">
             Edit Variant
@@ -142,17 +142,18 @@ function AddVariantPopover({
   }
 
   return (
-    <Popover open={open} onOpenChange={handleOpen}>
+    <Popover open={open} onOpenChange={handleOpen} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
           className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-2.5 py-0.5 text-xs text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground transition-colors"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpen(!open) }}
         >
           <Plus className="w-3 h-3" />
           Add
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64" align="start">
+      <PopoverContent className="w-64 z-[100]" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
         <div className="flex flex-col gap-3">
           <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/50">
             New Variant
@@ -164,7 +165,6 @@ function AddVariantPopover({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="variant-name"
-              autoFocus
             />
           </div>
           <div className="flex flex-col gap-1.5">
