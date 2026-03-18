@@ -13,11 +13,8 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { slugify } from '@/lib/utils'
-
-interface VariantRow {
-  name: string
-  value: string
-}
+import VariantChips from './VariantChips.tsx'
+import type { Variant } from '../api/types.ts'
 
 interface Props {
   open: boolean
@@ -56,7 +53,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
   const [tags, setTags] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState<FlagTemplate | null>(null)
   const [showTemplates, setShowTemplates] = useState(true)
-  const [variants, setVariants] = useState<VariantRow[]>([{ name: '', value: '' }, { name: '', value: '' }])
+  const [variants, setVariants] = useState<Variant[]>([{ name: '', value: '' }, { name: '', value: '' }])
   const [variantError, setVariantError] = useState('')
 
   const { data: envDefaultsData } = useQuery({
@@ -170,17 +167,6 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     setShowTemplates(false)
   }
 
-  const encodeVariantValue = (value: string, type: string): unknown => {
-    if (type === 'number') {
-      const n = Number(value)
-      return isNaN(n) ? 0 : n
-    }
-    if (type === 'json') {
-      try { return JSON.parse(value) } catch { return value }
-    }
-    return value
-  }
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setVariantError('')
@@ -196,11 +182,9 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
 
     const parsedTags = tags.split(',').map((tag) => tag.trim()).filter(Boolean)
 
-    // Build variant objects for non-boolean flags
+    // VariantChips already returns Variant[] with properly typed values
     const variantObjects = flagType !== 'boolean'
-      ? variants
-          .filter(v => v.name.trim() !== '')
-          .map(v => ({ name: v.name.trim(), value: encodeVariantValue(v.value, flagType) }))
+      ? variants.filter(v => v.name.trim() !== '')
       : undefined
 
     // Build environment_overrides
@@ -414,54 +398,11 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
               {flagType !== 'boolean' && (
                 <div className="space-y-2">
                   <Label>Variants</Label>
-                  <div className="space-y-2">
-                    {variants.map((variant, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Input
-                          value={variant.name}
-                          onChange={(e) => {
-                            const updated = [...variants]
-                            updated[index] = { ...updated[index], name: e.target.value }
-                            setVariants(updated)
-                            setVariantError('')
-                          }}
-                          placeholder="Name"
-                          className="flex-1"
-                        />
-                        <Input
-                          value={variant.value}
-                          onChange={(e) => {
-                            const updated = [...variants]
-                            updated[index] = { ...updated[index], value: e.target.value }
-                            setVariants(updated)
-                          }}
-                          placeholder={flagType === 'number' ? '0' : flagType === 'json' ? '{"key": "value"}' : 'Value'}
-                          className="flex-1 font-mono text-xs"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="px-2 text-muted-foreground hover:text-destructive"
-                          onClick={() => {
-                            const updated = variants.filter((_, i) => i !== index)
-                            setVariants(updated)
-                          }}
-                          disabled={variants.length <= 2}
-                        >
-                          &times;
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setVariants([...variants, { name: '', value: '' }])}
-                  >
-                    Add variant
-                  </Button>
+                  <VariantChips
+                    variants={variants}
+                    valueType={flagType}
+                    onChange={(v) => { setVariants(v); setVariantError('') }}
+                  />
                   {variantError && (
                     <p className="text-xs text-destructive">{variantError}</p>
                   )}

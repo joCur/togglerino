@@ -8,8 +8,6 @@ import type {
   Variant,
   TargetingRule,
 } from '../api/types.ts'
-import VariantEditor from './VariantEditor.tsx'
-import VariantChips from './VariantChips.tsx'
 import RuleBuilder from './RuleBuilder.tsx'
 import ScheduleChangeDialog from './ScheduleChangeDialog.tsx'
 import { Button } from '@/components/ui/button'
@@ -30,11 +28,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ChevronRight, Clock, Ban, CircleCheck } from 'lucide-react'
+import { Clock, Ban, CircleCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface TargetingConfigProps {
@@ -111,7 +106,6 @@ export default function TargetingConfig({
   const [saved, setSaved] = useState(false)
   const [copySourceEnv, setCopySourceEnv] = useState<string | null>(null)
   const [copyKey, setCopyKey] = useState(0)
-  const [variantsOpen, setVariantsOpen] = useState((config?.variants ?? []).length > 0)
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
 
   const otherEnvironments = environments.filter((e) => e.key !== envKey)
@@ -193,16 +187,6 @@ export default function TargetingConfig({
         )}
       </div>
 
-      {/* Variant chips */}
-      <div className={cn('mt-4', readOnly && 'pointer-events-none opacity-50')}>
-        <VariantChips
-          variants={variants}
-          valueType={flag.value_type}
-          onChange={setVariants}
-          readonly={readOnly || flag.value_type === 'boolean'}
-        />
-      </div>
-
       {/* Rules section (when ON) */}
       {enabled && (
         <div className={cn('mt-6', readOnly && 'pointer-events-none opacity-50')}>
@@ -238,32 +222,6 @@ export default function TargetingConfig({
         </div>
       )}
 
-      {/* Variants (collapsible) -- hidden for boolean flags */}
-      {flag.value_type !== 'boolean' && (
-        <div className={cn(readOnly && 'pointer-events-none opacity-50')}>
-          <Collapsible open={variantsOpen} onOpenChange={setVariantsOpen} className="mt-6">
-            <CollapsibleTrigger className="flex items-center gap-2 w-full text-left group">
-              <ChevronRight className={cn(
-                'w-4 h-4 text-muted-foreground transition-transform duration-200',
-                variantsOpen && 'rotate-90',
-              )} />
-              <span className="text-[13px] font-medium text-foreground">
-                Variants
-                <span className="text-muted-foreground/60 font-normal ml-1.5">
-                  ({variants.length})
-                </span>
-              </span>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-3 pl-6">
-              <VariantEditor
-                variants={variants}
-                valueType={flag.value_type}
-                onChange={setVariants}
-              />
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
-      )}
 
       {/* Copy from environment */}
       {!readOnly && otherEnvironments.length > 0 && (

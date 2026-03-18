@@ -5,14 +5,14 @@ import { cn } from '@/lib/utils'
 import { api, ApiError } from '../api/client.ts'
 import type { Flag, Environment, FlagEnvironmentConfig, User, PaginatedResponse } from '../api/types.ts'
 import NotFoundState from '../components/NotFoundState.tsx'
-import ConfigEditor from '../components/ConfigEditor.tsx'
+import TargetingConfig from '../components/TargetingConfig.tsx'
+import VariantChips from '../components/VariantChips.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
 import FlagHistory from '../components/FlagHistory.tsx'
 import PendingSchedules from '../components/PendingSchedules.tsx'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -408,6 +408,19 @@ export default function FlagDetailPage() {
         </Alert>
       )}
 
+      {/* Variants (flag-level, shared across environments) */}
+      {data && (
+        <div className="mb-6">
+          <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Variants</div>
+          <VariantChips
+            variants={data.environment_configs[0]?.variants ?? []}
+            valueType={flag.value_type}
+            onChange={() => {/* TODO: sync variant changes across all environments */}}
+            readonly={!canWrite || flag.value_type === 'boolean'}
+          />
+        </div>
+      )}
+
       {/* Environment tabs */}
       {sortedEnvironments && sortedEnvironments.length > 0 ? (
         <Tabs value={activeEnvKey} onValueChange={(value) => {
@@ -427,28 +440,14 @@ export default function FlagDetailPage() {
 
           {sortedEnvironments.map((env) => {
             const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
-            const enabled = config?.enabled ?? false
             const envWritable = canWrite && canWriteEnv(env.id)
             const promoteTargets = sortedEnvironments.filter((e) => e.sort_order > env.sort_order && canWriteEnv(e.id))
 
             return (
               <TabsContent key={env.key} value={env.key}>
-                {/* Toggle + actions bar */}
+                {/* Actions bar */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <Switch
-                      checked={enabled}
-                      disabled={!envWritable || !config || config.locked || toggleMutation.isPending}
-                      onCheckedChange={() => {
-                        if (config) toggleMutation.mutate({ envKey: env.key, config })
-                      }}
-                    />
-                    <span className={cn(
-                      'text-[12px] font-mono font-medium',
-                      enabled ? 'text-emerald-400' : 'text-muted-foreground/50',
-                    )}>
-                      {enabled ? 'ON' : 'OFF'}
-                    </span>
                     {canWrite && !envWritable && (
                       <span className="flex items-center gap-1 text-[11px] text-muted-foreground/50" title="You don't have write access to this environment">
                         <Lock className="w-3 h-3" />
@@ -557,7 +556,7 @@ export default function FlagDetailPage() {
                 />
 
                 {/* Targeting configuration */}
-                <ConfigEditor
+                <TargetingConfig
                   key={env.key}
                   config={config}
                   flag={flag}
@@ -567,6 +566,10 @@ export default function FlagDetailPage() {
                   allConfigs={data.environment_configs}
                   environments={environments}
                   readOnly={!envWritable || !!config?.locked}
+                  onToggle={() => {
+                    if (config) toggleMutation.mutate({ envKey: env.key, config })
+                  }}
+                  togglePending={toggleMutation.isPending}
                 />
               </TabsContent>
             )

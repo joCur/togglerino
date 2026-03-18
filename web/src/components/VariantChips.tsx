@@ -107,7 +107,7 @@ function VariantEditPopover({
               />
             )}
           </div>
-          <Button size="sm" className="text-xs" onClick={handleSave}>
+          <Button type="button" size="sm" className="text-xs" onClick={handleSave}>
             Save
           </Button>
         </div>
@@ -186,7 +186,7 @@ function AddVariantPopover({
               />
             )}
           </div>
-          <Button size="sm" className="text-xs" onClick={handleAdd}>
+          <Button type="button" size="sm" className="text-xs" onClick={handleAdd}>
             Add Variant
           </Button>
         </div>
