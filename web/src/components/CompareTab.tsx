@@ -173,53 +173,22 @@ export default function CompareTab({ environments, environmentConfigs }: Compare
               </div>
             )}
 
-            {/* Variants row (expandable) */}
-            {shouldShow(comparison.variants) && (
-              <Collapsible open={expandedRows.has('variants')} onOpenChange={() => toggleRow('variants')}>
-                <CollapsibleTrigger asChild>
-                  <div className="grid gap-px bg-border cursor-pointer hover:bg-muted/20" style={{ gridTemplateColumns: gridCols }}>
-                    <div className="bg-background p-3 text-xs text-muted-foreground flex items-center gap-1">
-                      <ChevronRight className={cn('h-3 w-3 transition-transform', expandedRows.has('variants') && 'rotate-90')} />
-                      Variants
+            {/* Off variant row */}
+            {shouldShow(comparison.offVariant) && (
+              <div className="grid gap-px bg-border" style={{ gridTemplateColumns: gridCols }}>
+                <div className="bg-background p-3 text-xs text-muted-foreground">Off variant</div>
+                {sortedEnvs.map((env) => {
+                  const config = getConfig(env.id)
+                  if (!config) return <div key={env.id} className="bg-background p-3"><NotConfigured /></div>
+                  return (
+                    <div key={env.id} className="bg-background p-3">
+                      <DiffBadge differs={comparison.offVariant.status === 'differs'}>
+                        <span className="font-mono text-xs">{config.off_variant || '—'}</span>
+                      </DiffBadge>
                     </div>
-                    {sortedEnvs.map((env) => {
-                      const config = getConfig(env.id)
-                      if (!config) return <div key={env.id} className="bg-background p-3"><NotConfigured /></div>
-                      const count = config.variants.length
-                      return (
-                        <div key={env.id} className="bg-background p-3">
-                          <DiffBadge differs={comparison.variants.status === 'differs'}>
-                            {count} variant{count !== 1 ? 's' : ''}
-                          </DiffBadge>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="border-t border-amber-800/30">
-                    {[...comparison.variants.perVariant.entries()].map(([variantKey, diff]) => (
-                      <div key={variantKey} className="grid gap-px bg-border" style={{ gridTemplateColumns: gridCols }}>
-                        <div className="bg-muted/30 p-3 pl-8 text-xs text-muted-foreground font-mono">{variantKey}</div>
-                        {sortedEnvs.map((env) => {
-                          const value = diff.values.get(env.id)
-                          return (
-                            <div key={env.id} className="bg-muted/30 p-3">
-                              {value != null ? (
-                                <DiffBadge differs={diff.status === 'differs'}>
-                                  <span className="font-mono text-xs">{typeof value === 'string' ? value : JSON.stringify(value)}</span>
-                                </DiffBadge>
-                              ) : (
-                                <span className="text-muted-foreground/40 text-xs">—</span>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+                  )
+                })}
+              </div>
             )}
 
             {/* Rules row (expandable) */}

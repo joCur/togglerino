@@ -32,14 +32,14 @@ function booleanFlag(key: string, enabled: boolean, status = 'active') {
     valueType: 'boolean',
     status,
     defaultValue: false,
+    variants: [
+      { name: 'true', value: true },
+      { name: 'false', value: false },
+    ],
     config: {
       enabled,
       fallthroughVariant: enabled ? 'true' : 'false',
       offVariant: 'false',
-      variants: [
-        { name: 'true', value: true },
-        { name: 'false', value: false },
-      ],
       targetingRules: [],
     },
   }
@@ -57,11 +57,11 @@ function stringFlag(
     valueType: 'string',
     status: 'active',
     defaultValue: null,
+    variants,
     config: {
       enabled: true,
       fallthroughVariant,
       offVariant: '',
-      variants,
       targetingRules,
     },
   }
@@ -201,11 +201,11 @@ describe('TogglerioServer', () => {
             valueType: 'number',
             status: 'active',
             defaultValue: 0,
+            variants: [{ name: 'ten', value: 10 }],
             config: {
               enabled: true,
               fallthroughVariant: 'ten',
               offVariant: '',
-              variants: [{ name: 'ten', value: 10 }],
               targetingRules: [],
             },
           },
@@ -233,11 +233,11 @@ describe('TogglerioServer', () => {
             valueType: 'json',
             status: 'active',
             defaultValue: null,
+            variants: [{ name: 'default', value: jsonValue }],
             config: {
               enabled: true,
               fallthroughVariant: 'default',
               offVariant: '',
-              variants: [{ name: 'default', value: jsonValue }],
               targetingRules: [],
             },
           },

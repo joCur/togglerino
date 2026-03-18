@@ -3,7 +3,7 @@ import {
   canonicalize,
   compareEnabled,
   compareFallthroughVariant,
-  compareVariants,
+  compareOffVariant,
   compareRules,
   compareFlag,
 } from '../flag-diff'
@@ -49,7 +49,6 @@ function makeConfig(overrides: Partial<FlagEnvironmentConfig> & { environment_id
     enabled: false,
     fallthrough_variant: 'off',
     off_variant: 'off',
-    variants: [],
     targeting_rules: [],
     updated_at: '2026-01-01T00:00:00Z',
     locked: false,
@@ -128,55 +127,23 @@ describe('compareFallthroughVariant', () => {
   })
 })
 
-describe('compareVariants', () => {
-  it('returns match when all environments have identical variants', () => {
+describe('compareOffVariant', () => {
+  it('returns match when all off variants are the same', () => {
     const configs = [
-      makeConfig({ environment_id: 'env-1', variants: [{ name: 'on', value: true }, { name: 'off', value: false }] }),
-      makeConfig({ environment_id: 'env-2', variants: [{ name: 'on', value: true }, { name: 'off', value: false }] }),
+      makeConfig({ environment_id: 'env-1', off_variant: 'off' }),
+      makeConfig({ environment_id: 'env-2', off_variant: 'off' }),
     ]
-    const result = compareVariants(configs, ['env-1', 'env-2'])
+    const result = compareOffVariant(configs, ['env-1', 'env-2'])
     expect(result.status).toBe('match')
-    expect(result.perVariant.get('on')?.status).toBe('match')
-    expect(result.perVariant.get('off')?.status).toBe('match')
   })
 
-  it('returns differs when variant values differ', () => {
+  it('returns differs when off variants differ', () => {
     const configs = [
-      makeConfig({ environment_id: 'env-1', variants: [{ name: 'on', value: true }] }),
-      makeConfig({ environment_id: 'env-2', variants: [{ name: 'on', value: false }] }),
+      makeConfig({ environment_id: 'env-1', off_variant: 'off' }),
+      makeConfig({ environment_id: 'env-2', off_variant: 'on' }),
     ]
-    const result = compareVariants(configs, ['env-1', 'env-2'])
+    const result = compareOffVariant(configs, ['env-1', 'env-2'])
     expect(result.status).toBe('differs')
-    expect(result.perVariant.get('on')?.status).toBe('differs')
-  })
-
-  it('returns differs when variant sets differ (check missing variant)', () => {
-    const configs = [
-      makeConfig({ environment_id: 'env-1', variants: [{ name: 'on', value: true }, { name: 'extra', value: 'x' }] }),
-      makeConfig({ environment_id: 'env-2', variants: [{ name: 'on', value: true }] }),
-    ]
-    const result = compareVariants(configs, ['env-1', 'env-2'])
-    expect(result.status).toBe('differs')
-    expect(result.perVariant.get('extra')?.status).toBe('differs')
-    expect(result.perVariant.get('extra')?.values.get('env-1')).toBe('x')
-    expect(result.perVariant.get('extra')?.values.get('env-2')).toBeNull()
-  })
-
-  it('handles missing config as empty variants', () => {
-    const configs = [makeConfig({ environment_id: 'env-1', variants: [] })]
-    const result = compareVariants(configs, ['env-1', 'env-2'])
-    expect(result.status).toBe('match')
-    expect(result.perVariant.size).toBe(0)
-  })
-
-  it('compares variant values independent of property order', () => {
-    const configs = [
-      makeConfig({ environment_id: 'env-1', variants: [{ name: 'v', value: { z: 1, a: 2 } }] }),
-      makeConfig({ environment_id: 'env-2', variants: [{ name: 'v', value: { a: 2, z: 1 } }] }),
-    ]
-    const result = compareVariants(configs, ['env-1', 'env-2'])
-    expect(result.status).toBe('match')
-    expect(result.perVariant.get('v')?.status).toBe('match')
   })
 })
 
@@ -284,13 +251,13 @@ describe('compareRules', () => {
 describe('compareFlag', () => {
   it('returns a full ComparisonResult', () => {
     const configs = [
-      makeConfig({ environment_id: 'env-1', enabled: true, fallthrough_variant: 'on', variants: [], targeting_rules: [] }),
-      makeConfig({ environment_id: 'env-2', enabled: false, fallthrough_variant: 'on', variants: [], targeting_rules: [] }),
+      makeConfig({ environment_id: 'env-1', enabled: true, fallthrough_variant: 'on', targeting_rules: [] }),
+      makeConfig({ environment_id: 'env-2', enabled: false, fallthrough_variant: 'on', targeting_rules: [] }),
     ]
     const result = compareFlag(configs, ['env-1', 'env-2'])
     expect(result.enabled.status).toBe('differs')
     expect(result.fallthroughVariant.status).toBe('match')
-    expect(result.variants.status).toBe('match')
+    expect(result.offVariant.status).toBe('match')
     expect(result.rules.status).toBe('match')
   })
 
@@ -298,7 +265,7 @@ describe('compareFlag', () => {
     const result = compareFlag([], ['env-1', 'env-2'])
     expect(result.enabled.status).toBe('match')
     expect(result.fallthroughVariant.status).toBe('match')
-    expect(result.variants.status).toBe('match')
+    expect(result.offVariant.status).toBe('match')
     expect(result.rules.status).toBe('match')
   })
 })

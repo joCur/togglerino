@@ -22,6 +22,7 @@ type fixtureFlag struct {
 	Key       string            `json:"key"`
 	ValueType string            `json:"valueType"`
 	Status    string            `json:"status"`
+	Variants  []fixtureVariant  `json:"variants"`
 	Config    fixtureFlagConfig `json:"config"`
 }
 
@@ -29,7 +30,6 @@ type fixtureFlagConfig struct {
 	Enabled            bool                   `json:"enabled"`
 	OffVariant         string                 `json:"offVariant"`
 	FallthroughVariant string                 `json:"fallthroughVariant"`
-	Variants           []fixtureVariant       `json:"variants"`
 	TargetingRules     []fixtureTargetingRule `json:"targetingRules"`
 }
 
@@ -125,15 +125,15 @@ func toFlag(f fixtureFlag) *model.Flag {
 
 	// Compute DefaultValue from the fallthrough variant's value in the config.
 	var defaultValue json.RawMessage
-	for _, v := range f.Config.Variants {
+	for _, v := range f.Variants {
 		if v.Name == f.Config.FallthroughVariant {
 			defaultValue = v.Value
 			break
 		}
 	}
 
-	variants := make([]model.Variant, len(f.Config.Variants))
-	for i, v := range f.Config.Variants {
+	variants := make([]model.Variant, len(f.Variants))
+	for i, v := range f.Variants {
 		variants[i] = model.Variant{
 			Name:  v.Name,
 			Value: v.Value,

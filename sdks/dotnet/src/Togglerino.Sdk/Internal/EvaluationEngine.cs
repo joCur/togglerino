@@ -34,7 +34,7 @@ internal static class EvaluationEngine
         {
             return new EvaluationResult
             {
-                Value = flag.DefaultValue ?? LookupVariantValue(config.Variants, config.FallthroughVariant, null),
+                Value = flag.DefaultValue ?? LookupVariantValue(flag.Variants, config.FallthroughVariant, null),
                 Variant = "",
                 Reason = "archived",
             };
@@ -45,7 +45,7 @@ internal static class EvaluationEngine
         {
             return new EvaluationResult
             {
-                Value = LookupVariantValue(config.Variants, config.OffVariant, flag.DefaultValue),
+                Value = LookupVariantValue(flag.Variants, config.OffVariant, flag.DefaultValue),
                 Variant = config.OffVariant ?? "",
                 Reason = "disabled",
             };
@@ -68,7 +68,7 @@ internal static class EvaluationEngine
                 }
 
                 // Rule matched — find the variant value.
-                var value = LookupVariantValue(config.Variants, rule.Variant, flag.DefaultValue);
+                var value = LookupVariantValue(flag.Variants, rule.Variant, flag.DefaultValue);
                 return new EvaluationResult
                 {
                     Value = value,
@@ -81,7 +81,7 @@ internal static class EvaluationEngine
         // 4. Return fallthrough variant.
         return new EvaluationResult
         {
-            Value = LookupVariantValue(config.Variants, config.FallthroughVariant, flag.DefaultValue),
+            Value = LookupVariantValue(flag.Variants, config.FallthroughVariant, flag.DefaultValue),
             Variant = config.FallthroughVariant,
             Reason = "default",
         };

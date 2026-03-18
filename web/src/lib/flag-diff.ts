@@ -29,15 +29,10 @@ export type FieldDiff = {
   values: Map<string, unknown>
 }
 
-export type VariantDiff = {
-  status: DiffStatus
-  perVariant: Map<string, FieldDiff>
-}
-
 export type ComparisonResult = {
   enabled: FieldDiff
   fallthroughVariant: FieldDiff
-  variants: VariantDiff
+  offVariant: FieldDiff
   rules: FieldDiff
 }
 
@@ -67,44 +62,15 @@ export function compareFallthroughVariant(configs: FlagEnvironmentConfig[], envi
   return { status, values }
 }
 
-export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds: string[]): VariantDiff {
-  const allKeys = new Set<string>()
+export function compareOffVariant(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
+  const values = new Map<string, unknown>()
   for (const envId of environmentIds) {
     const config = getConfig(configs, envId)
-    for (const v of config?.variants ?? []) {
-      allKeys.add(v.name)
-    }
+    values.set(envId, config?.off_variant ?? '')
   }
-
-  const perVariant = new Map<string, FieldDiff>()
-  let overallDiffers = false
-
-  for (const variantKey of allKeys) {
-    const values = new Map<string, unknown>()
-    const serialized: string[] = []
-
-    for (const envId of environmentIds) {
-      const config = getConfig(configs, envId)
-      const variant = config?.variants?.find((v) => v.name === variantKey)
-      if (variant) {
-        values.set(envId, variant.value)
-        serialized.push(canonicalize(variant.value))
-      } else {
-        values.set(envId, null)
-        serialized.push('__MISSING__')
-      }
-    }
-
-    const allSame = serialized.every((s) => s === serialized[0])
-    const status: DiffStatus = allSame ? 'match' : 'differs'
-    if (!allSame) overallDiffers = true
-    perVariant.set(variantKey, { status, values })
-  }
-
-  return {
-    status: overallDiffers ? 'differs' : 'match',
-    perVariant,
-  }
+  const allValues = [...values.values()]
+  const status: DiffStatus = allValues.every((v) => v === allValues[0]) ? 'match' : 'differs'
+  return { status, values }
 }
 
 // Rule order is intentionally preserved (first-match-wins); only conditions within each rule are sorted.
@@ -139,7 +105,7 @@ export function compareFlag(configs: FlagEnvironmentConfig[], environmentIds: st
   return {
     enabled: compareEnabled(configs, environmentIds),
     fallthroughVariant: compareFallthroughVariant(configs, environmentIds),
-    variants: compareVariants(configs, environmentIds),
+    offVariant: compareOffVariant(configs, environmentIds),
     rules: compareRules(configs, environmentIds),
   }
 }

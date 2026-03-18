@@ -33,7 +33,7 @@ export function evaluate(
   // 1. If flag is archived, return fallthrough variant value with reason "archived".
   if (flag.status === 'archived') {
     return {
-      value: lookupVariantValue(config.variants, config.fallthroughVariant, flag.defaultValue),
+      value: lookupVariantValue(flag.variants, config.fallthroughVariant, flag.defaultValue),
       variant: '',
       reason: 'archived',
     }
@@ -42,7 +42,7 @@ export function evaluate(
   // 2. If config is disabled, return off variant value with reason "disabled".
   if (!config.enabled) {
     return {
-      value: lookupVariantValue(config.variants, config.offVariant, flag.defaultValue),
+      value: lookupVariantValue(flag.variants, config.offVariant, flag.defaultValue),
       variant: config.offVariant,
       reason: 'disabled',
     }
@@ -60,13 +60,13 @@ export function evaluate(
         }
       }
       // Rule matched — find the variant value.
-      const value = lookupVariantValue(config.variants, rule.variant, flag.defaultValue)
+      const value = lookupVariantValue(flag.variants, rule.variant, flag.defaultValue)
       return { value, variant: rule.variant, reason: 'rule_match' }
     }
   }
 
   // 4. Return fallthrough variant.
-  const value = lookupVariantValue(config.variants, config.fallthroughVariant, flag.defaultValue)
+  const value = lookupVariantValue(flag.variants, config.fallthroughVariant, flag.defaultValue)
   return { value, variant: config.fallthroughVariant, reason: 'default' }
 }
 

@@ -11,6 +11,7 @@ public record FlagDefinition(
     [property: JsonPropertyName("valueType")] string ValueType,
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("defaultValue")] JsonElement? DefaultValue,
+    [property: JsonPropertyName("variants")] List<VariantDefinition> Variants,
     [property: JsonPropertyName("config")] FlagDefinitionConfig Config
 );
 
@@ -21,7 +22,6 @@ public record FlagDefinitionConfig(
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("fallthroughVariant")] string FallthroughVariant,
     [property: JsonPropertyName("offVariant")] string? OffVariant,
-    [property: JsonPropertyName("variants")] List<VariantDefinition> Variants,
     [property: JsonPropertyName("targetingRules")] List<TargetingRuleDefinition> TargetingRules
 );
 

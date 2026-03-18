@@ -60,12 +60,12 @@ export default function ConfigEditor({
 }: Props) {
   const queryClient = useQueryClient()
   const [defaultVariant, setDefaultVariant] = useState(config?.fallthrough_variant ?? '')
-  const [variants, setVariants] = useState<Variant[]>(config?.variants ?? [])
+  const [variants, setVariants] = useState<Variant[]>(flag?.variants ?? [])
   const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
   const [saved, setSaved] = useState(false)
   const [copySourceEnv, setCopySourceEnv] = useState<string | null>(null)
   const [copyKey, setCopyKey] = useState(0)
-  const [variantsOpen, setVariantsOpen] = useState((config?.variants ?? []).length > 0)
+  const [variantsOpen, setVariantsOpen] = useState((flag?.variants ?? []).length > 0)
   const [rulesOpen, setRulesOpen] = useState((config?.targeting_rules ?? []).length > 0)
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
 

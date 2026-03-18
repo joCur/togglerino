@@ -9,6 +9,7 @@ export interface FlagDefinition {
   valueType: string
   status: string
   defaultValue: unknown
+  variants: VariantDefinition[]
   config: FlagDefinitionConfig
 }
 
@@ -17,7 +18,6 @@ export interface FlagDefinitionConfig {
   enabled: boolean
   fallthroughVariant: string
   offVariant: string
-  variants: VariantDefinition[]
   targetingRules: TargetingRuleDefinition[]
 }
 

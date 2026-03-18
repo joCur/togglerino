@@ -8,6 +8,7 @@ type FlagDefinition struct {
 	ValueType    string               `json:"valueType"`
 	Status       string               `json:"status"`
 	DefaultValue interface{}          `json:"defaultValue"`
+	Variants     []VariantDefinition  `json:"variants"`
 	Config       FlagDefinitionConfig `json:"config"`
 }
 
@@ -16,7 +17,6 @@ type FlagDefinitionConfig struct {
 	Enabled            bool                      `json:"enabled"`
 	FallthroughVariant string                    `json:"fallthroughVariant"`
 	OffVariant         string                    `json:"offVariant"`
-	Variants           []VariantDefinition       `json:"variants"`
 	TargetingRules     []TargetingRuleDefinition `json:"targetingRules"`
 }
 

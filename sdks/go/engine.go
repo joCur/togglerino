@@ -13,7 +13,7 @@ func evaluateFlag(flag FlagDefinition, ctx EvaluationContext, segments []Segment
 	// 1. If flag is archived, return the fallthrough variant value with reason "archived".
 	if flag.Status == "archived" {
 		return EvaluationResult{
-			Value:   findVariantValue(config.Variants, config.FallthroughVariant, flag.DefaultValue),
+			Value:   findVariantValue(flag.Variants, config.FallthroughVariant, flag.DefaultValue),
 			Variant: "",
 			Reason:  "archived",
 		}
@@ -22,7 +22,7 @@ func evaluateFlag(flag FlagDefinition, ctx EvaluationContext, segments []Segment
 	// 2. If config is disabled, return off variant value with reason "disabled".
 	if !config.Enabled {
 		return EvaluationResult{
-			Value:   findVariantValue(config.Variants, config.OffVariant, flag.DefaultValue),
+			Value:   findVariantValue(flag.Variants, config.OffVariant, flag.DefaultValue),
 			Variant: config.OffVariant,
 			Reason:  "disabled",
 		}
@@ -40,7 +40,7 @@ func evaluateFlag(flag FlagDefinition, ctx EvaluationContext, segments []Segment
 				}
 			}
 			// Rule matched — find the variant value.
-			value := findVariantValue(config.Variants, rule.Variant, flag.DefaultValue)
+			value := findVariantValue(flag.Variants, rule.Variant, flag.DefaultValue)
 			return EvaluationResult{
 				Value:   value,
 				Variant: rule.Variant,
@@ -50,7 +50,7 @@ func evaluateFlag(flag FlagDefinition, ctx EvaluationContext, segments []Segment
 	}
 
 	// 4. Return fallthrough variant.
-	value := findVariantValue(config.Variants, config.FallthroughVariant, flag.DefaultValue)
+	value := findVariantValue(flag.Variants, config.FallthroughVariant, flag.DefaultValue)
 	return EvaluationResult{
 		Value:   value,
 		Variant: config.FallthroughVariant,
