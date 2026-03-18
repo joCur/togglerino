@@ -583,32 +583,42 @@ export default function FlagDetailPage() {
 
       {/* Compare Dialog */}
       <Dialog open={compareDialogOpen} onOpenChange={setCompareDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Compare Environments</DialogTitle>
+        <DialogContent className="max-w-[90vw] w-full lg:max-w-6xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="text-lg">Compare Environments</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              Side-by-side comparison of flag configuration across environments.
+            </DialogDescription>
           </DialogHeader>
-          {environments && environments.length >= 2 && data && (
-            <CompareTab
-              environments={environments}
-              environmentConfigs={data.environment_configs}
-            />
-          )}
+          <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6">
+            {environments && environments.length >= 2 && data && (
+              <CompareTab
+                environments={environments}
+                environmentConfigs={data.environment_configs}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* History Dialog */}
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Flag History</DialogTitle>
+        <DialogContent className="max-w-[90vw] w-full lg:max-w-5xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="text-lg">Flag History</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              Audit log of all changes to this flag across environments.
+            </DialogDescription>
           </DialogHeader>
-          {environments && environments.length > 0 && (
-            <FlagHistory
-              projectKey={key!}
-              flagKey={flagKey!}
-              environments={environments}
-            />
-          )}
+          <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6">
+            {environments && environments.length > 0 && (
+              <FlagHistory
+                projectKey={key!}
+                flagKey={flagKey!}
+                environments={environments}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
