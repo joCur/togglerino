@@ -28,27 +28,22 @@ export function evaluate(
   const ctx = context ?? {}
   const segMap = buildSegmentMap(segments)
 
-  // Boolean flags use a simplified evaluation path.
-  if (flag.valueType === 'boolean') {
-    return evaluateBoolean(flag, ctx, segMap)
-  }
-
   const config = flag.config
 
-  // 1. If flag is archived, return default value with reason "archived".
+  // 1. If flag is archived, return fallthrough variant value with reason "archived".
   if (flag.status === 'archived') {
     return {
-      value: lookupVariantValue(config.variants, config.defaultVariant),
+      value: lookupVariantValue(config.variants, config.fallthroughVariant, flag.defaultValue),
       variant: '',
       reason: 'archived',
     }
   }
 
-  // 2. If config is disabled, return default value with reason "disabled".
+  // 2. If config is disabled, return off variant value with reason "disabled".
   if (!config.enabled) {
     return {
-      value: lookupVariantValue(config.variants, config.defaultVariant),
-      variant: '',
+      value: lookupVariantValue(config.variants, config.offVariant, flag.defaultValue),
+      variant: config.offVariant,
       reason: 'disabled',
     }
   }
@@ -65,49 +60,14 @@ export function evaluate(
         }
       }
       // Rule matched — find the variant value.
-      const value = lookupVariantValue(config.variants, rule.variant)
+      const value = lookupVariantValue(config.variants, rule.variant, flag.defaultValue)
       return { value, variant: rule.variant, reason: 'rule_match' }
     }
   }
 
-  // 4. Return default variant.
-  const value = lookupVariantValue(config.variants, config.defaultVariant)
-  return { value, variant: config.defaultVariant, reason: 'default' }
-}
-
-/**
- * Simplified evaluation path for boolean flags.
- * For boolean flags: enabled = true, disabled = false, archived = false.
- * Targeting rules use "true"/"false" strings as variant keys.
- */
-function evaluateBoolean(
-  flag: FlagDefinition,
-  ctx: EvaluationContext,
-  segments: Map<string, SegmentDefinition>,
-): EvaluationResult {
-  if (flag.status === 'archived') {
-    return { value: false, variant: '', reason: 'archived' }
-  }
-
-  if (!flag.config.enabled) {
-    return { value: false, variant: '', reason: 'disabled' }
-  }
-
-  // Evaluate targeting rules.
-  for (const rule of flag.config.targetingRules) {
-    if (matchesAllConditions(rule.conditions, ctx, segments)) {
-      if (rule.percentage != null) {
-        const bucket = consistentHash(flag.key, ctx.userId ?? '')
-        if (bucket >= rule.percentage) {
-          continue
-        }
-      }
-      return { value: rule.variant === 'true', variant: '', reason: 'rule_match' }
-    }
-  }
-
-  // Default: enabled = true.
-  return { value: true, variant: '', reason: 'default' }
+  // 4. Return fallthrough variant.
+  const value = lookupVariantValue(config.variants, config.fallthroughVariant, flag.defaultValue)
+  return { value, variant: config.fallthroughVariant, reason: 'default' }
 }
 
 /**
@@ -169,17 +129,18 @@ function parseConditionValue(operator: string, value: string): unknown {
 }
 
 /**
- * Finds the value for a variant key in the variants list.
- * If the variant is not found, returns undefined.
+ * Finds the value for a variant name in the variants list.
+ * If the variant is not found, returns the defaultValue.
  */
 function lookupVariantValue(
-  variants: { key: string; value: unknown }[],
-  variantKey: string,
+  variants: { name: string; value: unknown }[],
+  variantName: string,
+  defaultValue: unknown,
 ): unknown {
   for (const v of variants) {
-    if (v.key === variantKey) return v.value
+    if (v.name === variantName) return v.value
   }
-  return undefined
+  return defaultValue
 }
 
 /**

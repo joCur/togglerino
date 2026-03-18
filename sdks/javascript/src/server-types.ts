@@ -8,20 +8,22 @@ export interface FlagDefinition {
   key: string
   valueType: string
   status: string
+  defaultValue: unknown
   config: FlagDefinitionConfig
 }
 
 /** Per-environment configuration for a flag definition. */
 export interface FlagDefinitionConfig {
   enabled: boolean
-  defaultVariant: string
+  fallthroughVariant: string
+  offVariant: string
   variants: VariantDefinition[]
   targetingRules: TargetingRuleDefinition[]
 }
 
-/** A variant with a key and arbitrary value. */
+/** A variant with a name and arbitrary value. */
 export interface VariantDefinition {
-  key: string
+  name: string
   value: unknown
 }
 
