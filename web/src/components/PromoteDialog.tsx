@@ -62,8 +62,8 @@ export default function PromoteDialog({
   isLoading,
   error,
 }: PromoteDialogProps) {
-  const sourceDefault = sourceConfig?.default_variant ?? 'none'
-  const targetDefault = targetConfig?.default_variant ?? 'none'
+  const sourceDefault = sourceConfig?.fallthrough_variant ?? 'none'
+  const targetDefault = targetConfig?.fallthrough_variant ?? 'none'
   const sourceVariants = formatValue(sourceConfig?.variants ?? [])
   const targetVariants = formatValue(targetConfig?.variants ?? [])
   const sourceRules = formatValue(sourceConfig?.targeting_rules ?? [])
@@ -89,7 +89,7 @@ export default function PromoteDialog({
             </div>
           </div>
 
-          <DiffRow label="Default Variant" source={sourceDefault} target={targetDefault} />
+          <DiffRow label="Fallthrough Variant" source={sourceDefault} target={targetDefault} />
           <DiffRow label="Variants" source={sourceVariants} target={targetVariants} />
           <DiffRow label="Targeting Rules" source={sourceRules} target={targetRules} />
 

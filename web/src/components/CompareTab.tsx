@@ -94,7 +94,7 @@ export default function CompareTab({ environments, environmentConfigs }: Compare
 
   const allMatch =
     comparison.enabled.status === 'match' &&
-    comparison.defaultVariant.status === 'match' &&
+    comparison.fallthroughVariant.status === 'match' &&
     comparison.variants.status === 'match' &&
     comparison.rules.status === 'match'
 
@@ -155,16 +155,16 @@ export default function CompareTab({ environments, environmentConfigs }: Compare
             )}
 
             {/* Default variant row */}
-            {shouldShow(comparison.defaultVariant) && (
+            {shouldShow(comparison.fallthroughVariant) && (
               <div className="grid gap-px bg-border" style={{ gridTemplateColumns: gridCols }}>
-                <div className="bg-background p-3 text-xs text-muted-foreground">Default variant</div>
+                <div className="bg-background p-3 text-xs text-muted-foreground">Fallthrough variant</div>
                 {sortedEnvs.map((env) => {
                   const config = getConfig(env.id)
                   if (!config) return <div key={env.id} className="bg-background p-3"><NotConfigured /></div>
-                  const value = comparison.defaultVariant.values.get(env.id) as string
+                  const value = comparison.fallthroughVariant.values.get(env.id) as string
                   return (
                     <div key={env.id} className="bg-background p-3">
-                      <DiffBadge differs={comparison.defaultVariant.status === 'differs'}>
+                      <DiffBadge differs={comparison.fallthroughVariant.status === 'differs'}>
                         {value || '—'}
                       </DiffBadge>
                     </div>

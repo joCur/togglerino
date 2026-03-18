@@ -80,12 +80,12 @@ function templateToFormState(t: FlagTemplate): FormState {
   if (vc.variants.length === 0 && t.default_value !== null && t.default_value !== undefined) {
     if (t.value_type === 'boolean') {
       vc.variants = [
-        { key: 'on', value: true },
-        { key: 'off', value: false },
+        { name: 'on', value: true },
+        { name: 'off', value: false },
       ]
       vc.defaultVariant = t.default_value === true ? 'on' : 'off'
     } else {
-      vc.variants = [{ key: 'default', value: t.default_value }]
+      vc.variants = [{ name: 'default', value: t.default_value }]
       vc.defaultVariant = 'default'
     }
   }
@@ -105,7 +105,7 @@ function templateToFormState(t: FlagTemplate): FormState {
 
 function buildPayload(form: FormState): Partial<FlagTemplate> {
   const { variants, defaultVariant } = form.variantConfig
-  const defaultVar = variants.find((v) => v.key === defaultVariant)
+  const defaultVar = variants.find((v) => v.name === defaultVariant)
   const defaultValue = defaultVar?.value ?? (form.valueType === 'boolean' ? false : form.valueType === 'number' ? 0 : '')
 
   const tags = form.tags

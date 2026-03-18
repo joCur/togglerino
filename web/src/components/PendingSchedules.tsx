@@ -94,8 +94,8 @@ export default function PendingSchedules({
                 <span className="text-muted-foreground/50">·</span>
                 <span className="text-muted-foreground truncate">
                   {schedule.config_snapshot.enabled ? 'Enable' : 'Disable'}
-                  {schedule.config_snapshot.default_variant && (
-                    <>, variant: <span className="text-foreground">{schedule.config_snapshot.default_variant}</span></>
+                  {schedule.config_snapshot.fallthrough_variant && (
+                    <>, variant: <span className="text-foreground">{schedule.config_snapshot.fallthrough_variant}</span></>
                   )}
                 </span>
               </div>

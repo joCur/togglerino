@@ -133,27 +133,27 @@ export function VariantConfigEditor({ value, onChange, valueType }: VariantConfi
     const newValue = valueType === 'boolean' ? true : valueType === 'number' ? 0 : ''
     onChange({
       ...value,
-      variants: [...variants, { key: newKey, value: newValue }],
+      variants: [...variants, { name: newKey, value: newValue }],
       defaultVariant: defaultVariant || newKey,
     })
   }
 
   const removeVariant = (idx: number) => {
     const updated = variants.filter((_, i) => i !== idx)
-    const removedKey = variants[idx].key
+    const removedKey = variants[idx].name
     onChange({
       ...value,
       variants: updated,
-      defaultVariant: defaultVariant === removedKey ? (updated[0]?.key ?? '') : defaultVariant,
+      defaultVariant: defaultVariant === removedKey ? (updated[0]?.name ?? '') : defaultVariant,
       targetingRules: targetingRules.map((r) =>
-        r.variant === removedKey ? { ...r, variant: updated[0]?.key ?? '' } : r
+        r.variant === removedKey ? { ...r, variant: updated[0]?.name ?? '' } : r
       ),
     })
   }
 
   const updateVariantKey = (idx: number, key: string) => {
-    const oldKey = variants[idx].key
-    const updated = variants.map((v, i) => (i === idx ? { ...v, key } : v))
+    const oldKey = variants[idx].name
+    const updated = variants.map((v, i) => (i === idx ? { ...v, name: key } : v))
     onChange({
       ...value,
       variants: updated,
@@ -182,7 +182,7 @@ export function VariantConfigEditor({ value, onChange, valueType }: VariantConfi
         ...targetingRules,
         {
           conditions: [{ attribute: '', operator: 'equals', value: '' }],
-          variant: variants[0]?.key ?? '',
+          variant: variants[0]?.name ?? '',
           percentage_rollout: undefined,
         },
       ],
@@ -241,7 +241,7 @@ export function VariantConfigEditor({ value, onChange, valueType }: VariantConfi
           {variants.map((variant, idx) => (
             <div key={idx} className="flex items-center gap-2 px-3 py-2">
               <Input
-                value={variant.key}
+                value={variant.name}
                 onChange={(e) => updateVariantKey(idx, e.target.value)}
                 placeholder="Key"
                 className="font-mono text-xs flex-1 h-8"
@@ -267,7 +267,7 @@ export function VariantConfigEditor({ value, onChange, valueType }: VariantConfi
                   className={`text-xs flex-1 h-8 ${valueType === 'json' || valueType === 'number' ? 'font-mono' : ''}`}
                 />
               )}
-              {defaultVariant === variant.key ? (
+              {defaultVariant === variant.name ? (
                 <span className="text-[10px] text-[#d4956a] font-mono whitespace-nowrap px-1">default</span>
               ) : (
                 <Button
@@ -275,7 +275,7 @@ export function VariantConfigEditor({ value, onChange, valueType }: VariantConfi
                   variant="ghost"
                   size="sm"
                   className="h-6 text-[10px] text-muted-foreground hover:text-foreground px-1.5"
-                  onClick={() => onChange({ ...value, defaultVariant: variant.key })}
+                  onClick={() => onChange({ ...value, defaultVariant: variant.name })}
                 >
                   set default
                 </Button>
@@ -392,8 +392,8 @@ export function VariantConfigEditor({ value, onChange, valueType }: VariantConfi
               </SelectTrigger>
               <SelectContent>
                 {variants.map((v) => (
-                  <SelectItem key={v.key} value={v.key} className="font-mono text-xs">
-                    {v.key}
+                  <SelectItem key={v.name} value={v.name} className="font-mono text-xs">
+                    {v.name}
                   </SelectItem>
                 ))}
               </SelectContent>

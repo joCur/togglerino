@@ -36,7 +36,7 @@ export type VariantDiff = {
 
 export type ComparisonResult = {
   enabled: FieldDiff
-  defaultVariant: FieldDiff
+  fallthroughVariant: FieldDiff
   variants: VariantDiff
   rules: FieldDiff
 }
@@ -56,11 +56,11 @@ export function compareEnabled(configs: FlagEnvironmentConfig[], environmentIds:
   return { status, values }
 }
 
-export function compareDefaultVariant(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
+export function compareFallthroughVariant(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
   const values = new Map<string, unknown>()
   for (const envId of environmentIds) {
     const config = getConfig(configs, envId)
-    values.set(envId, config?.default_variant ?? '')
+    values.set(envId, config?.fallthrough_variant ?? '')
   }
   const allValues = [...values.values()]
   const status: DiffStatus = allValues.every((v) => v === allValues[0]) ? 'match' : 'differs'
@@ -72,7 +72,7 @@ export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds
   for (const envId of environmentIds) {
     const config = getConfig(configs, envId)
     for (const v of config?.variants ?? []) {
-      allKeys.add(v.key)
+      allKeys.add(v.name)
     }
   }
 
@@ -85,7 +85,7 @@ export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds
 
     for (const envId of environmentIds) {
       const config = getConfig(configs, envId)
-      const variant = config?.variants?.find((v) => v.key === variantKey)
+      const variant = config?.variants?.find((v) => v.name === variantKey)
       if (variant) {
         values.set(envId, variant.value)
         serialized.push(canonicalize(variant.value))
@@ -138,7 +138,7 @@ export function compareRules(configs: FlagEnvironmentConfig[], environmentIds: s
 export function compareFlag(configs: FlagEnvironmentConfig[], environmentIds: string[]): ComparisonResult {
   return {
     enabled: compareEnabled(configs, environmentIds),
-    defaultVariant: compareDefaultVariant(configs, environmentIds),
+    fallthroughVariant: compareFallthroughVariant(configs, environmentIds),
     variants: compareVariants(configs, environmentIds),
     rules: compareRules(configs, environmentIds),
   }

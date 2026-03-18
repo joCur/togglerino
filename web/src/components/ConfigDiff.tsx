@@ -10,6 +10,9 @@ interface ConfigDiffProps {
 
 interface FlagConfigSnapshot {
   enabled?: boolean
+  fallthrough_variant?: string
+  off_variant?: string
+  /** @deprecated old field name — kept for backward compat with audit log entries */
   default_variant?: string
   variants?: Variant[]
   targeting_rules?: TargetingRule[]
@@ -39,8 +42,9 @@ function formatValue(val: unknown): string {
   return JSON.stringify(val)
 }
 
-function formatVariant(v: Variant): string {
-  return `${v.key} = ${formatValue(v.value)}`
+function formatVariant(v: Variant & { key?: string }): string {
+  const variantName = v.name ?? v.key ?? '?'
+  return `${variantName} = ${formatValue(v.value)}`
 }
 
 function formatRule(rule: TargetingRule, index: number): string {
@@ -68,39 +72,57 @@ function diffFlagConfig(
     })
   }
 
-  // Default variant
-  if (oldVal.default_variant !== newVal.default_variant) {
+  // Fallthrough variant (handle both old 'default_variant' and new 'fallthrough_variant' from audit log)
+  const oldFallthrough = oldVal.fallthrough_variant ?? oldVal.default_variant
+  const newFallthrough = newVal.fallthrough_variant ?? newVal.default_variant
+  if (oldFallthrough !== newFallthrough) {
     lines.push({
       type: 'changed',
-      label: 'Default variant',
-      oldVal: oldVal.default_variant ?? 'none',
-      newVal: newVal.default_variant ?? 'none',
+      label: 'Fallthrough variant',
+      oldVal: oldFallthrough ?? 'none',
+      newVal: newFallthrough ?? 'none',
     })
   }
 
-  // Variants
+  // Off variant
+  const oldOff = oldVal.off_variant
+  const newOff = newVal.off_variant
+  if (oldOff !== newOff && (oldOff !== undefined || newOff !== undefined)) {
+    lines.push({
+      type: 'changed',
+      label: 'Off variant',
+      oldVal: oldOff ?? 'none',
+      newVal: newOff ?? 'none',
+    })
+  }
+
+  // Variants — handle both old `.key` and new `.name` field from audit log entries
   const oldVariants = oldVal.variants ?? []
   const newVariants = newVal.variants ?? []
-  const oldVarKeys = new Set(oldVariants.map((v) => v.key))
-  const newVarKeys = new Set(newVariants.map((v) => v.key))
+  const variantId = (v: Variant & { key?: string }) => v.name ?? v.key ?? '?'
+  const oldVarKeys = new Set(oldVariants.map((v) => variantId(v as Variant & { key?: string })))
+  const newVarKeys = new Set(newVariants.map((v) => variantId(v as Variant & { key?: string })))
 
   for (const v of newVariants) {
-    if (!oldVarKeys.has(v.key)) {
-      lines.push({ type: 'added', label: `Variant: ${formatVariant(v)}` })
+    const vid = variantId(v as Variant & { key?: string })
+    if (!oldVarKeys.has(vid)) {
+      lines.push({ type: 'added', label: `Variant: ${formatVariant(v as Variant & { key?: string })}` })
     }
   }
   for (const v of oldVariants) {
-    if (!newVarKeys.has(v.key)) {
-      lines.push({ type: 'removed', label: `Variant: ${formatVariant(v)}` })
+    const vid = variantId(v as Variant & { key?: string })
+    if (!newVarKeys.has(vid)) {
+      lines.push({ type: 'removed', label: `Variant: ${formatVariant(v as Variant & { key?: string })}` })
     }
   }
   // Changed variant values
   for (const nv of newVariants) {
-    const ov = oldVariants.find((v) => v.key === nv.key)
+    const nvid = variantId(nv as Variant & { key?: string })
+    const ov = oldVariants.find((v) => variantId(v as Variant & { key?: string }) === nvid)
     if (ov && JSON.stringify(ov.value) !== JSON.stringify(nv.value)) {
       lines.push({
         type: 'changed',
-        label: `Variant "${nv.key}"`,
+        label: `Variant "${nvid}"`,
         oldVal: formatValue(ov.value),
         newVal: formatValue(nv.value),
       })

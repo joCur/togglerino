@@ -15,25 +15,26 @@ export function recordToEnvDefaults(record: Record<string, { enabled: boolean }>
 }
 
 export function variantConfigToState(
-  config: { variants?: Variant[]; default_variant?: string; targeting_rules?: TargetingRule[] } | undefined,
+  config: { variants?: Variant[]; fallthrough_variant?: string; off_variant?: string; targeting_rules?: TargetingRule[] } | undefined,
 ): VariantConfigState {
   if (!config || Object.keys(config).length === 0) {
     return { variants: [], defaultVariant: '', targetingRules: [] }
   }
   return {
     variants: config.variants ?? [],
-    defaultVariant: config.default_variant ?? '',
+    defaultVariant: config.fallthrough_variant ?? '',
     targetingRules: config.targeting_rules ?? [],
   }
 }
 
 export function stateToVariantConfig(
   state: VariantConfigState,
-): { variants?: Variant[]; default_variant?: string; targeting_rules?: TargetingRule[] } {
+): { variants?: Variant[]; fallthrough_variant?: string; off_variant?: string; targeting_rules?: TargetingRule[] } {
   if (state.variants.length === 0 && state.targetingRules.length === 0) return {}
   return {
     variants: state.variants,
-    default_variant: state.defaultVariant || undefined,
+    fallthrough_variant: state.defaultVariant || undefined,
+    off_variant: state.defaultVariant || undefined,
     targeting_rules: state.targetingRules.length > 0 ? state.targetingRules : undefined,
   }
 }

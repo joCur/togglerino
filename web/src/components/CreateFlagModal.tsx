@@ -175,7 +175,8 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
                   ...(result[envKey] || {}),
                   enabled: result[envKey]?.enabled ?? envOverrides[envKey] ?? false,
                   variants: selectedTemplate.variant_config.variants,
-                  default_variant: selectedTemplate.variant_config.default_variant,
+                  fallthrough_variant: selectedTemplate.variant_config.fallthrough_variant,
+                  off_variant: selectedTemplate.variant_config.off_variant,
                   targeting_rules: selectedTemplate.variant_config.targeting_rules,
                 }
               }

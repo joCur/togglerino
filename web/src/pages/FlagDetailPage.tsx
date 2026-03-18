@@ -122,7 +122,8 @@ export default function FlagDetailPage() {
     mutationFn: ({ envKey, config }: { envKey: string; config: FlagEnvironmentConfig }) =>
       api.put(`/projects/${key}/flags/${flagKey}/environments/${envKey}`, {
         enabled: !config.enabled,
-        default_variant: config.default_variant,
+        fallthrough_variant: config.fallthrough_variant,
+        off_variant: config.off_variant,
         variants: config.variants,
         targeting_rules: config.targeting_rules,
       }),

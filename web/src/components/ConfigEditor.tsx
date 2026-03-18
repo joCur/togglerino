@@ -59,7 +59,7 @@ export default function ConfigEditor({
   readOnly,
 }: Props) {
   const queryClient = useQueryClient()
-  const [defaultVariant, setDefaultVariant] = useState(config?.default_variant ?? '')
+  const [defaultVariant, setDefaultVariant] = useState(config?.fallthrough_variant ?? '')
   const [variants, setVariants] = useState<Variant[]>(config?.variants ?? [])
   const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
   const [saved, setSaved] = useState(false)
@@ -74,7 +74,8 @@ export default function ConfigEditor({
   const updateConfig = useMutation({
     mutationFn: (data: {
       enabled: boolean
-      default_variant: string
+      fallthrough_variant: string
+      off_variant: string
       variants: Variant[]
       targeting_rules: TargetingRule[]
     }) => api.put(`/projects/${projectKey}/flags/${flagKey}/environments/${envKey}`, data),
@@ -88,8 +89,9 @@ export default function ConfigEditor({
   const handleSave = () => {
     updateConfig.mutate({
       enabled: config?.enabled ?? false,
-      default_variant: flag.value_type === 'boolean' ? '' : defaultVariant,
-      variants: flag.value_type === 'boolean' ? [] : variants,
+      fallthrough_variant: defaultVariant,
+      off_variant: defaultVariant,
+      variants,
       targeting_rules: rules,
     })
   }
@@ -110,10 +112,10 @@ export default function ConfigEditor({
         </div>
       )}
       <div className={readOnly ? 'pointer-events-none opacity-50' : ''}>
-      {/* Default Variant — hidden for boolean flags */}
+      {/* Fallthrough Variant — hidden for boolean flags */}
       {flag.value_type !== 'boolean' && (
       <div className="mb-6">
-        <div className="text-[13px] font-medium text-foreground mb-1">Default Variant</div>
+        <div className="text-[13px] font-medium text-foreground mb-1">Fallthrough Variant</div>
         <div className="text-xs text-muted-foreground leading-relaxed mb-2.5">
           {`The ${flag.value_type} value returned when no targeting rule matches.`}
         </div>
@@ -125,7 +127,7 @@ export default function ConfigEditor({
           >
             <option value="">-- Select --</option>
             {variants.map((v) => (
-              <option key={v.key} value={v.key}>{v.key}</option>
+              <option key={v.name} value={v.name}>{v.name}</option>
             ))}
           </select>
         ) : (
@@ -247,7 +249,8 @@ export default function ConfigEditor({
         valueType={flag.value_type}
         currentConfig={{
           enabled: config?.enabled ?? false,
-          default_variant: defaultVariant,
+          fallthrough_variant: defaultVariant,
+          off_variant: defaultVariant,
           variants,
           targeting_rules: rules,
         }}
@@ -259,7 +262,7 @@ export default function ConfigEditor({
           <DialogHeader>
             <DialogTitle>Copy configuration?</DialogTitle>
             <DialogDescription>
-              This will replace the current variants, targeting rules, and default variant
+              This will replace the current variants, targeting rules, and fallthrough variant
               in <span className="font-semibold text-foreground">{envKey}</span> with
               the configuration from <span className="font-semibold text-foreground">{copySourceEnv}</span>.
               The enabled/disabled state will not change.
@@ -277,7 +280,7 @@ export default function ConfigEditor({
               if (!sourceConfig) return
               setVariants(structuredClone(sourceConfig.variants ?? []))
               setRules(structuredClone(sourceConfig.targeting_rules ?? []))
-              setDefaultVariant(sourceConfig.default_variant ?? '')
+              setDefaultVariant(sourceConfig.fallthrough_variant ?? '')
               setCopySourceEnv(null)
               setCopyKey((k) => k + 1)
             }}>
