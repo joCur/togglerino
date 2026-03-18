@@ -61,7 +61,6 @@ export default function FlagDetailPage() {
   const [promoteState, setPromoteState] = useState<{ sourceEnvKey: string; targetEnvKey: string } | null>(null)
   const [lockDialogState, setLockDialogState] = useState<{ open: boolean; envKey: string; envName: string } | null>(null)
   const [lockReason, setLockReason] = useState('')
-  const [flagVariants, setFlagVariants] = useState<Variant[] | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const { data, isLoading, error } = useQuery({
@@ -128,7 +127,6 @@ export default function FlagDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
-      setFlagVariants(null)
     },
   })
 
@@ -416,35 +414,11 @@ export default function FlagDetailPage() {
       {/* Variants (flag-level, shared across environments) */}
       {data && (
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Variants</div>
-            {flagVariants && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-muted-foreground"
-                  onClick={() => setFlagVariants(null)}
-                >
-                  Discard
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-7 text-xs"
-                  disabled={variantSaveMutation.isPending}
-                  onClick={() => {
-                    variantSaveMutation.mutate(flagVariants)
-                  }}
-                >
-                  {variantSaveMutation.isPending ? 'Saving...' : 'Save variants'}
-                </Button>
-              </div>
-            )}
-          </div>
+          <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Variants</div>
           <VariantChips
-            variants={flagVariants ?? flag.variants ?? []}
+            variants={flag.variants ?? []}
             valueType={flag.value_type}
-            onChange={setFlagVariants}
+            onChange={(variants) => variantSaveMutation.mutate(variants)}
             readonly={!canWrite || flag.value_type === 'boolean'}
           />
         </div>
@@ -594,7 +568,7 @@ export default function FlagDetailPage() {
                   flagKey={flagKey!}
                   allConfigs={data.environment_configs}
                   environments={environments}
-                  variants={flagVariants ?? flag.variants ?? []}
+                  variants={flag.variants ?? []}
                   readOnly={!envWritable || !!config?.locked}
                 />
               </TabsContent>
