@@ -120,7 +120,7 @@ func (s *TemplateStore) SeedSystemTemplates(ctx context.Context) error {
 			defaultValue:  `false`,
 			tags:          []string{},
 			envDefaults:   `{"development":{"enabled":true},"production":{"enabled":false}}`,
-			variantConfig: `{"variants":[{"key":"on","value":true},{"key":"off","value":false}],"default_variant":"off","targeting_rules":[{"conditions":[],"variant":"on","percentage_rollout":0}]}`,
+			variantConfig: `{"variants":[{"name":"on","value":true},{"name":"off","value":false}],"fallthrough_variant":"off","off_variant":"off","targeting_rules":[{"conditions":[],"variant":"on","percentage_rollout":0}]}`,
 			sortOrder:     0,
 		},
 		{
@@ -130,7 +130,7 @@ func (s *TemplateStore) SeedSystemTemplates(ctx context.Context) error {
 			defaultValue:  `true`,
 			tags:          []string{},
 			envDefaults:   `{"development":{"enabled":true},"staging":{"enabled":true},"production":{"enabled":true}}`,
-			variantConfig: `{"variants":[{"key":"on","value":true}],"default_variant":"on"}`,
+			variantConfig: `{"variants":[{"name":"on","value":true}],"fallthrough_variant":"on","off_variant":"on"}`,
 			sortOrder:     1,
 		},
 		{
@@ -140,7 +140,7 @@ func (s *TemplateStore) SeedSystemTemplates(ctx context.Context) error {
 			defaultValue:  `"control"`,
 			tags:          []string{},
 			envDefaults:   `{"development":{"enabled":true},"production":{"enabled":false}}`,
-			variantConfig: `{"variants":[{"key":"control","value":"control"},{"key":"treatment","value":"treatment"}],"default_variant":"control","targeting_rules":[{"conditions":[],"variant":"treatment","percentage_rollout":50}]}`,
+			variantConfig: `{"variants":[{"name":"control","value":"control"},{"name":"treatment","value":"treatment"}],"fallthrough_variant":"control","off_variant":"control","targeting_rules":[{"conditions":[],"variant":"treatment","percentage_rollout":50}]}`,
 			sortOrder:     2,
 		},
 		{
@@ -150,7 +150,7 @@ func (s *TemplateStore) SeedSystemTemplates(ctx context.Context) error {
 			defaultValue:  `false`,
 			tags:          []string{},
 			envDefaults:   `{"development":{"enabled":false},"staging":{"enabled":false},"production":{"enabled":false}}`,
-			variantConfig: `{"variants":[{"key":"on","value":true},{"key":"off","value":false}],"default_variant":"off"}`,
+			variantConfig: `{"variants":[{"name":"on","value":true},{"name":"off","value":false}],"fallthrough_variant":"off","off_variant":"off"}`,
 			sortOrder:     3,
 		},
 	}

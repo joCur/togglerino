@@ -22,7 +22,7 @@ func NewFlagStore(pool *pgxpool.Pool) *FlagStore {
 // Create inserts a new flag and creates a FlagEnvironmentConfig row for each
 // environment in the project. The envEnabled map controls the initial enabled
 // state per environment key; environments not in the map default to disabled.
-// envOverrides optionally sets variants, default_variant, and targeting_rules per environment.
+// envOverrides optionally sets variants, fallthrough_variant, off_variant, and targeting_rules per environment.
 func (s *FlagStore) Create(ctx context.Context, projectID, key, name, description string, valueType model.ValueType, flagType model.FlagType, defaultValue json.RawMessage, tags []string, envEnabled map[string]bool, ownerID *string, envOverrides map[string]model.EnvironmentDefault) (*model.Flag, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -73,14 +73,20 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 			}
 		}
 
-		defaultVariant := ""
+		fallthroughVariant := ""
+		offVariant := ""
 		variants := json.RawMessage(`[]`)
 		targetingRules := json.RawMessage(`[]`)
 
 		if envOverrides != nil {
 			if override, ok := envOverrides[env.Key]; ok {
-				if override.DefaultVariant != "" {
-					defaultVariant = override.DefaultVariant
+				if override.FallthroughVariant != "" {
+					fallthroughVariant = override.FallthroughVariant
+				}
+				if override.OffVariant != "" {
+					offVariant = override.OffVariant
+				} else {
+					offVariant = fallthroughVariant
 				}
 				if override.Variants != nil {
 					variants = override.Variants
@@ -92,8 +98,8 @@ func (s *FlagStore) Create(ctx context.Context, projectID, key, name, descriptio
 		}
 
 		_, err := tx.Exec(ctx,
-			`INSERT INTO flag_environment_configs (flag_id, environment_id, enabled, default_variant, variants, targeting_rules) VALUES ($1, $2, $3, $4, $5, $6)`,
-			f.ID, env.ID, enabled, defaultVariant, variants, targetingRules,
+			`INSERT INTO flag_environment_configs (flag_id, environment_id, enabled, fallthrough_variant, off_variant, variants, targeting_rules) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			f.ID, env.ID, enabled, fallthroughVariant, offVariant, variants, targetingRules,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("creating flag environment config for env %s: %w", env.ID, err)
@@ -354,7 +360,7 @@ func (s *FlagStore) Delete(ctx context.Context, flagID string) error {
 // GetEnvironmentConfig returns the flag config for a specific environment.
 func (s *FlagStore) GetEnvironmentConfig(ctx context.Context, flagID, environmentID string) (*model.FlagEnvironmentConfig, error) {
 	row := s.pool.QueryRow(ctx,
-		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
+		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.fallthrough_variant, fec.off_variant,
 		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
 		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
 		        u.id, u.email, u.display_name,
@@ -371,7 +377,7 @@ func (s *FlagStore) GetEnvironmentConfig(ctx context.Context, flagID, environmen
 // GetAllEnvironmentConfigs returns all environment configs for a flag.
 func (s *FlagStore) GetAllEnvironmentConfigs(ctx context.Context, flagID string) ([]model.FlagEnvironmentConfig, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
+		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.fallthrough_variant, fec.off_variant,
 		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
 		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
 		        u.id, u.email, u.display_name,
@@ -410,7 +416,7 @@ func (s *FlagStore) GetEnvironmentConfigsByFlagIDs(ctx context.Context, flagIDs 
 	}
 
 	rows, err := s.pool.Query(ctx,
-		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant,
+		`SELECT fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.fallthrough_variant, fec.off_variant,
 		        fec.variants, fec.targeting_rules, fec.updated_at, fec.updated_by,
 		        fec.locked, fec.locked_by, fec.locked_at, fec.lock_reason,
 		        u.id, u.email, u.display_name,
@@ -441,16 +447,16 @@ func (s *FlagStore) GetEnvironmentConfigsByFlagIDs(ctx context.Context, flagIDs 
 }
 
 // UpdateEnvironmentConfig updates the flag config for a specific environment.
-// This includes enabled, default_variant, variants (JSON), and targeting_rules (JSON).
+// This includes enabled, fallthrough_variant, off_variant, variants (JSON), and targeting_rules (JSON).
 // updatedBy optionally records which user made the change.
-func (s *FlagStore) UpdateEnvironmentConfig(ctx context.Context, flagID, environmentID string, enabled bool, defaultVariant string, variants json.RawMessage, targetingRules json.RawMessage, updatedBy *string) (*model.FlagEnvironmentConfig, error) {
+func (s *FlagStore) UpdateEnvironmentConfig(ctx context.Context, flagID, environmentID string, enabled bool, fallthroughVariant, offVariant string, variants json.RawMessage, targetingRules json.RawMessage, updatedBy *string) (*model.FlagEnvironmentConfig, error) {
 	row := s.pool.QueryRow(ctx,
 		`UPDATE flag_environment_configs
-		 SET enabled=$3, default_variant=$4, variants=$5, targeting_rules=$6, updated_at=NOW(), updated_by=$7
+		 SET enabled=$3, fallthrough_variant=$4, off_variant=$5, variants=$6, targeting_rules=$7, updated_at=NOW(), updated_by=$8
 		 WHERE flag_id=$1 AND environment_id=$2
-		 RETURNING id, flag_id, environment_id, enabled, default_variant, variants, targeting_rules, updated_at, updated_by,
+		 RETURNING id, flag_id, environment_id, enabled, fallthrough_variant, off_variant, variants, targeting_rules, updated_at, updated_by,
 		           locked, locked_by, locked_at, lock_reason`,
-		flagID, environmentID, enabled, defaultVariant, variants, targetingRules, updatedBy,
+		flagID, environmentID, enabled, fallthroughVariant, offVariant, variants, targetingRules, updatedBy,
 	)
 	return scanFlagEnvConfig(row)
 }
@@ -561,7 +567,7 @@ func scanFlagEnvConfig(row pgx.Row) (*model.FlagEnvironmentConfig, error) {
 	var cfg model.FlagEnvironmentConfig
 	var variantsJSON, rulesJSON json.RawMessage
 	err := row.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&cfg.FallthroughVariant, &cfg.OffVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
 		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason)
 	if err != nil {
 		return nil, fmt.Errorf("scanning flag environment config: %w", err)
@@ -589,7 +595,7 @@ func scanFlagEnvConfigWithUser(row pgx.Row) (*model.FlagEnvironmentConfig, error
 	var lockedByUserID, lockedByEmail *string
 	var lockedByDisplayName *string
 	err := row.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&cfg.FallthroughVariant, &cfg.OffVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
 		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason,
 		&updatedByUserID, &updatedByEmail, &updatedByDisplayName,
 		&lockedByUserID, &lockedByEmail, &lockedByDisplayName)
@@ -627,7 +633,7 @@ func scanEnvironmentConfigRowWithUser(rows pgx.Rows) (model.FlagEnvironmentConfi
 	var lockedByUserID, lockedByEmail *string
 	var lockedByDisplayName *string
 	if err := rows.Scan(&cfg.ID, &cfg.FlagID, &cfg.EnvironmentID, &cfg.Enabled,
-		&cfg.DefaultVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
+		&cfg.FallthroughVariant, &cfg.OffVariant, &variantsJSON, &rulesJSON, &cfg.UpdatedAt, &cfg.UpdatedBy,
 		&cfg.Locked, &cfg.LockedBy, &cfg.LockedAt, &cfg.LockReason,
 		&updatedByUserID, &updatedByEmail, &updatedByDisplayName,
 		&lockedByUserID, &lockedByEmail, &lockedByDisplayName); err != nil {
