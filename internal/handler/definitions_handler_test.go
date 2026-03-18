@@ -42,10 +42,10 @@ func TestDefinitions_ReturnsFlagsAndSegments(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "on",
+			FallthroughVariant: "on",
 			Variants: []model.Variant{
-				{Key: "on", Value: rawJSON(true)},
-				{Key: "off", Value: rawJSON(false)},
+				{Name: "on", Value: rawJSON(true)},
+				{Name: "off", Value: rawJSON(false)},
 			},
 			TargetingRules: []model.TargetingRule{
 				{
@@ -96,8 +96,8 @@ func TestDefinitions_ReturnsFlagsAndSegments(t *testing.T) {
 	if !f.Config.Enabled {
 		t.Error("expected config.enabled to be true")
 	}
-	if f.Config.DefaultVariant != "on" {
-		t.Errorf("expected defaultVariant 'on', got %q", f.Config.DefaultVariant)
+	if f.Config.FallthroughVariant != "on" {
+		t.Errorf("expected fallthroughVariant 'on', got %q", f.Config.FallthroughVariant)
 	}
 	if len(f.Config.Variants) != 2 {
 		t.Fatalf("expected 2 variants, got %d", len(f.Config.Variants))
@@ -183,8 +183,8 @@ func TestDefinitions_IncludesArchivedFlags(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "on",
-			Variants:       []model.Variant{{Key: "on", Value: rawJSON(true)}},
+			FallthroughVariant: "on",
+			Variants:       []model.Variant{{Name: "on", Value: rawJSON(true)}},
 		},
 	})
 	cache.SetFlag("proj", "dev", "archived-flag", evaluation.FlagData{
@@ -195,8 +195,8 @@ func TestDefinitions_IncludesArchivedFlags(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        false,
-			DefaultVariant: "default",
-			Variants:       []model.Variant{{Key: "default", Value: rawJSON("hello")}},
+			FallthroughVariant: "default",
+			Variants:       []model.Variant{{Name: "default", Value: rawJSON("hello")}},
 		},
 	})
 
@@ -303,8 +303,8 @@ func TestDefinitions_NilPercentageDefaultsTo100(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "on",
-			Variants:       []model.Variant{{Key: "on", Value: rawJSON(true)}},
+			FallthroughVariant: "on",
+			Variants:       []model.Variant{{Name: "on", Value: rawJSON(true)}},
 			TargetingRules: []model.TargetingRule{
 				{
 					Variant:           "on",

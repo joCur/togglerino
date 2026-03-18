@@ -115,8 +115,8 @@ func TestEvaluateAll_OverrideRecordsMetrics(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "off",
-			Variants:       []model.Variant{{Key: "off", Value: rawJSON(false)}},
+			FallthroughVariant: "off",
+			Variants:       []model.Variant{{Name: "off", Value: rawJSON(false)}},
 		},
 	})
 
@@ -158,8 +158,8 @@ func TestEvaluateHandler_NilMetricsDoesNotPanic(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "off",
-			Variants:       []model.Variant{{Key: "off", Value: rawJSON(false)}},
+			FallthroughVariant: "off",
+			Variants:       []model.Variant{{Name: "off", Value: rawJSON(false)}},
 		},
 	})
 

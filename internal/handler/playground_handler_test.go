@@ -35,10 +35,10 @@ func TestPlaygroundHandler_SingleFlag(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "off",
+			FallthroughVariant: "off",
 			Variants: []model.Variant{
-				{Key: "off", Value: rawJSON(false)},
-				{Key: "on", Value: rawJSON(true)},
+				{Name: "off", Value: rawJSON(false)},
+				{Name: "on", Value: rawJSON(true)},
 			},
 		},
 	})
@@ -115,10 +115,10 @@ func TestPlaygroundHandler_AllFlags(t *testing.T) {
 			},
 			Config: model.FlagEnvironmentConfig{
 				Enabled:        true,
-				DefaultVariant: "off",
+				FallthroughVariant: "off",
 				Variants: []model.Variant{
-					{Key: "off", Value: rawJSON(false)},
-					{Key: "on", Value: rawJSON(true)},
+					{Name: "off", Value: rawJSON(false)},
+					{Name: "on", Value: rawJSON(true)},
 				},
 			},
 		},
@@ -131,10 +131,10 @@ func TestPlaygroundHandler_AllFlags(t *testing.T) {
 			},
 			Config: model.FlagEnvironmentConfig{
 				Enabled:        false,
-				DefaultVariant: "off",
+				FallthroughVariant: "off",
 				Variants: []model.Variant{
-					{Key: "off", Value: rawJSON("off-val")},
-					{Key: "on", Value: rawJSON("on-val")},
+					{Name: "off", Value: rawJSON("off-val")},
+					{Name: "on", Value: rawJSON("on-val")},
 				},
 			},
 		},

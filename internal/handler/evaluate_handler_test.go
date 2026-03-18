@@ -27,9 +27,9 @@ func TestEvaluateHandler_PersonalOverride(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "off",
+			FallthroughVariant: "off",
 			Variants: []model.Variant{
-				{Key: "off", Value: rawJSON(false)},
+				{Name: "off", Value: rawJSON(false)},
 			},
 		},
 	})
@@ -85,9 +85,9 @@ func TestEvaluateHandler_NoOverrideFallsThrough(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "off",
+			FallthroughVariant: "off",
 			Variants: []model.Variant{
-				{Key: "off", Value: rawJSON(false)},
+				{Name: "off", Value: rawJSON(false)},
 			},
 		},
 	})
@@ -134,8 +134,8 @@ func TestEvaluateHandler_PersonalOverride_EvaluateAll(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "off",
-			Variants:       []model.Variant{{Key: "off", Value: rawJSON(false)}},
+			FallthroughVariant: "off",
+			Variants:       []model.Variant{{Name: "off", Value: rawJSON(false)}},
 		},
 	})
 	cache.SetFlag("proj", "dev", "flag-b", evaluation.FlagData{
@@ -147,8 +147,8 @@ func TestEvaluateHandler_PersonalOverride_EvaluateAll(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "default",
-			Variants:       []model.Variant{{Key: "default", Value: rawJSON("default")}},
+			FallthroughVariant: "default",
+			Variants:       []model.Variant{{Name: "default", Value: rawJSON("default")}},
 		},
 	})
 
@@ -211,8 +211,8 @@ func TestEvaluateHandler_OverrideSkipsArchivedFlag(t *testing.T) {
 		},
 		Config: model.FlagEnvironmentConfig{
 			Enabled:        true,
-			DefaultVariant: "off",
-			Variants:       []model.Variant{{Key: "off", Value: rawJSON(false)}},
+			FallthroughVariant: "off",
+			Variants:       []model.Variant{{Name: "off", Value: rawJSON(false)}},
 		},
 	})
 
