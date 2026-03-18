@@ -136,6 +136,68 @@ If the flag key does not exist for the SDK key's project, the server returns 404
 
 ---
 
+## Flag Definitions
+
+```
+GET /api/v1/definitions
+```
+
+Fetches the full flag definitions for the SDK key's project and environment, including targeting rules, variants, and segments. Used by server-side SDKs to perform local evaluation without a network call per request.
+
+### Response (200)
+
+```json
+{
+  "flags": [
+    {
+      "key": "new-checkout-flow",
+      "value_type": "boolean",
+      "enabled": true,
+      "off_variant": "false",
+      "fallthrough_variant": "true",
+      "default_value": false,
+      "variants": [
+        { "name": "true", "value": true },
+        { "name": "false", "value": false }
+      ],
+      "targeting_rules": [
+        {
+          "name": "Beta users",
+          "percentage": 100,
+          "variant": "true",
+          "conditions": [
+            { "attribute": "plan", "operator": "equals", "value": "pro" }
+          ]
+        }
+      ]
+    }
+  ],
+  "segments": [
+    {
+      "key": "beta-users",
+      "conditions": [
+        { "attribute": "plan", "operator": "in", "value": ["pro", "enterprise"] }
+      ]
+    }
+  ]
+}
+```
+
+Each flag definition includes:
+
+| Field | Description |
+|-------|-------------|
+| `key` | The flag key |
+| `value_type` | `boolean`, `string`, `number`, or `json` |
+| `enabled` | Whether the flag is enabled in this environment |
+| `off_variant` | Variant name returned when the flag is disabled |
+| `fallthrough_variant` | Variant name returned when no targeting rule matches |
+| `default_value` | The flag-level default value returned when the flag is archived |
+| `variants` | Array of variant objects with `name` and `value` |
+| `targeting_rules` | Ordered list of targeting rules (first match wins) |
+
+---
+
 ## SSE Stream
 
 ```
@@ -200,9 +262,9 @@ Every flag evaluation includes a `reason` field explaining why a particular valu
 
 | Reason | Description |
 |--------|-------------|
-| `default` | No targeting rules matched; the default variant was returned |
+| `default` | No targeting rules matched; the fallthrough variant was returned |
 | `rule_match` | A targeting rule's conditions matched the evaluation context |
-| `disabled` | The flag is disabled in this environment |
+| `disabled` | The flag is disabled in this environment; the off variant was returned |
 | `archived` | The flag has been archived |
 | `override` | A personal override is active for this user |
 

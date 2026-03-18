@@ -987,7 +987,8 @@ Returns the flag and all its environment configurations.
     {
       "environment_id": "uuid",
       "enabled": true,
-      "default_variant": "enabled",
+      "off_variant": "false",
+      "fallthrough_variant": "true",
       "variants": [...],
       "targeting_rules": [...],
       "locked": false,
@@ -1048,17 +1049,18 @@ PUT /api/v1/projects/{key}/flags/{flag}/environments/{env}
 
 **Permission:** `flags:write` (also checks environment access restrictions)
 
-Updates the flag configuration for a specific environment, including enabled state, default variant, variants, and targeting rules.
+Updates the flag configuration for a specific environment, including enabled state, off variant, fallthrough variant, variants, and targeting rules.
 
 **Request:**
 
 ```json
 {
   "enabled": true,
-  "default_variant": "enabled",
+  "off_variant": "disabled",
+  "fallthrough_variant": "enabled",
   "variants": [
     {
-      "key": "enabled",
+      "name": "enabled",
       "value": true,
       "weight": 100
     }
