@@ -14,6 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { slugify } from '@/lib/utils'
 
+interface VariantRow {
+  name: string
+  value: string
+}
+
 interface Props {
   open: boolean
   projectKey: string
@@ -51,6 +56,8 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
   const [tags, setTags] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState<FlagTemplate | null>(null)
   const [showTemplates, setShowTemplates] = useState(true)
+  const [variants, setVariants] = useState<VariantRow[]>([{ name: '', value: '' }, { name: '', value: '' }])
+  const [variantError, setVariantError] = useState('')
 
   const { data: envDefaultsData } = useQuery({
     queryKey: ['projects', projectKey, 'settings', 'environments'],
@@ -98,6 +105,8 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     setEnvOverrides({})
     setSelectedTemplate(null)
     setShowTemplates(true)
+    setVariants([{ name: '', value: '' }, { name: '', value: '' }])
+    setVariantError('')
     mutation.reset(); onClose()
   }
 
@@ -114,6 +123,8 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     else if (type === 'number') setDefaultValue('0')
     else if (type === 'json') setDefaultValue('{}')
     else setDefaultValue('')
+    setVariants([{ name: '', value: '' }, { name: '', value: '' }])
+    setVariantError('')
   }
 
   const getDefaultValueParsed = (): unknown => {
@@ -139,6 +150,13 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
         setDefaultValue(String(tmpl.default_value ?? ''))
       }
       setTags(tmpl.tags.join(', '))
+      // Populate variant rows from template
+      if (tmpl.variant_config?.variants && tmpl.variant_config.variants.length > 0) {
+        setVariants(tmpl.variant_config.variants.map(v => ({
+          name: v.name,
+          value: typeof v.value === 'string' ? v.value : JSON.stringify(v.value),
+        })))
+      }
       // Apply environment defaults from template
       if (tmpl.environment_defaults) {
         const overrides: Record<string, boolean> = {}
@@ -152,13 +170,46 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
     setShowTemplates(false)
   }
 
+  const encodeVariantValue = (value: string, type: string): unknown => {
+    if (type === 'number') {
+      const n = Number(value)
+      return isNaN(n) ? 0 : n
+    }
+    if (type === 'json') {
+      try { return JSON.parse(value) } catch { return value }
+    }
+    return value
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setVariantError('')
+
+    // Validate variants for non-boolean flags
+    if (flagType !== 'boolean') {
+      const filledVariants = variants.filter(v => v.name.trim() !== '')
+      if (filledVariants.length < 2) {
+        setVariantError('At least two variants are required')
+        return
+      }
+    }
+
     const parsedTags = tags.split(',').map((tag) => tag.trim()).filter(Boolean)
 
+    // Build variant objects for non-boolean flags
+    const variantObjects = flagType !== 'boolean'
+      ? variants
+          .filter(v => v.name.trim() !== '')
+          .map(v => ({ name: v.name.trim(), value: encodeVariantValue(v.value, flagType) }))
+      : undefined
+
     // Build environment_overrides
+    const hasVariants = variantObjects && variantObjects.length > 0
+    const hasTemplateVariants = selectedTemplate?.variant_config?.variants
+    const hasEnvOverrides = Object.keys(envOverrides).length > 0
+
     const environmentOverrides: Record<string, Record<string, unknown>> | undefined =
-      Object.keys(envOverrides).length > 0 || selectedTemplate?.variant_config?.variants
+      hasEnvOverrides || hasTemplateVariants || hasVariants
         ? (() => {
             const result: Record<string, Record<string, unknown>> = {}
             // Start with enabled states
@@ -166,7 +217,7 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
               result[k] = { enabled }
             }
             // Apply variant config from template to all environments that have overrides
-            if (selectedTemplate?.variant_config?.variants) {
+            if (hasTemplateVariants) {
               const envKeys = Object.keys(result).length > 0
                 ? Object.keys(result)
                 : envDefaultsData?.environment_defaults.map(e => e.key) ?? []
@@ -174,10 +225,25 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
                 result[envKey] = {
                   ...(result[envKey] || {}),
                   enabled: result[envKey]?.enabled ?? envOverrides[envKey] ?? false,
-                  variants: selectedTemplate.variant_config.variants,
-                  fallthrough_variant: selectedTemplate.variant_config.fallthrough_variant,
-                  off_variant: selectedTemplate.variant_config.off_variant,
-                  targeting_rules: selectedTemplate.variant_config.targeting_rules,
+                  variants: selectedTemplate!.variant_config.variants,
+                  fallthrough_variant: selectedTemplate!.variant_config.fallthrough_variant,
+                  off_variant: selectedTemplate!.variant_config.off_variant,
+                  targeting_rules: selectedTemplate!.variant_config.targeting_rules,
+                }
+              }
+            }
+            // Apply user-defined variants (for non-boolean flags without template variants)
+            if (hasVariants && !hasTemplateVariants) {
+              const envKeys = Object.keys(result).length > 0
+                ? Object.keys(result)
+                : envDefaultsData?.environment_defaults.map(e => e.key) ?? []
+              for (const envKey of envKeys) {
+                result[envKey] = {
+                  ...(result[envKey] || {}),
+                  enabled: result[envKey]?.enabled ?? envOverrides[envKey] ?? false,
+                  variants: variantObjects,
+                  fallthrough_variant: variantObjects![0].name,
+                  off_variant: variantObjects![0].name,
                 }
               }
             }
@@ -344,6 +410,63 @@ export default function CreateFlagModal({ open, projectKey, onClose, onCreated, 
                   <Input value={defaultValue} onChange={(e) => setDefaultValue(e.target.value)} placeholder="Default string value" />
                 )}
               </div>
+
+              {flagType !== 'boolean' && (
+                <div className="space-y-2">
+                  <Label>Variants</Label>
+                  <div className="space-y-2">
+                    {variants.map((variant, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={variant.name}
+                          onChange={(e) => {
+                            const updated = [...variants]
+                            updated[index] = { ...updated[index], name: e.target.value }
+                            setVariants(updated)
+                            setVariantError('')
+                          }}
+                          placeholder="Name"
+                          className="flex-1"
+                        />
+                        <Input
+                          value={variant.value}
+                          onChange={(e) => {
+                            const updated = [...variants]
+                            updated[index] = { ...updated[index], value: e.target.value }
+                            setVariants(updated)
+                          }}
+                          placeholder={flagType === 'number' ? '0' : flagType === 'json' ? '{"key": "value"}' : 'Value'}
+                          className="flex-1 font-mono text-xs"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="px-2 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            const updated = variants.filter((_, i) => i !== index)
+                            setVariants(updated)
+                          }}
+                          disabled={variants.length <= 2}
+                        >
+                          &times;
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setVariants([...variants, { name: '', value: '' }])}
+                  >
+                    Add variant
+                  </Button>
+                  {variantError && (
+                    <p className="text-xs text-destructive">{variantError}</p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label>Tags (comma-separated)</Label>
