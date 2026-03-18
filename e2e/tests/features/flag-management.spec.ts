@@ -1,23 +1,8 @@
 import { test, expect } from '../../helpers/fixtures.js';
 import { SDKClient } from '../../helpers/api.js';
 import { uniqueFlagKey } from '../../helpers/test-data.js';
-import type { Page } from '@playwright/test';
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:9091';
-
-/**
- * Helper: expand an environment collapsible section on the flag detail page.
- * The collapsible trigger contains the env name + Lock/Promote/ON|OFF text.
- */
-async function expandEnvSection(page: Page, envName: string) {
-  const trigger = page.locator('[data-slot="collapsible-trigger"]').filter({ hasText: envName }).first();
-  const expanded = await trigger.getAttribute('aria-expanded');
-  if (expanded !== 'true') {
-    await trigger.click();
-    // Wait for collapsible content to render
-    await expect(page.getByText('Configuration:')).toBeVisible();
-  }
-}
 
 test.describe('Flag Management', () => {
   test('deletes an archived flag', async ({ authenticatedPage: page, testProject, apiContext }) => {
@@ -75,9 +60,7 @@ test.describe('Flag Management', () => {
 
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
-    // Expand the development environment section
-    await expandEnvSection(page, 'Development');
-
+    // Development tab is auto-selected (first environment)
     // Open the Variants collapsible — use the button that shows "Variants (0)"
     await page.getByRole('button', { name: /^Variants/ }).click();
 
@@ -98,7 +81,7 @@ test.describe('Flag Management', () => {
     const { environment_configs } = await apiContext.getFlag(testProject.key, key);
     const devConfig = environment_configs.find((c: any) => c.environment_id === devEnv!.id);
     expect(devConfig?.variants).toContainEqual(
-      expect.objectContaining({ key: 'treatment' })
+      expect.objectContaining({ name: 'treatment' })
     );
   });
 
@@ -111,18 +94,21 @@ test.describe('Flag Management', () => {
       default_value: false,
     });
 
-    // Boolean flags: no variants needed — just enable
-    await apiContext.updateFlagEnvConfig(testProject.key, key, 'development', { enabled: true });
+    // Boolean flags: set up with canonical variants
+    await apiContext.setFlagEnvConfig(testProject.key, key, 'development', {
+      enabled: true,
+      fallthrough_variant: 'true',
+      off_variant: 'false',
+      variants: [
+        { name: 'true', value: true },
+        { name: 'false', value: false },
+      ],
+    });
 
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
-    // Expand development section
-    await expandEnvSection(page, 'Development');
-
-    // Open Targeting Rules section
-    await page.getByRole('button', { name: /^Targeting Rules/ }).click();
-
-    // Add a rule
+    // Development tab is auto-selected
+    // Rules are shown inline when targeting is ON — add a rule
     await page.getByRole('button', { name: '+ Add Rule' }).click();
 
     // Set attribute via combobox
@@ -136,8 +122,8 @@ test.describe('Flag Management', () => {
     // Set value
     await page.getByPlaceholder('Value').first().fill('enterprise');
 
-    // For boolean flags, the "Serve value:" dropdown shows true/false instead of variants
-    await page.locator('text=Serve value:').locator('..').locator('select').selectOption('true');
+    // For boolean flags, the "Serve" dropdown shows variant names
+    await page.locator('text=Serve').locator('..').locator('select').selectOption('true');
 
     // Save configuration
     await page.getByRole('button', { name: 'Save Configuration' }).click();
@@ -151,7 +137,7 @@ test.describe('Flag Management', () => {
     expect(matched.value).toBe(true);
     expect(matched.reason).toBe('rule_match');
 
-    // Boolean flags: enabled default = true (no rule match still returns true)
+    // Boolean flags: fallthrough = true (no rule match still returns true)
     const unmatched = await client.evaluateFlag(key, { attributes: { plan: 'free' } });
     expect(unmatched.value).toBe(true);
     expect(unmatched.reason).toBe('default');
@@ -169,10 +155,11 @@ test.describe('Flag Management', () => {
     // Configure development with variants and targeting rules
     await apiContext.setFlagEnvConfig(testProject.key, key, 'development', {
       enabled: true,
-      default_variant: 'control',
+      fallthrough_variant: 'control',
+      off_variant: 'control',
       variants: [
-        { key: 'control', value: 'control' },
-        { key: 'treatment', value: 'new-feature' },
+        { name: 'control', value: 'control' },
+        { name: 'treatment', value: 'new-feature' },
       ],
       targeting_rules: [
         {
@@ -184,11 +171,8 @@ test.describe('Flag Management', () => {
 
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
-    // The Promote button is in the Development env header row (not inside the collapsible content)
-    // Click the Promote dropdown trigger in the Development row
-    const devRow = page.locator('[data-slot="collapsible-trigger"]').filter({ hasText: 'Development' });
-    // The Promote button is a sibling within the collapsible trigger
-    await devRow.getByText('Promote').click();
+    // Development tab is auto-selected — click Promote dropdown
+    await page.getByRole('button', { name: 'Promote' }).click();
 
     // Select "Promote to Staging" from the dropdown
     await page.getByRole('menuitem', { name: /staging/i }).click();
@@ -225,9 +209,8 @@ test.describe('Flag Management', () => {
 
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
-    // Click the Lock button specifically in the Development row
-    const devRow = page.locator('[data-slot="collapsible-trigger"]').filter({ hasText: 'Development' });
-    await devRow.getByText('Lock', { exact: true }).click();
+    // Development tab is auto-selected — click the Lock button in the actions bar
+    await page.getByRole('button', { name: 'Lock' }).click();
 
     // Fill in the lock dialog
     const dialog = page.getByRole('dialog');
@@ -237,13 +220,13 @@ test.describe('Flag Management', () => {
 
     // Wait for dialog to close and verify locked state
     await expect(dialog).not.toBeVisible();
-    await expect(devRow.getByText('Locked')).toBeVisible();
+    await expect(page.getByText('Locked')).toBeVisible();
 
     // Unlock the flag
-    await devRow.getByText('Unlock').click();
+    await page.getByRole('button', { name: 'Unlock' }).click();
 
-    // Verify unlocked — "Lock" text should reappear (not "Locked" or "Unlock")
-    await expect(devRow.getByText('Lock', { exact: true })).toBeVisible();
+    // Verify unlocked — "Lock" button should reappear
+    await expect(page.getByRole('button', { name: 'Lock' })).toBeVisible();
   });
 
   test('flag search and filtering', async ({ authenticatedPage: page, testProject, apiContext }) => {

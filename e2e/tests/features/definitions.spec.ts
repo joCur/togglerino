@@ -17,10 +17,11 @@ test.describe('Definitions Endpoint', () => {
     // Set up variants and a targeting rule
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'off',
+      fallthrough_variant: 'off',
+      off_variant: 'off',
       variants: [
-        { key: 'off', value: 'default-val' },
-        { key: 'pro', value: 'pro-features' },
+        { name: 'off', value: 'default-val' },
+        { name: 'pro', value: 'pro-features' },
       ],
       targeting_rules: [
         {
@@ -40,9 +41,10 @@ test.describe('Definitions Endpoint', () => {
     expect(flag!.valueType).toBe('string');
     expect(flag!.status).toBe('active');
     expect(flag!.config.enabled).toBe(true);
-    expect(flag!.config.defaultVariant).toBe('off');
+    expect(flag!.config.fallthroughVariant).toBe('off');
+    expect(flag!.config.offVariant).toBe('off');
     expect(flag!.config.variants).toHaveLength(2);
-    expect(flag!.config.variants.map(v => v.key).sort()).toEqual(['off', 'pro']);
+    expect(flag!.config.variants.map(v => v.name).sort()).toEqual(['off', 'pro']);
 
     // Targeting rule should be present with condition
     expect(flag!.config.targetingRules).toHaveLength(1);

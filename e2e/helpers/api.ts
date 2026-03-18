@@ -32,8 +32,9 @@ export interface Environment {
 
 export interface FlagEnvironmentConfig {
   enabled: boolean;
-  default_variant?: string;
-  variants?: Array<{ key: string; value: unknown }>;
+  fallthrough_variant?: string;
+  off_variant?: string;
+  variants?: Array<{ name: string; value: unknown }>;
   targeting_rules?: Array<{ conditions: Array<{ attribute: string; operator: string; value: unknown }>; variant: string; percentage_rollout?: number }>;
   [key: string]: unknown;
 }
@@ -112,15 +113,16 @@ export class ApiHelper {
     return (await res.json()) as Flag;
   }
 
-  async getFlag(projectKey: string, flagKey: string): Promise<{ flag: Flag; environment_configs: FlagEnvironmentConfig[] }> {
+  async getFlag(projectKey: string, flagKey: string): Promise<{ flag: Flag; environment_configs: (FlagEnvironmentConfig & { environment_id?: string })[] }> {
     const res = await this.request.get(`/api/v1/projects/${projectKey}/flags/${flagKey}`);
     if (!res.ok()) throw new Error(`getFlag failed: ${res.status()} ${await res.text()}`);
-    return (await res.json()) as { flag: Flag; environment_configs: FlagEnvironmentConfig[] };
+    return (await res.json()) as { flag: Flag; environment_configs: (FlagEnvironmentConfig & { environment_id?: string })[] };
   }
 
   /**
    * Update a flag's environment config. Fetches the current config first and merges
-   * to avoid zeroing out fields the backend expects (default_variant, variants, targeting_rules).
+   * to avoid zeroing out fields the backend expects (fallthrough_variant, off_variant, variants, targeting_rules).
+   * For boolean flags, ensures canonical variants are always present.
    */
   async updateFlagEnvConfig(
     projectKey: string,
@@ -128,17 +130,29 @@ export class ApiHelper {
     envKey: string,
     config: { enabled: boolean },
   ) {
-    // Fetch current config to preserve existing values
-    const { environment_configs } = await this.getFlag(projectKey, flagKey);
+    // Fetch current config and flag to preserve existing values
+    const { flag, environment_configs } = await this.getFlag(projectKey, flagKey);
     const current = environment_configs.find((c: any) => c.environment_key === envKey || c.env_key === envKey);
+
+    // For boolean flags, ensure we always send canonical variants
+    let variants = current?.variants ?? [];
+    let fallthroughVariant = current?.fallthrough_variant ?? '';
+    let offVariant = current?.off_variant ?? '';
+
+    if (flag.value_type === 'boolean' && (!variants || variants.length === 0)) {
+      variants = [{ name: 'true', value: true }, { name: 'false', value: false }];
+      fallthroughVariant = 'true';
+      offVariant = 'false';
+    }
 
     const res = await this.request.put(
       `/api/v1/projects/${projectKey}/flags/${flagKey}/environments/${envKey}`,
       {
         data: {
           enabled: config.enabled,
-          default_variant: current?.default_variant ?? '',
-          variants: current?.variants ?? [],
+          fallthrough_variant: fallthroughVariant,
+          off_variant: offVariant,
+          variants,
           targeting_rules: current?.targeting_rules ?? [],
         },
       },
@@ -159,7 +173,7 @@ export class ApiHelper {
   // --- Flag Environment Config (full control) ---
 
   /**
-   * Set the full environment config for a flag — variants, targeting rules, default variant.
+   * Set the full environment config for a flag — variants, targeting rules, fallthrough/off variants.
    * Use this when you need to configure targeting rules or variants.
    */
   async setFlagEnvConfig(
@@ -168,8 +182,9 @@ export class ApiHelper {
     envKey: string,
     config: {
       enabled: boolean;
-      default_variant: string;
-      variants: Array<{ key: string; value: unknown }>;
+      fallthrough_variant: string;
+      off_variant?: string;
+      variants: Array<{ name: string; value: unknown }>;
       targeting_rules?: Array<{
         conditions: Array<{ attribute: string; operator: string; value: unknown }>;
         variant: string;
@@ -182,8 +197,9 @@ export class ApiHelper {
       {
         data: {
           enabled: config.enabled,
-          default_variant: config.default_variant,
-          variants: config.variants.map(v => ({ key: v.key, value: v.value })),
+          fallthrough_variant: config.fallthrough_variant,
+          off_variant: config.off_variant ?? config.fallthrough_variant,
+          variants: config.variants.map(v => ({ name: v.name, value: v.value })),
           targeting_rules: config.targeting_rules ?? [],
         },
       },
@@ -388,8 +404,9 @@ export interface DefinitionsResponse {
     status: string;
     config: {
       enabled: boolean;
-      defaultVariant: string;
-      variants: Array<{ key: string; value: unknown }>;
+      fallthroughVariant: string;
+      offVariant: string;
+      variants: Array<{ name: string; value: unknown }>;
       targetingRules: Array<{
         variant: string;
         percentage: number;

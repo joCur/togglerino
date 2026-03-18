@@ -32,10 +32,11 @@ test.describe('Segments', () => {
 
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'basic',
+      fallthrough_variant: 'basic',
+      off_variant: 'basic',
       variants: [
-        { key: 'basic', value: 'basic' },
-        { key: 'premium', value: 'premium-feature' },
+        { name: 'basic', value: 'basic' },
+        { name: 'premium', value: 'premium-feature' },
       ],
       targeting_rules: [
         {
@@ -79,10 +80,11 @@ test.describe('Segments', () => {
 
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'default',
+      fallthrough_variant: 'default',
+      off_variant: 'default',
       variants: [
-        { key: 'default', value: 'no' },
-        { key: 'matched', value: 'yes' },
+        { name: 'default', value: 'no' },
+        { name: 'matched', value: 'yes' },
       ],
       targeting_rules: [
         {
@@ -116,8 +118,7 @@ test.describe('Segments', () => {
       ],
     });
 
-    // Use boolean flags — with new behavior, matching returns true from rule,
-    // non-matching returns true from enabled default. Use "false" variant to test.
+    // Use boolean flags with canonical variants
     const flag1Key = uniqueFlagKey();
     const flag2Key = uniqueFlagKey();
 
@@ -129,8 +130,12 @@ test.describe('Segments', () => {
       });
       await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
         enabled: true,
-        default_variant: '',
-        variants: [],
+        fallthrough_variant: 'true',
+        off_variant: 'false',
+        variants: [
+          { name: 'true', value: true },
+          { name: 'false', value: false },
+        ],
         targeting_rules: [
           {
             conditions: [{ attribute: '', operator: 'segment_match', value: segmentKey }],
@@ -150,7 +155,7 @@ test.describe('Segments', () => {
     expect(flags[flag2Key].value).toBe(true);
     expect(flags[flag2Key].reason).toBe('rule_match');
 
-    // Non-beta users: enabled boolean default = true (no rule match, but enabled = true)
+    // Non-beta users: fallthrough = true
     const nonBeta = await client.evaluateAll({ attributes: { beta: false } });
     expect(nonBeta[flag1Key].value).toBe(true);
     expect(nonBeta[flag1Key].reason).toBe('default');

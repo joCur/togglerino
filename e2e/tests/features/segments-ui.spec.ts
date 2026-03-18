@@ -105,8 +105,12 @@ test.describe('Segment Management UI', () => {
     });
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: '',
-      variants: [],
+      fallthrough_variant: 'true',
+      off_variant: 'false',
+      variants: [
+        { name: 'true', value: true },
+        { name: 'false', value: false },
+      ],
       targeting_rules: [
         {
           conditions: [{ attribute: '', operator: 'segment_match', value: segmentKey }],
@@ -115,7 +119,7 @@ test.describe('Segment Management UI', () => {
       ],
     });
 
-    // Evaluate — boolean flag: enabled = true, targeting rule serves "true" on match
+    // Evaluate — boolean flag: enabled, targeting rule serves "true" on match
     const sdkKey = await apiContext.createSDKKey(testProject.key, 'development', 'seg-ui-test');
     const client = new SDKClient(BASE_URL, sdkKey.key);
 
@@ -123,7 +127,7 @@ test.describe('Segment Management UI', () => {
     expect(vip.value).toBe(true);
     expect(vip.reason).toBe('rule_match');
 
-    // Non-matching: enabled boolean default = true
+    // Non-matching: fallthrough = true
     const regular = await client.evaluateFlag(flagKey, { attributes: { tier: 'free' } });
     expect(regular.value).toBe(true);
     expect(regular.reason).toBe('default');

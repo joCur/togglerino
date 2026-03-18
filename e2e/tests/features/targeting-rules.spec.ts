@@ -17,10 +17,11 @@ test.describe('Targeting Rules', () => {
     // Configure with a targeting rule: plan=enterprise → "enterprise-value"
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'control',
+      fallthrough_variant: 'control',
+      off_variant: 'control',
       variants: [
-        { key: 'control', value: 'default' },
-        { key: 'enterprise', value: 'enterprise-value' },
+        { name: 'control', value: 'default' },
+        { name: 'enterprise', value: 'enterprise-value' },
       ],
       targeting_rules: [
         {
@@ -62,11 +63,12 @@ test.describe('Targeting Rules', () => {
     // Two rules: country=US → "us-value", plan=enterprise → "ent-value"
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'fallback',
+      fallthrough_variant: 'fallback',
+      off_variant: 'fallback',
       variants: [
-        { key: 'fallback', value: 'fallback' },
-        { key: 'us', value: 'us-value' },
-        { key: 'ent', value: 'ent-value' },
+        { name: 'fallback', value: 'fallback' },
+        { name: 'us', value: 'us-value' },
+        { name: 'ent', value: 'ent-value' },
       ],
       targeting_rules: [
         {
@@ -103,10 +105,11 @@ test.describe('Targeting Rules', () => {
 
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'control',
+      fallthrough_variant: 'control',
+      off_variant: 'control',
       variants: [
-        { key: 'control', value: 'default' },
-        { key: 'matched', value: 'both-matched' },
+        { name: 'control', value: 'default' },
+        { name: 'matched', value: 'both-matched' },
       ],
       targeting_rules: [
         {
@@ -149,10 +152,11 @@ test.describe('Targeting Rules', () => {
 
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'default',
+      fallthrough_variant: 'default',
+      off_variant: 'default',
       variants: [
-        { key: 'default', value: 'blocked' },
-        { key: 'allowed', value: 'allowed' },
+        { name: 'default', value: 'blocked' },
+        { name: 'allowed', value: 'allowed' },
       ],
       targeting_rules: [
         {
@@ -183,11 +187,15 @@ test.describe('Targeting Rules', () => {
       default_value: false,
     });
 
-    // 50% rollout — use "false" variant so rollout users get false, others get true (enabled default)
+    // 50% rollout — rule serves "false" to 50% of users, fallthrough serves "true"
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: '',
-      variants: [],
+      fallthrough_variant: 'true',
+      off_variant: 'false',
+      variants: [
+        { name: 'true', value: true },
+        { name: 'false', value: false },
+      ],
       targeting_rules: [
         {
           conditions: [{ attribute: 'plan', operator: 'exists', value: '' }],

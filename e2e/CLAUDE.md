@@ -66,7 +66,7 @@ Tests use Playwright's setup project pattern for authentication:
 1. Import `{ test, expect }` from `../../helpers/fixtures.js` to get custom fixtures
 2. Use `testProject` fixture for isolation — each test gets its own project
 3. Use `apiContext` for API setup and `authenticatedPage` for UI assertions
-4. For boolean flags: enabled=true, disabled=false, targeting rules use `"true"`/`"false"` variants
+4. For boolean flags: use canonical variants `[{name: "true", value: true}, {name: "false", value: false}]` with `fallthrough_variant: "true"` and `off_variant: "false"`. Targeting rules use variant `"true"` or `"false"`
 5. For tests needing distinct matched/unmatched values, use string flags with variants
 6. Tests creating multiple users should handle auth rate limiting (10 req/60s per IP)
 
