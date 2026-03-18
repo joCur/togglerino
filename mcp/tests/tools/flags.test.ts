@@ -97,19 +97,19 @@ describe('toggleFlag', () => {
 
 describe('updateFlagConfig', () => {
   it('does GET then PUT with updates merged into existing config', async () => {
-    const existingConfig = { enabled: true, default_variant: 'control', variants: [{ key: 'control', value: false }], targeting_rules: [] }
+    const existingConfig = { enabled: true, fallthrough_variant: 'control', off_variant: 'control', variants: [{ name: 'control', value: false }], targeting_rules: [] }
     const mockFlag = { environments: { production: existingConfig } }
     const mockClient = {
       get: vi.fn().mockResolvedValue(mockFlag),
-      put: vi.fn().mockResolvedValue({ ...existingConfig, default_variant: 'treatment' }),
+      put: vi.fn().mockResolvedValue({ ...existingConfig, fallthrough_variant: 'treatment' }),
     } as unknown as TogglerinoClient
 
-    await updateFlagConfig(mockClient, 'my-project', 'my-flag', 'production', { default_variant: 'treatment' })
+    await updateFlagConfig(mockClient, 'my-project', 'my-flag', 'production', { fallthrough_variant: 'treatment' })
 
     expect(mockClient.get).toHaveBeenCalledWith('/projects/my-project/flags/my-flag')
     expect(mockClient.put).toHaveBeenCalledWith(
       '/projects/my-project/flags/my-flag/environments/production',
-      { ...existingConfig, default_variant: 'treatment' },
+      { ...existingConfig, fallthrough_variant: 'treatment' },
     )
   })
 
@@ -130,8 +130,8 @@ describe('updateFlagConfig', () => {
   })
 
   it('merges variants into existing config', async () => {
-    const existingConfig = { enabled: true, default_variant: 'control', variants: [{ key: 'control', value: false }], targeting_rules: [] }
-    const newVariants = [{ key: 'control', value: false }, { key: 'treatment', value: true }]
+    const existingConfig = { enabled: true, fallthrough_variant: 'control', off_variant: 'control', variants: [{ name: 'control', value: false }], targeting_rules: [] }
+    const newVariants = [{ name: 'control', value: false }, { name: 'treatment', value: true }]
     const mockFlag = { environments: { production: existingConfig } }
     const mockClient = {
       get: vi.fn().mockResolvedValue(mockFlag),

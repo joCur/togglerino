@@ -182,16 +182,18 @@ server.tool(
     flagKey: z.string().describe('The flag key to update'),
     environmentKey: z.string().describe('The environment key (e.g. production, staging, development)'),
     enabled: z.boolean().optional().describe('Whether the flag is enabled in this environment'),
-    default_variant: z.string().optional().describe('The default variant key to serve when no rules match'),
-    variants: z.string().optional().describe('JSON array of variant objects, e.g. [{"key":"control","value":false},{"key":"treatment","value":true}]'),
+    fallthrough_variant: z.string().optional().describe('The default variant name to serve when no rules match'),
+    off_variant: z.string().optional().describe('The variant name to serve when the flag is disabled'),
+    variants: z.string().optional().describe('JSON array of variant objects, e.g. [{"name":"control","value":false},{"name":"treatment","value":true}]'),
     targeting_rules: z.array(z.record(z.string(), z.unknown())).optional().describe('Targeting rules array for the flag'),
   },
-  async ({ projectKey, flagKey, environmentKey, enabled, default_variant, variants, targeting_rules }) => {
+  async ({ projectKey, flagKey, environmentKey, enabled, fallthrough_variant, off_variant, variants, targeting_rules }) => {
     try {
       const project = requireProject(projectKey)
       const updates: Record<string, unknown> = {}
       if (enabled !== undefined) updates.enabled = enabled
-      if (default_variant !== undefined) updates.default_variant = default_variant
+      if (fallthrough_variant !== undefined) updates.fallthrough_variant = fallthrough_variant
+      if (off_variant !== undefined) updates.off_variant = off_variant
       if (variants !== undefined) updates.variants = JSON.parse(variants)
       if (targeting_rules !== undefined) updates.targeting_rules = targeting_rules
       const result = await updateFlagConfig(client, project, flagKey, environmentKey, updates)
