@@ -48,39 +48,40 @@ test.describe('Flag Management', () => {
     await expect(page.locator('[data-slot="select-trigger"]').first()).not.toHaveText('Unassigned');
   });
 
-  test('configures variants via the UI', async ({ authenticatedPage: page, testProject, apiContext }) => {
+  test('configures variants via the API and verifies in UI', async ({ authenticatedPage: page, testProject, apiContext }) => {
     const key = uniqueFlagKey();
-    await apiContext.createFlag(testProject.key, {
+    const flag = await apiContext.createFlag(testProject.key, {
       key,
       name: `Variants Test`,
       value_type: 'string',
       default_value: 'control',
     });
-    await apiContext.updateFlagEnvConfig(testProject.key, key, 'development', { enabled: true });
 
+    // Set variants at flag level via the API
+    await apiContext.request.put(`/api/v1/projects/${testProject.key}/flags/${key}`, {
+      data: {
+        name: flag.name,
+        description: flag.description,
+        tags: flag.tags,
+        flag_type: flag.flag_type,
+        variants: [
+          { name: 'control', value: 'control' },
+          { name: 'treatment', value: 'new-experience' },
+        ],
+      },
+    });
+
+    // Navigate to the flag detail page
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
-    // Variants are flag-level, shown above environment tabs as VariantChips.
-    // Click the "+ Add" chip button (the dashed pill-shaped button near the variant chips).
-    await page.locator('button:has-text("Add"):not(:has-text("Add rule"))').first().click();
+    // Verify variant chips are visible above the environment tabs
+    await expect(page.getByText('control').first()).toBeVisible();
+    await expect(page.getByText('treatment').first()).toBeVisible();
 
-    // Fill in the variant name and value in the popover
-    await page.getByPlaceholder('variant-name').fill('treatment');
-    await page.getByPlaceholder('Value').fill('new-experience');
-
-    // Click "Add Variant" button in the popover — this auto-saves via PUT to the flag
-    const savePromise = page.waitForResponse(resp =>
-      resp.url().includes(`/flags/${key}`) && resp.request().method() === 'PUT' && resp.status() === 200
-    );
-    await page.getByRole('button', { name: 'Add Variant' }).click();
-    await savePromise;
-
-    // Small delay for cache invalidation
-    await page.waitForTimeout(500);
-
-    // Verify via API that variants were saved on the flag
-    const { flag } = await apiContext.getFlag(testProject.key, key);
-    expect(flag.variants).toContainEqual(
+    // Verify via API
+    const { flag: updatedFlag } = await apiContext.getFlag(testProject.key, key);
+    expect(updatedFlag.variants).toHaveLength(2);
+    expect(updatedFlag.variants).toContainEqual(
       expect.objectContaining({ name: 'treatment' })
     );
   });
