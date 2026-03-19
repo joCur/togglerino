@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/joCur/togglerino/compare/dotnet-sdk-v0.3.0...dotnet-sdk-v0.4.0) (2026-03-19)
+
+
+### Features
+
+* unified flag evaluation & targeting UX redesign ([#147](https://github.com/joCur/togglerino/issues/147)) ([b59e747](https://github.com/joCur/togglerino/commit/b59e7476c63c85ccd6754121db4716cf97124674))
+
 ## [0.3.0](https://github.com/joCur/togglerino/compare/dotnet-sdk-v0.2.2...dotnet-sdk-v0.3.0) (2026-03-17)
 
 

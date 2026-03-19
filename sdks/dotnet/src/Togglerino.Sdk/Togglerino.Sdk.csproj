@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Togglerino.Sdk</RootNamespace>
     <PackageId>Togglerino.Sdk</PackageId>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Description>Togglerino feature flag SDK for .NET</Description>
     <Authors>Togglerino</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
