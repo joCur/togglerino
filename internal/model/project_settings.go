@@ -21,10 +21,11 @@ func intPtr(n int) *int { return &n }
 
 // EnvironmentDefault holds the default flag configuration for an environment.
 type EnvironmentDefault struct {
-	Enabled        bool            `json:"enabled"`
-	Variants       json.RawMessage `json:"variants,omitempty"`
-	DefaultVariant string          `json:"default_variant,omitempty"`
-	TargetingRules json.RawMessage `json:"targeting_rules,omitempty"`
+	Enabled            bool            `json:"enabled"`
+	Variants           json.RawMessage `json:"variants,omitempty"`
+	OffVariant         string          `json:"off_variant,omitempty"`
+	FallthroughVariant string          `json:"fallthrough_variant,omitempty"`
+	TargetingRules     json.RawMessage `json:"targeting_rules,omitempty"`
 }
 
 // DefaultEnvironmentDefaults returns the hardcoded fallback defaults.

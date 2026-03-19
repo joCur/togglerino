@@ -127,11 +127,22 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	envEnabled := projectSettings.ResolveEnvironmentDefaults(envKeys, req.EnvironmentOverrides)
 
-	// Boolean flags don't use variants — strip them from environment overrides.
+	// Boolean flags: auto-populate variants and defaults, validate targeting rules.
 	if req.ValueType == model.ValueTypeBoolean {
-		for key, override := range req.EnvironmentOverrides {
-			override.Variants = nil
-			override.DefaultVariant = ""
+		boolVariants := json.RawMessage(`[{"name":"true","value":true},{"name":"false","value":false}]`)
+		// Ensure every environment gets boolean variants and sensible defaults.
+		if req.EnvironmentOverrides == nil {
+			req.EnvironmentOverrides = make(map[string]model.EnvironmentDefault)
+		}
+		for _, ek := range envKeys {
+			override := req.EnvironmentOverrides[ek]
+			override.Variants = boolVariants
+			if override.FallthroughVariant == "" {
+				override.FallthroughVariant = "true"
+			}
+			if override.OffVariant == "" {
+				override.OffVariant = "false"
+			}
 			if override.TargetingRules != nil && string(override.TargetingRules) != "[]" {
 				var rules []model.TargetingRule
 				if err := json.Unmarshal(override.TargetingRules, &rules); err == nil {
@@ -143,7 +154,7 @@ func (h *FlagHandler) Create(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			req.EnvironmentOverrides[key] = override
+			req.EnvironmentOverrides[ek] = override
 		}
 	}
 
@@ -333,15 +344,71 @@ func (h *FlagHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name        string         `json:"name"`
-		Description string         `json:"description"`
-		Tags        []string       `json:"tags"`
-		FlagType    model.FlagType `json:"flag_type"`
-		OwnerID     *string        `json:"owner_id"`
+		Name        string          `json:"name"`
+		Description string          `json:"description"`
+		Tags        []string        `json:"tags"`
+		FlagType    model.FlagType  `json:"flag_type"`
+		OwnerID     *string         `json:"owner_id"`
+		Variants    json.RawMessage `json:"variants"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+
+	// Update variants if provided.
+	if req.Variants != nil && string(req.Variants) != "null" && string(req.Variants) != "[]" {
+		var variants []model.Variant
+		if err := json.Unmarshal(req.Variants, &variants); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid variants")
+			return
+		}
+
+		// Validate minimum two variants.
+		if len(variants) < 2 {
+			writeError(w, http.StatusBadRequest, "at least two variants are required")
+			return
+		}
+
+		// Validate unique variant names.
+		seen := make(map[string]bool, len(variants))
+		for _, v := range variants {
+			if seen[v.Name] {
+				writeError(w, http.StatusBadRequest, "variant names must be unique")
+				return
+			}
+			seen[v.Name] = true
+		}
+
+		// Boolean flags: enforce exactly two variants with values true/false.
+		if flag.ValueType == model.ValueTypeBoolean {
+			if len(variants) != 2 {
+				writeError(w, http.StatusBadRequest, "boolean flags must have exactly two variants")
+				return
+			}
+			hasTrue, hasFalse := false, false
+			for _, v := range variants {
+				var val any
+				if err := json.Unmarshal(v.Value, &val); err == nil {
+					if val == true {
+						hasTrue = true
+					}
+					if val == false {
+						hasFalse = true
+					}
+				}
+			}
+			if !hasTrue || !hasFalse {
+				writeError(w, http.StatusBadRequest, "boolean flag variants must contain one true and one false value")
+				return
+			}
+		}
+
+		if err := h.flags.UpdateFlagVariants(r.Context(), flag.ID, req.Variants); err != nil {
+			slog.Error("failed to update flag variants", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update flag variants")
+			return
+		}
 	}
 
 	flagTypeToUse := req.FlagType
@@ -614,29 +681,67 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 	}
 
 	var req struct {
-		Enabled        bool            `json:"enabled"`
-		DefaultVariant string          `json:"default_variant"`
-		Variants       json.RawMessage `json:"variants"`
-		TargetingRules json.RawMessage `json:"targeting_rules"`
+		Enabled            bool            `json:"enabled"`
+		FallthroughVariant string          `json:"fallthrough_variant"`
+		OffVariant         string          `json:"off_variant"`
+		Variants           json.RawMessage `json:"variants"`
+		TargetingRules     json.RawMessage `json:"targeting_rules"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	if req.Variants == nil {
-		req.Variants = json.RawMessage(`[]`)
-	}
 	if req.TargetingRules == nil {
 		req.TargetingRules = json.RawMessage(`[]`)
 	}
 
-	// Boolean flags don't use variants — strip them.
-	if flag.ValueType == model.ValueTypeBoolean {
-		req.Variants = json.RawMessage(`[]`)
-		req.DefaultVariant = ""
+	// Variants are now flag-level. If the request includes variants, update the flag's variants.
+	if req.Variants != nil && string(req.Variants) != "[]" {
+		var variants []model.Variant
+		if err := json.Unmarshal(req.Variants, &variants); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid variants")
+			return
+		}
 
-		// Validate targeting rule variant values for boolean flags.
+		// Boolean flags: enforce exactly two variants with values true/false.
+		if flag.ValueType == model.ValueTypeBoolean {
+			if len(variants) != 2 {
+				writeError(w, http.StatusBadRequest, "boolean flags must have exactly two variants")
+				return
+			}
+			hasTrue, hasFalse := false, false
+			for _, v := range variants {
+				var val any
+				if err := json.Unmarshal(v.Value, &val); err == nil {
+					if val == true {
+						hasTrue = true
+					}
+					if val == false {
+						hasFalse = true
+					}
+				}
+			}
+			if !hasTrue || !hasFalse {
+				writeError(w, http.StatusBadRequest, "boolean flag variants must contain one true and one false value")
+				return
+			}
+		}
+
+		if err := h.flags.UpdateFlagVariants(r.Context(), flag.ID, req.Variants); err != nil {
+			slog.Error("failed to update flag variants", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to update flag variants")
+			return
+		}
+		// Update the in-memory flag for variant validation below
+		flag.Variants = variants
+	}
+
+	// Use the flag's variants for validation
+	variants := flag.Variants
+
+	// Validate targeting rule variant names for boolean flags.
+	if flag.ValueType == model.ValueTypeBoolean {
 		if req.TargetingRules != nil && string(req.TargetingRules) != "[]" {
 			var rules []model.TargetingRule
 			if err := json.Unmarshal(req.TargetingRules, &rules); err == nil {
@@ -648,6 +753,20 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 				}
 			}
 		}
+	}
+
+	// Validate that fallthrough_variant and off_variant reference existing variant names.
+	variantNames := make(map[string]bool, len(variants))
+	for _, v := range variants {
+		variantNames[v.Name] = true
+	}
+	if req.FallthroughVariant != "" && !variantNames[req.FallthroughVariant] {
+		writeError(w, http.StatusBadRequest, "fallthrough_variant must reference an existing variant name")
+		return
+	}
+	if req.OffVariant != "" && !variantNames[req.OffVariant] {
+		writeError(w, http.StatusBadRequest, "off_variant must reference an existing variant name")
+		return
 	}
 
 	// Fetch old config for audit logging and lock check
@@ -673,7 +792,7 @@ func (h *FlagHandler) UpdateEnvironmentConfig(w http.ResponseWriter, r *http.Req
 		updatedBy = &user.ID
 	}
 
-	cfg, err := h.flags.UpdateEnvironmentConfig(r.Context(), flag.ID, env.ID, req.Enabled, req.DefaultVariant, req.Variants, req.TargetingRules, updatedBy)
+	cfg, err := h.flags.UpdateEnvironmentConfig(r.Context(), flag.ID, env.ID, req.Enabled, req.FallthroughVariant, req.OffVariant, req.TargetingRules, updatedBy)
 	if err != nil {
 		slog.Error("failed to update environment config", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to update environment config")
@@ -954,8 +1073,8 @@ func (h *FlagHandler) bulkEnableDisable(ctx context.Context, project *model.Proj
 		updatedBy = &user.ID
 	}
 
-	cfg, err := h.flags.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, enable, oldConfig.DefaultVariant,
-		marshalJSON(oldConfig.Variants), marshalJSON(oldConfig.TargetingRules), updatedBy)
+	cfg, err := h.flags.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, enable, oldConfig.FallthroughVariant, oldConfig.OffVariant,
+		marshalJSON(oldConfig.TargetingRules), updatedBy)
 	if err != nil {
 		return fmt.Errorf("failed to update environment config")
 	}
@@ -1219,21 +1338,13 @@ func (h *FlagHandler) PromoteEnvironmentConfig(w http.ResponseWriter, r *http.Re
 		updatedBy = &user.ID
 	}
 
-	// Prepare config values — strip variants for boolean flags.
-	promoteDefaultVariant := sourceConfig.DefaultVariant
-	promoteVariants := marshalJSON(sourceConfig.Variants)
-	if flag.ValueType == model.ValueTypeBoolean {
-		promoteDefaultVariant = ""
-		promoteVariants = json.RawMessage(`[]`)
-	}
-
 	cfg, err := h.flags.UpdateEnvironmentConfig(
 		r.Context(),
 		flag.ID,
 		targetEnv.ID,
 		targetEnabled,
-		promoteDefaultVariant,
-		promoteVariants,
+		sourceConfig.FallthroughVariant,
+		sourceConfig.OffVariant,
 		marshalJSON(sourceConfig.TargetingRules),
 		updatedBy,
 	)

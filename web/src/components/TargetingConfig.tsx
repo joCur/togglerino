@@ -8,11 +8,9 @@ import type {
   Variant,
   TargetingRule,
 } from '../api/types.ts'
-import VariantEditor from './VariantEditor.tsx'
 import RuleBuilder from './RuleBuilder.tsx'
 import ScheduleChangeDialog from './ScheduleChangeDialog.tsx'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Dialog,
@@ -30,14 +28,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ChevronRight, Clock } from 'lucide-react'
+import { Clock, Ban, CircleCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Props {
+interface TargetingConfigProps {
   config: FlagEnvironmentConfig | null
   flag: Flag
   envKey: string
@@ -45,10 +40,51 @@ interface Props {
   flagKey: string
   allConfigs: FlagEnvironmentConfig[]
   environments: Environment[]
+  variants: Variant[]
   readOnly?: boolean
 }
 
-export default function ConfigEditor({
+function variantOptions(flag: Flag, variants: Variant[]) {
+  if (flag.value_type === 'boolean') {
+    return [
+      { value: 'true', label: 'true' },
+      { value: 'false', label: 'false' },
+    ]
+  }
+  return variants.map((v) => ({ value: v.name, label: v.name }))
+}
+
+function InlineVariantSelect({
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (val: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger
+        size="sm"
+        className="h-7 min-w-0 w-auto gap-1 px-2.5 text-xs font-mono bg-secondary/60 border-muted-foreground/20 hover:bg-secondary"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value} className="text-xs font-mono">
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+export default function TargetingConfig({
   config,
   flag,
   envKey,
@@ -56,20 +92,21 @@ export default function ConfigEditor({
   flagKey,
   allConfigs,
   environments,
+  variants,
   readOnly,
-}: Props) {
+}: TargetingConfigProps) {
   const queryClient = useQueryClient()
-  const [defaultVariant, setDefaultVariant] = useState(config?.fallthrough_variant ?? '')
-  const [variants, setVariants] = useState<Variant[]>(flag?.variants ?? [])
+  const [enabled, setEnabled] = useState(config?.enabled ?? false)
+  const [offVariant, setOffVariant] = useState(config?.off_variant ?? (flag.value_type === 'boolean' ? 'false' : ''))
+  const [fallthroughVariant, setFallthroughVariant] = useState(config?.fallthrough_variant ?? (flag.value_type === 'boolean' ? 'false' : ''))
   const [rules, setRules] = useState<TargetingRule[]>(config?.targeting_rules ?? [])
   const [saved, setSaved] = useState(false)
   const [copySourceEnv, setCopySourceEnv] = useState<string | null>(null)
   const [copyKey, setCopyKey] = useState(0)
-  const [variantsOpen, setVariantsOpen] = useState((flag?.variants ?? []).length > 0)
-  const [rulesOpen, setRulesOpen] = useState((config?.targeting_rules ?? []).length > 0)
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
 
   const otherEnvironments = environments.filter((e) => e.key !== envKey)
+  const options = variantOptions(flag, variants)
 
   const updateConfig = useMutation({
     mutationFn: (data: {
@@ -88,9 +125,9 @@ export default function ConfigEditor({
 
   const handleSave = () => {
     updateConfig.mutate({
-      enabled: config?.enabled ?? false,
-      fallthrough_variant: defaultVariant,
-      off_variant: defaultVariant,
+      enabled,
+      fallthrough_variant: fallthroughVariant,
+      off_variant: offVariant,
       variants,
       targeting_rules: rules,
     })
@@ -98,10 +135,6 @@ export default function ConfigEditor({
 
   return (
     <div className="p-6 rounded-lg bg-card border">
-      <div className="text-[13px] font-medium text-muted-foreground mb-4">
-        Configuration: <span className="text-foreground">{envKey}</span>
-      </div>
-
       {readOnly && (
         <div className="flex items-center gap-2 text-xs text-amber-400/80 mb-4 px-3 py-2 rounded-md bg-amber-500/5 border border-amber-500/10">
           <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -111,90 +144,85 @@ export default function ConfigEditor({
           You do not have write access to this environment.
         </div>
       )}
-      <div className={readOnly ? 'pointer-events-none opacity-50' : ''}>
-      {/* Fallthrough Variant — hidden for boolean flags */}
-      {flag.value_type !== 'boolean' && (
-      <div className="mb-6">
-        <div className="text-[13px] font-medium text-foreground mb-1">Fallthrough Variant</div>
-        <div className="text-xs text-muted-foreground leading-relaxed mb-2.5">
-          {`The ${flag.value_type} value returned when no targeting rule matches.`}
-        </div>
-        {variants.length > 0 ? (
-          <select
-            className="px-3 py-2 text-[13px] border rounded-md bg-input text-foreground outline-none cursor-pointer w-full md:min-w-[160px] md:w-auto"
-            value={defaultVariant}
-            onChange={(e) => setDefaultVariant(e.target.value)}
-          >
-            <option value="">-- Select --</option>
-            {variants.map((v) => (
-              <option key={v.name} value={v.name}>{v.name}</option>
-            ))}
-          </select>
+
+      {/* Sentence line */}
+      <div className={cn('flex flex-wrap items-center gap-2 text-sm text-muted-foreground', readOnly && 'pointer-events-none')}>
+        <span>Targeting is</span>
+        <button
+          type="button"
+          onClick={() => setEnabled(!enabled)}
+          disabled={readOnly || !config}
+          className={cn(
+            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+            enabled
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
+              : 'bg-muted text-muted-foreground border border-muted-foreground/20 hover:bg-muted/80',
+            (readOnly || !config) && 'opacity-50 cursor-not-allowed',
+          )}
+        >
+          {enabled ? (
+            <CircleCheck className="w-3.5 h-3.5" />
+          ) : (
+            <Ban className="w-3.5 h-3.5" />
+          )}
+          {enabled ? 'ON' : 'OFF'}
+        </button>
+
+        {!enabled ? (
+          <>
+            <span>, serving</span>
+            <InlineVariantSelect
+              value={offVariant}
+              options={options}
+              onChange={setOffVariant}
+              disabled={readOnly || options.length === 0}
+            />
+            <span>to all traffic</span>
+          </>
         ) : (
-          <Input
-            className="w-full md:min-w-[200px] md:max-w-[300px]"
-            placeholder="Variant key"
-            value={defaultVariant}
-            onChange={(e) => setDefaultVariant(e.target.value)}
-          />
+          <span>, serving based on rules below</span>
         )}
       </div>
+
+      {/* Rules section (when ON) */}
+      {enabled && (
+        <div className={cn('mt-6', readOnly && 'pointer-events-none opacity-50')}>
+          {/* Rules with left-border timeline */}
+          <div className="border-l-2 border-[#d4956a]/30 pl-5 ml-1">
+            <RuleBuilder
+              rules={rules}
+              variants={variants}
+              valueType={flag.value_type}
+              onChange={setRules}
+              projectKey={projectKey}
+            />
+          </div>
+
+          {/* Fallthrough / default rule */}
+          <div className="border-l-2 border-muted-foreground/20 pl-5 ml-1 mt-0">
+            <div className="border-t border-dashed border-muted-foreground/20 pt-4 mt-4">
+              <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/50 mb-2">
+                Default rule
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Serve</span>
+                <InlineVariantSelect
+                  value={fallthroughVariant}
+                  options={options}
+                  onChange={setFallthroughVariant}
+                  disabled={readOnly || options.length === 0}
+                />
+                <span>to all remaining traffic</span>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Variants (collapsible) — hidden for boolean flags */}
-      {flag.value_type !== 'boolean' && (
-      <Collapsible open={variantsOpen} onOpenChange={setVariantsOpen} className="mb-6">
-        <CollapsibleTrigger className="flex items-center gap-2 w-full text-left group">
-          <ChevronRight className={cn(
-            'w-4 h-4 text-muted-foreground transition-transform duration-200',
-            variantsOpen && 'rotate-90',
-          )} />
-          <span className="text-[13px] font-medium text-foreground">
-            Variants
-            <span className="text-muted-foreground/60 font-normal ml-1.5">
-              ({variants.length})
-            </span>
-          </span>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 pl-6">
-          <VariantEditor
-            variants={variants}
-            valueType={flag.value_type}
-            onChange={setVariants}
-          />
-        </CollapsibleContent>
-      </Collapsible>
-      )}
-
-      {/* Targeting Rules (collapsible) */}
-      <Collapsible open={rulesOpen} onOpenChange={setRulesOpen} className="mb-6">
-        <CollapsibleTrigger className="flex items-center gap-2 w-full text-left group">
-          <ChevronRight className={cn(
-            'w-4 h-4 text-muted-foreground transition-transform duration-200',
-            rulesOpen && 'rotate-90',
-          )} />
-          <span className="text-[13px] font-medium text-foreground">
-            Targeting Rules
-            <span className="text-muted-foreground/60 font-normal ml-1.5">
-              ({rules.length})
-            </span>
-          </span>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 pl-6">
-          <RuleBuilder
-            rules={rules}
-            variants={variants}
-            valueType={flag.value_type}
-            onChange={setRules}
-            projectKey={projectKey}
-          />
-        </CollapsibleContent>
-      </Collapsible>
-      </div>
 
       {/* Copy from environment */}
       {!readOnly && otherEnvironments.length > 0 && (
-        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6 p-3 rounded-md bg-secondary/30 border border-dashed">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mt-6 p-3 rounded-md bg-secondary/30 border border-dashed">
           <div className="text-[13px] text-muted-foreground whitespace-nowrap">Copy from</div>
           <Select key={copyKey} onValueChange={(value) => setCopySourceEnv(value)}>
             <SelectTrigger className="w-full md:w-[180px]" size="sm">
@@ -211,7 +239,7 @@ export default function ConfigEditor({
 
       {/* Save + Schedule */}
       {!readOnly && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mt-6">
           <Button onClick={handleSave} disabled={updateConfig.isPending}>
             {updateConfig.isPending ? 'Saving...' : 'Save Configuration'}
           </Button>
@@ -225,7 +253,7 @@ export default function ConfigEditor({
           </Button>
           {saved && (
             <span className="text-[13px] text-emerald-400 animate-[fadeIn_200ms_ease]">
-              Saved ✓
+              Saved
             </span>
           )}
         </div>
@@ -248,9 +276,9 @@ export default function ConfigEditor({
         envKey={envKey}
         valueType={flag.value_type}
         currentConfig={{
-          enabled: config?.enabled ?? false,
-          fallthrough_variant: defaultVariant,
-          off_variant: defaultVariant,
+          enabled,
+          fallthrough_variant: fallthroughVariant,
+          off_variant: offVariant,
           variants,
           targeting_rules: rules,
         }}
@@ -278,9 +306,9 @@ export default function ConfigEditor({
               if (!sourceEnv) return
               const sourceConfig = allConfigs.find((c) => c.environment_id === sourceEnv.id)
               if (!sourceConfig) return
-              setVariants(structuredClone(flag?.variants ?? []))
               setRules(structuredClone(sourceConfig.targeting_rules ?? []))
-              setDefaultVariant(sourceConfig.fallthrough_variant ?? '')
+              setFallthroughVariant(sourceConfig.fallthrough_variant ?? '')
+              setOffVariant(sourceConfig.off_variant ?? '')
               setCopySourceEnv(null)
               setCopyKey((k) => k + 1)
             }}>

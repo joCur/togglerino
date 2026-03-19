@@ -109,7 +109,7 @@ export default function RuleBuilder({ rules, variants, valueType, onChange, proj
       ...rules,
       {
         conditions: [{ attribute: '', operator: 'equals', value: '' }],
-        variant: valueType === 'boolean' ? 'true' : (variants.length > 0 ? variants[0].key : ''),
+        variant: valueType === 'boolean' ? 'true' : (variants.length > 0 ? variants[0].name : ''),
         percentage_rollout: undefined,
       },
     ])
@@ -306,7 +306,7 @@ export default function RuleBuilder({ rules, variants, valueType, onChange, proj
                   onChange={(e) => updateRule(ruleIdx, { variant: e.target.value })}
                 >
                   {variants.map((v) => (
-                    <option key={v.key} value={v.key}>{v.key}</option>
+                    <option key={v.name} value={v.name}>{v.name}</option>
                   ))}
                 </select>
               ) : (

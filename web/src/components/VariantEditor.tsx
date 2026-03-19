@@ -25,7 +25,7 @@ function parseValue(raw: string, valueType: string): unknown {
 export default function VariantEditor({ variants, valueType, onChange }: Props) {
   const updateKey = (index: number, newKey: string) => {
     const updated = [...variants]
-    updated[index] = { ...updated[index], key: newKey }
+    updated[index] = { ...updated[index], name: newKey }
     onChange(updated)
   }
 
@@ -44,14 +44,14 @@ export default function VariantEditor({ variants, valueType, onChange }: Props) 
     if (valueType === 'boolean') defaultVal = false
     else if (valueType === 'number') defaultVal = 0
     else if (valueType === 'json') defaultVal = {}
-    onChange([...variants, { key: '', value: defaultVal }])
+    onChange([...variants, { name: '', value: defaultVal }])
   }
 
   const addDefaults = () => {
     if (valueType === 'boolean') {
       onChange([
-        { key: 'on', value: true },
-        { key: 'off', value: false },
+        { name: 'on', value: true },
+        { name: 'off', value: false },
       ])
     }
   }
@@ -80,8 +80,8 @@ export default function VariantEditor({ variants, valueType, onChange }: Props) 
         <div key={i} className="flex flex-col md:flex-row md:items-center gap-2">
           <Input
             className="w-full md:flex-none md:w-[110px] font-mono text-xs"
-            placeholder="Key"
-            value={v.key}
+            placeholder="Name"
+            value={v.name}
             onChange={(e) => updateKey(i, e.target.value)}
           />
           {valueType === 'boolean' ? (

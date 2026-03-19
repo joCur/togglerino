@@ -3,21 +3,16 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '../api/client.ts'
-import type { Flag, Environment, FlagEnvironmentConfig, User, PaginatedResponse } from '../api/types.ts'
+import type { Flag, Environment, FlagEnvironmentConfig, Variant, User, PaginatedResponse } from '../api/types.ts'
 import NotFoundState from '../components/NotFoundState.tsx'
-import ConfigEditor from '../components/ConfigEditor.tsx'
+import TargetingConfig from '../components/TargetingConfig.tsx'
+import VariantChips from '../components/VariantChips.tsx'
 import EvaluationFlow from '../components/EvaluationFlow.tsx'
 import FlagHistory from '../components/FlagHistory.tsx'
 import PendingSchedules from '../components/PendingSchedules.tsx'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Switch } from '@/components/ui/switch'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -44,7 +39,7 @@ import { useEnvironmentWriteAccess } from '@/hooks/useEnvironmentAccess'
 import PromoteDialog from '../components/PromoteDialog.tsx'
 import CompareTab from '../components/CompareTab.tsx'
 import { FlagOverrideControl } from '../components/FlagOverrideControl.tsx'
-import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, ChevronRight, Play, ArrowRightFromLine, Lock, Unlock } from 'lucide-react'
+import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, Play, ArrowRightFromLine, Lock, Unlock, GitCompareArrows, History } from 'lucide-react'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -59,14 +54,14 @@ export default function FlagDetailPage() {
   const canWrite = useCanWrite(key)
   const isProjectAdmin = useIsProjectAdmin(key)
   const { canWriteEnv } = useEnvironmentWriteAccess(key)
-  const [expandedEnvs, setExpandedEnvs] = useState<Set<string> | null>(null)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [compareDialogOpen, setCompareDialogOpen] = useState(false)
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [promoteState, setPromoteState] = useState<{ sourceEnvKey: string; targetEnvKey: string } | null>(null)
   const [lockDialogState, setLockDialogState] = useState<{ open: boolean; envKey: string; envName: string } | null>(null)
   const [lockReason, setLockReason] = useState('')
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') ?? 'configuration'
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['projects', key, 'flags', flagKey],
@@ -118,14 +113,18 @@ export default function FlagDetailPage() {
     },
   })
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ envKey, config }: { envKey: string; config: FlagEnvironmentConfig }) =>
-      api.put(`/projects/${key}/flags/${flagKey}/environments/${envKey}`, {
-        enabled: !config.enabled,
-        default_variant: config.default_variant,
-        variants: config.variants,
-        targeting_rules: config.targeting_rules,
-      }),
+
+  const variantSaveMutation = useMutation({
+    mutationFn: (variants: Variant[]) => {
+      const f = data!.flag
+      return api.put(`/projects/${key}/flags/${flagKey}`, {
+        name: f.name,
+        description: f.description,
+        tags: f.tags,
+        flag_type: f.flag_type,
+        variants,
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', key, 'flags', flagKey] })
     },
@@ -176,21 +175,8 @@ export default function FlagDetailPage() {
   // Sort environments by sort_order for promotion targets
   const sortedEnvironments = environments ? [...environments].sort((a, b) => a.sort_order - b.sort_order) : undefined
 
-  // Derive effective expanded set: null means "not yet interacted, show first env expanded"
-  const defaultExpanded = environments && environments.length > 0
-    ? new Set([environments[0].key])
-    : new Set<string>()
-  const effectiveExpandedEnvs = expandedEnvs ?? defaultExpanded
-
-  const setEnvExpanded = (envKey: string, open: boolean) => {
-    setExpandedEnvs((prev) => {
-      const current = prev ?? defaultExpanded
-      const next = new Set(current)
-      if (open) next.add(envKey)
-      else next.delete(envKey)
-      return next
-    })
-  }
+  // Derive active environment tab from URL search params, defaulting to first environment
+  const activeEnvKey = searchParams.get('env') ?? (sortedEnvironments?.[0]?.key ?? '')
 
   if (isLoading) {
     return (
@@ -251,7 +237,18 @@ export default function FlagDetailPage() {
           </Link>
         </div>
 
-        {canWrite && (
+        <div className="flex items-center gap-2">
+          {environments && environments.length >= 2 && (
+            <Button variant="outline" size="sm" onClick={() => setCompareDialogOpen(true)}>
+              <GitCompareArrows className="w-4 h-4 mr-1.5" />
+              Compare
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)}>
+            <History className="w-4 h-4 mr-1.5" />
+            History
+          </Button>
+          {canWrite && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -294,6 +291,7 @@ export default function FlagDetailPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        </div>
       </div>
 
       {/* Flag name */}
@@ -383,251 +381,246 @@ export default function FlagDetailPage() {
         </Select>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => {
-        setSearchParams((prev) => {
-          const next = new URLSearchParams(prev)
-          if (value === 'configuration') next.delete('tab')
-          else next.set('tab', value)
-          return next
-        }, { replace: true })
-      }} className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
-          {environments && environments.length >= 2 && (
-            <TabsTrigger value="compare">Compare</TabsTrigger>
-          )}
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+      {/* Mutation error alerts */}
+      {archiveMutation.error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>
+            Failed to update flag: {archiveMutation.error instanceof Error ? archiveMutation.error.message : 'Unknown error'}
+          </AlertDescription>
+        </Alert>
+      )}
+      {deleteMutation.error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>
+            Failed to delete flag: {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Unknown error'}
+          </AlertDescription>
+        </Alert>
+      )}
+      {lockMutation.error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>
+            Failed to lock flag: {lockMutation.error instanceof Error ? lockMutation.error.message : 'Unknown error'}
+          </AlertDescription>
+        </Alert>
+      )}
+      {unlockMutation.error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>
+            Failed to unlock flag: {unlockMutation.error instanceof Error ? unlockMutation.error.message : 'Unknown error'}
+          </AlertDescription>
+        </Alert>
+      )}
 
-        <TabsContent value="configuration">
-          {/* Mutation error alerts */}
-          {archiveMutation.error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>
-                Failed to update flag: {archiveMutation.error instanceof Error ? archiveMutation.error.message : 'Unknown error'}
-              </AlertDescription>
-            </Alert>
-          )}
-          {deleteMutation.error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>
-                Failed to delete flag: {deleteMutation.error instanceof Error ? deleteMutation.error.message : 'Unknown error'}
-              </AlertDescription>
-            </Alert>
-          )}
-          {lockMutation.error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>
-                Failed to lock flag: {lockMutation.error instanceof Error ? lockMutation.error.message : 'Unknown error'}
-              </AlertDescription>
-            </Alert>
-          )}
-          {unlockMutation.error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>
-                Failed to unlock flag: {unlockMutation.error instanceof Error ? unlockMutation.error.message : 'Unknown error'}
-              </AlertDescription>
-            </Alert>
-          )}
+      {/* Variants (flag-level, shared across environments) */}
+      {data && (
+        <div className="mb-6">
+          <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Variants</div>
+          <VariantChips
+            variants={flag.variants ?? []}
+            valueType={flag.value_type}
+            onChange={(variants) => variantSaveMutation.mutate(variants)}
+            readonly={!canWrite || flag.value_type === 'boolean'}
+          />
+        </div>
+      )}
 
-          {/* Environment Configuration section */}
-          {environments && environments.length > 0 && (
-            <>
-              <div className="font-mono text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-4">
-                Environment Configuration
-              </div>
+      {/* Environment tabs */}
+      {sortedEnvironments && sortedEnvironments.length > 0 ? (
+        <Tabs value={activeEnvKey} onValueChange={(value) => {
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.set('env', value)
+            return next
+          }, { replace: true })
+        }} className="w-full">
+          <TabsList className="mb-6">
+            {sortedEnvironments.map((env) => (
+              <TabsTrigger key={env.key} value={env.key}>
+                {env.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-              <div className="flex flex-col gap-3">
-                {sortedEnvironments!.map((env) => {
-                  const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
-                  const enabled = config?.enabled ?? false
-                  const isExpanded = effectiveExpandedEnvs.has(env.key)
-                  const envWritable = canWrite && canWriteEnv(env.id)
-                  const promoteTargets = sortedEnvironments!.filter((e) => e.sort_order > env.sort_order && canWriteEnv(e.id))
+          {sortedEnvironments.map((env) => {
+            const config = data.environment_configs.find((c) => c.environment_id === env.id) ?? null
+            const envWritable = canWrite && canWriteEnv(env.id)
+            const promoteTargets = sortedEnvironments.filter((e) => e.sort_order > env.sort_order && canWriteEnv(e.id))
 
-                  return (
-                    <Collapsible
-                      key={env.id}
-                      open={isExpanded}
-                      onOpenChange={(open) => setEnvExpanded(env.key, open)}
-                    >
-                      <div className={cn(
-                        'rounded-lg border transition-colors duration-200',
-                        isExpanded ? 'border-[#d4956a]/40' : 'border-border',
-                      )}>
-                        <CollapsibleTrigger className="flex items-center w-full px-4 py-3 cursor-pointer group">
-                          <ChevronRight className={cn(
-                            'w-4 h-4 text-muted-foreground transition-transform duration-200 mr-3 shrink-0',
-                            isExpanded && 'rotate-90',
-                          )} />
-                          <span className="text-[14px] font-medium text-foreground mr-3">
-                            {env.name}
-                          </span>
-                          {canWrite && !envWritable && (
-                            <span className="flex items-center gap-1 text-[11px] text-muted-foreground/50 mr-2" title="You don't have write access to this environment">
-                              <Lock className="w-3 h-3" />
-                              <span className="hidden sm:inline">Restricted</span>
-                            </span>
-                          )}
-                          {config?.locked && (
-                            <Badge variant="destructive" className="text-xs mr-2">
-                              <Lock className="h-3 w-3 mr-1" />
-                              Locked
-                            </Badge>
-                          )}
-                          <div
-                            className="flex items-center gap-2 ml-auto"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {isProjectAdmin && (
-                              config?.locked ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-                                  onClick={() => unlockMutation.mutate({ envKey: env.key })}
-                                  disabled={unlockMutation.isPending}
-                                >
-                                  <Unlock className="h-3.5 w-3.5 mr-1" />
-                                  Unlock
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-                                  onClick={() => {
-                                    setLockDialogState({ open: true, envKey: env.key, envName: env.name })
-                                    setLockReason('')
-                                  }}
-                                >
-                                  <Lock className="h-3.5 w-3.5 mr-1" />
-                                  Lock
-                                </Button>
-                              )
-                            )}
-                            {envWritable && promoteTargets.length > 0 && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground">
-                                    <ArrowRightFromLine className="w-3.5 h-3.5 mr-1" />
-                                    Promote
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  {promoteTargets.map((target) => {
-                                    const targetConfig = data.environment_configs.find((c) => c.environment_id === target.id)
-                                    const isLocked = targetConfig?.locked ?? false
-                                    return (
-                                      <DropdownMenuItem
-                                        key={target.id}
-                                        disabled={isLocked}
-                                        onClick={() => setPromoteState({ sourceEnvKey: env.key, targetEnvKey: target.key })}
-                                      >
-                                        {isLocked && <Lock className="h-3 w-3 mr-1" />}
-                                        Promote to {target.name}
-                                      </DropdownMenuItem>
-                                    )
-                                  })}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                            <span className={cn(
-                              'text-[11px] font-mono font-medium',
-                              enabled ? 'text-emerald-400' : 'text-muted-foreground/50',
-                            )}>
-                              {enabled ? 'ON' : 'OFF'}
-                            </span>
-                            <Switch
-                              checked={enabled}
-                              disabled={!envWritable || !config || config.locked || toggleMutation.isPending}
-                              onCheckedChange={() => {
-                                if (config) toggleMutation.mutate({ envKey: env.key, config })
-                              }}
-                            />
-                          </div>
-                        </CollapsibleTrigger>
+            return (
+              <TabsContent key={env.key} value={env.key}>
+                {/* Actions bar */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {canWrite && !envWritable && (
+                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground/50" title="You don't have write access to this environment">
+                        <Lock className="w-3 h-3" />
+                        <span className="hidden sm:inline">Restricted</span>
+                      </span>
+                    )}
+                    {config?.locked && (
+                      <Badge variant="destructive" className="text-xs">
+                        <Lock className="h-3 w-3 mr-1" />
+                        Locked
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isProjectAdmin && (
+                      config?.locked ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                          onClick={() => unlockMutation.mutate({ envKey: env.key })}
+                          disabled={unlockMutation.isPending}
+                        >
+                          <Unlock className="h-3.5 w-3.5 mr-1" />
+                          Unlock
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setLockDialogState({ open: true, envKey: env.key, envName: env.name })
+                            setLockReason('')
+                          }}
+                        >
+                          <Lock className="h-3.5 w-3.5 mr-1" />
+                          Lock
+                        </Button>
+                      )
+                    )}
+                    {envWritable && promoteTargets.length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground">
+                            <ArrowRightFromLine className="w-3.5 h-3.5 mr-1" />
+                            Promote
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {promoteTargets.map((target) => {
+                            const targetConfig = data.environment_configs.find((c) => c.environment_id === target.id)
+                            const isLocked = targetConfig?.locked ?? false
+                            return (
+                              <DropdownMenuItem
+                                key={target.id}
+                                disabled={isLocked}
+                                onClick={() => setPromoteState({ sourceEnvKey: env.key, targetEnvKey: target.key })}
+                              >
+                                {isLocked && <Lock className="h-3 w-3 mr-1" />}
+                                Promote to {target.name}
+                              </DropdownMenuItem>
+                            )
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                </div>
 
-                        <CollapsibleContent>
-                          {config?.locked && (
-                            <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-950/30 border-t border-amber-900/30">
-                              <Lock className="h-4 w-4 text-amber-500 shrink-0" />
-                              <span className="text-sm text-amber-500">
-                                Locked by {config.locked_by_user?.display_name || config.locked_by_user?.email || 'unknown'}
-                                {config.lock_reason && ` — ${config.lock_reason}`}
-                              </span>
-                              {config.locked_at && (
-                                <span className="text-xs text-muted-foreground ml-auto">
-                                  {formatRelativeTime(config.locked_at)}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                            <div className="flex items-center justify-between mb-4 mt-3">
-                              <EvaluationFlow config={config} />
-                              <FlagOverrideControl
-                                projectKey={key!}
-                                flagKey={flagKey!}
-                                envKey={env.key}
-                                valueType={flag.value_type}
-                                override={overridesData?.find((o) => o.environment_key === env.key)}
-                              />
-                            </div>
-                            <PendingSchedules
-                              projectKey={key!}
-                              flagKey={flagKey!}
-                              envKey={env.key}
-                              flagId={flag.id}
-                              environmentId={env.id}
-                            />
-                            <ConfigEditor
-                              key={env.key}
-                              config={config}
-                              flag={flag}
-                              envKey={env.key}
-                              projectKey={key!}
-                              flagKey={flagKey!}
-                              allConfigs={data.environment_configs}
-                              environments={environments}
-                              readOnly={!envWritable || !!config?.locked}
-                            />
-                          </div>
-                        </CollapsibleContent>
-                      </div>
-                    </Collapsible>
-                  )
-                })}
-              </div>
-            </>
-          )}
+                {/* Locked banner */}
+                {config?.locked && (
+                  <div className="flex items-center gap-2 px-4 py-2.5 mb-4 rounded-lg bg-amber-950/30 border border-amber-900/30">
+                    <Lock className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span className="text-sm text-amber-500">
+                      Locked by {config.locked_by_user?.display_name || config.locked_by_user?.email || 'unknown'}
+                      {config.lock_reason && ` — ${config.lock_reason}`}
+                    </span>
+                    {config.locked_at && (
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {formatRelativeTime(config.locked_at)}
+                      </span>
+                    )}
+                  </div>
+                )}
 
-          {(!environments || environments.length === 0) && (
-            <div className="py-8 text-center text-muted-foreground/60 text-[13px]">
-              No environments found for this project.
-            </div>
-          )}
-        </TabsContent>
+                {/* Evaluation flow + override */}
+                <div className="flex items-center justify-between mb-4">
+                  <EvaluationFlow config={config} />
+                  <FlagOverrideControl
+                    projectKey={key!}
+                    flagKey={flagKey!}
+                    envKey={env.key}
+                    valueType={flag.value_type}
+                    override={overridesData?.find((o) => o.environment_key === env.key)}
+                  />
+                </div>
 
-        <TabsContent value="compare">
-          {environments && environments.length >= 2 && data && (
-            <CompareTab
-              environments={environments}
-              environmentConfigs={data.environment_configs}
-            />
-          )}
-        </TabsContent>
+                {/* Pending schedules */}
+                <PendingSchedules
+                  projectKey={key!}
+                  flagKey={flagKey!}
+                  envKey={env.key}
+                  flagId={flag.id}
+                  environmentId={env.id}
+                />
 
-        <TabsContent value="history">
-          {environments && environments.length > 0 && (
-            <FlagHistory
-              projectKey={key!}
-              flagKey={flagKey!}
-              environments={environments}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+                {/* Targeting configuration */}
+                <TargetingConfig
+                  key={env.key}
+                  config={config}
+                  flag={flag}
+                  envKey={env.key}
+                  projectKey={key!}
+                  flagKey={flagKey!}
+                  allConfigs={data.environment_configs}
+                  environments={environments ?? []}
+                  variants={flag.variants ?? []}
+                  readOnly={!envWritable || !!config?.locked}
+                />
+              </TabsContent>
+            )
+          })}
+        </Tabs>
+      ) : (
+        <div className="py-8 text-center text-muted-foreground/60 text-[13px]">
+          No environments found for this project.
+        </div>
+      )}
+
+      {/* Compare Dialog */}
+      <Dialog open={compareDialogOpen} onOpenChange={setCompareDialogOpen}>
+        <DialogContent className="max-w-[90vw] w-full lg:max-w-6xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="text-lg">Compare Environments</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              Side-by-side comparison of flag configuration across environments.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6">
+            {environments && environments.length >= 2 && data && (
+              <CompareTab
+                environments={environments}
+                environmentConfigs={data.environment_configs}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="max-w-[90vw] w-full lg:max-w-5xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="text-lg">Flag History</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              Audit log of all changes to this flag across environments.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6">
+            {environments && environments.length > 0 && (
+              <FlagHistory
+                projectKey={key!}
+                flagKey={flagKey!}
+                environments={environments}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Archive Confirmation Dialog */}
       <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>

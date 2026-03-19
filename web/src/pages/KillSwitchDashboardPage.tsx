@@ -104,8 +104,8 @@ export default function KillSwitchDashboardPage() {
       setPendingToggle(`${flagKey}:${envKey}`)
       return api.put(`/projects/${key}/flags/${flagKey}/environments/${envKey}`, {
         enabled: !config.enabled,
-        default_variant: config.default_variant,
-        variants: config.variants,
+        fallthrough_variant: config.fallthrough_variant,
+        off_variant: config.off_variant,
         targeting_rules: config.targeting_rules,
       })
     },

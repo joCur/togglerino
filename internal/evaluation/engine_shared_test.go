@@ -19,21 +19,23 @@ type fixtureCase struct {
 }
 
 type fixtureFlag struct {
-	Key       string            `json:"key"`
-	ValueType string            `json:"valueType"`
-	Status    string            `json:"status"`
-	Config    fixtureFlagConfig `json:"config"`
+	Key          string            `json:"key"`
+	ValueType    string            `json:"valueType"`
+	Status       string            `json:"status"`
+	DefaultValue json.RawMessage   `json:"defaultValue"`
+	Variants     []fixtureVariant  `json:"variants"`
+	Config       fixtureFlagConfig `json:"config"`
 }
 
 type fixtureFlagConfig struct {
-	Enabled        bool                   `json:"enabled"`
-	DefaultVariant string                 `json:"defaultVariant"`
-	Variants       []fixtureVariant       `json:"variants"`
-	TargetingRules []fixtureTargetingRule `json:"targetingRules"`
+	Enabled            bool                   `json:"enabled"`
+	OffVariant         string                 `json:"offVariant"`
+	FallthroughVariant string                 `json:"fallthroughVariant"`
+	TargetingRules     []fixtureTargetingRule `json:"targetingRules"`
 }
 
 type fixtureVariant struct {
-	Key   string          `json:"key"`
+	Name  string          `json:"name"`
 	Value json.RawMessage `json:"value"`
 }
 
@@ -122,12 +124,11 @@ func toFlag(f fixtureFlag) *model.Flag {
 		lifecycle = model.LifecycleActive
 	}
 
-	// Compute DefaultValue from the default variant's value in the config.
-	var defaultValue json.RawMessage
-	for _, v := range f.Config.Variants {
-		if v.Key == f.Config.DefaultVariant {
-			defaultValue = v.Value
-			break
+	variants := make([]model.Variant, len(f.Variants))
+	for i, v := range f.Variants {
+		variants[i] = model.Variant{
+			Name:  v.Name,
+			Value: v.Value,
 		}
 	}
 
@@ -135,20 +136,13 @@ func toFlag(f fixtureFlag) *model.Flag {
 		Key:             f.Key,
 		ValueType:       model.ValueType(f.ValueType),
 		LifecycleStatus: lifecycle,
-		DefaultValue:    defaultValue,
+		DefaultValue:    f.DefaultValue,
+		Variants:        variants,
 	}
 }
 
 // toConfig converts a fixture flag config to the backend *model.FlagEnvironmentConfig.
 func toConfig(f fixtureFlag) *model.FlagEnvironmentConfig {
-	variants := make([]model.Variant, len(f.Config.Variants))
-	for i, v := range f.Config.Variants {
-		variants[i] = model.Variant{
-			Key:   v.Key,
-			Value: v.Value,
-		}
-	}
-
 	rules := make([]model.TargetingRule, len(f.Config.TargetingRules))
 	for i, r := range f.Config.TargetingRules {
 		rules[i] = model.TargetingRule{
@@ -162,10 +156,10 @@ func toConfig(f fixtureFlag) *model.FlagEnvironmentConfig {
 	}
 
 	return &model.FlagEnvironmentConfig{
-		Enabled:        f.Config.Enabled,
-		DefaultVariant: f.Config.DefaultVariant,
-		Variants:       variants,
-		TargetingRules: rules,
+		Enabled:            f.Config.Enabled,
+		OffVariant:         f.Config.OffVariant,
+		FallthroughVariant: f.Config.FallthroughVariant,
+		TargetingRules:     rules,
 	}
 }
 

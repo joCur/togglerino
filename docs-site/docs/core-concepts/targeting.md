@@ -11,17 +11,17 @@ Targeting rules let you control which users see which variant of a flag. Instead
 
 Each flag has a per-environment configuration that includes an ordered list of targeting rules. When an SDK evaluates a flag, the rules are checked top to bottom — the **first matching rule wins**.
 
-If no rule matches, the flag returns its default variant.
+If no rule matches, the flag returns its fallthrough variant.
 
 ## Evaluation Order
 
 The full evaluation flow is:
 
 1. **Archived check** — if the flag is archived, return the flag's default value immediately (reason: `archived`).
-2. **Disabled check** — if the flag is disabled in this environment, return the flag's default value (reason: `disabled`).
+2. **Off variant** — if the flag is disabled in this environment, return the environment's `off_variant` (reason: `disabled`).
 3. **Targeting rules** — evaluate each rule in order. The first rule whose conditions all match is selected.
 4. **Percentage rollout** — if the matched rule has a percentage rollout, check whether the user falls within the rollout bucket. If not, continue to the next rule.
-5. **Default variant** — if no rule matched, return the environment's default variant (reason: `default`).
+5. **Fallthrough variant** — if no rule matched, return the environment's `fallthrough_variant` (reason: `default`).
 
 ## Targeting Rules
 

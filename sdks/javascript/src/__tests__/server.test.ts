@@ -31,10 +31,15 @@ function booleanFlag(key: string, enabled: boolean, status = 'active') {
     key,
     valueType: 'boolean',
     status,
+    defaultValue: false,
+    variants: [
+      { name: 'true', value: true },
+      { name: 'false', value: false },
+    ],
     config: {
       enabled,
-      defaultVariant: '',
-      variants: [],
+      fallthroughVariant: enabled ? 'true' : 'false',
+      offVariant: 'false',
       targetingRules: [],
     },
   }
@@ -43,18 +48,20 @@ function booleanFlag(key: string, enabled: boolean, status = 'active') {
 /** A multi-variant string flag definition. */
 function stringFlag(
   key: string,
-  defaultVariant: string,
-  variants: { key: string; value: unknown }[],
+  fallthroughVariant: string,
+  variants: { name: string; value: unknown }[],
   targetingRules: { variant: string; percentage: number | null; conditions: { attribute: string; operator: string; value: string }[] }[] = [],
 ) {
   return {
     key,
     valueType: 'string',
     status: 'active',
+    defaultValue: null,
+    variants,
     config: {
       enabled: true,
-      defaultVariant,
-      variants,
+      fallthroughVariant,
+      offVariant: '',
       targetingRules,
     },
   }
@@ -168,8 +175,8 @@ describe('TogglerioServer', () => {
       definitionsResponse({
         flags: [
           stringFlag('color', 'blue', [
-            { key: 'blue', value: 'blue' },
-            { key: 'red', value: 'red' },
+            { name: 'blue', value: 'blue' },
+            { name: 'red', value: 'red' },
           ]),
         ],
         segments: [],
@@ -193,10 +200,12 @@ describe('TogglerioServer', () => {
             key: 'max-items',
             valueType: 'number',
             status: 'active',
+            defaultValue: 0,
+            variants: [{ name: 'ten', value: 10 }],
             config: {
               enabled: true,
-              defaultVariant: 'ten',
-              variants: [{ key: 'ten', value: 10 }],
+              fallthroughVariant: 'ten',
+              offVariant: '',
               targetingRules: [],
             },
           },
@@ -223,10 +232,12 @@ describe('TogglerioServer', () => {
             key: 'ui-config',
             valueType: 'json',
             status: 'active',
+            defaultValue: null,
+            variants: [{ name: 'default', value: jsonValue }],
             config: {
               enabled: true,
-              defaultVariant: 'default',
-              variants: [{ key: 'default', value: jsonValue }],
+              fallthroughVariant: 'default',
+              offVariant: '',
               targetingRules: [],
             },
           },
@@ -271,7 +282,7 @@ describe('TogglerioServer', () => {
       definitionsResponse({
         flags: [
           stringFlag('str-flag', 'greeting', [
-            { key: 'greeting', value: 'hello' },
+            { name: 'greeting', value: 'hello' },
           ]),
         ],
         segments: [],
@@ -306,7 +317,7 @@ describe('TogglerioServer', () => {
     const detail = flags.getDetail('dark-mode')
     expect(detail).toEqual({
       value: true,
-      variant: '',
+      variant: 'true',
       reason: 'default',
     })
 
@@ -325,8 +336,8 @@ describe('TogglerioServer', () => {
             'banner',
             'default',
             [
-              { key: 'default', value: 'Welcome!' },
-              { key: 'pro', value: 'Welcome, Pro user!' },
+              { name: 'default', value: 'Welcome!' },
+              { name: 'pro', value: 'Welcome, Pro user!' },
             ],
             [
               {
@@ -376,8 +387,8 @@ describe('TogglerioServer', () => {
             'feature',
             'off',
             [
-              { key: 'off', value: 'disabled' },
-              { key: 'on', value: 'enabled' },
+              { name: 'off', value: 'disabled' },
+              { name: 'on', value: 'enabled' },
             ],
             [
               {
@@ -760,10 +771,10 @@ describe('TogglerioServer', () => {
   // Archived / disabled flags
   // -------------------------------------------------------------------------
 
-  it('should return false for archived boolean flags', async () => {
+  it('should return the fallthrough variant value for archived boolean flags', async () => {
     mockFetch.mockResolvedValueOnce(
       definitionsResponse({
-        flags: [booleanFlag('old-feature', true, 'archived')],
+        flags: [booleanFlag('old-feature', false, 'archived')],
         segments: [],
       })
     )

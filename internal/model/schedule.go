@@ -32,8 +32,8 @@ type ScheduledFlagChange struct {
 
 // ConfigSnapshotPayload is the config state to be applied at the scheduled time.
 type ConfigSnapshotPayload struct {
-	Enabled        bool            `json:"enabled"`
-	DefaultVariant string          `json:"default_variant"`
-	Variants       json.RawMessage `json:"variants"`
-	TargetingRules json.RawMessage `json:"targeting_rules"`
+	Enabled            bool            `json:"enabled"`
+	OffVariant         string          `json:"off_variant"`
+	FallthroughVariant string          `json:"fallthrough_variant"`
+	TargetingRules     json.RawMessage `json:"targeting_rules"`
 }

@@ -47,11 +47,11 @@ Server-side SDKs are designed for backend services that handle requests from man
 
 Client-side and server-side SDKs produce identical results. Both use the same evaluation algorithm:
 
-1. If the flag is archived, return the default value.
-2. If the flag is disabled in the environment, return the default value.
+1. If the flag is archived, return the flag's default value.
+2. If the flag is disabled in the environment, return the environment's `off_variant`.
 3. Evaluate targeting rules in order — the first matching rule wins.
 4. Apply percentage rollouts via consistent hashing (SHA-256 of `flagKey + userId`, mod 100) for stable, sticky assignments.
-5. Fall back to the environment's default variant.
+5. Fall back to the environment's `fallthrough_variant`.
 
 A user assigned to the `treatment` variant by the server-side SDK will see the same variant in the client-side SDK, and vice versa, as long as the same user ID and flag configuration are used.
 

@@ -9,8 +9,8 @@ import (
 func TestEvaluateWithTrace_ArchivedFlag(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("archived-flag", "default-val", model.LifecycleArchived)
-	config := makeConfig(true, "on", []model.Variant{
-		{Key: "on", Value: rawJSON("on-val")},
+	config := makeConfig(flag, true, "on", []model.Variant{
+		{Name: "on", Value: rawJSON("on-val")},
 	}, nil)
 	ctx := &model.EvaluationContext{
 		UserID:     "user-1",
@@ -49,9 +49,9 @@ func TestEvaluateWithTrace_ArchivedFlag(t *testing.T) {
 func TestEvaluateWithTrace_DisabledFlag(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("disabled-flag", false, model.LifecycleActive)
-	config := makeConfig(false, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+	config := makeConfig(flag, false, "off", []model.Variant{
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, nil)
 	ctx := &model.EvaluationContext{
 		UserID:     "user-1",
@@ -96,9 +96,9 @@ func TestEvaluateWithTrace_DisabledFlag(t *testing.T) {
 func TestEvaluateWithTrace_RuleMatch(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+	config := makeConfig(flag, true, "off", []model.Variant{
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -172,9 +172,9 @@ func TestEvaluateWithTrace_RuleMatch(t *testing.T) {
 func TestEvaluateWithTrace_Default(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+	config := makeConfig(flag, true, "off", []model.Variant{
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -232,9 +232,9 @@ func TestEvaluateWithTrace_PercentageRollout(t *testing.T) {
 		// rollout-flag + user-xyz = bucket 28, 50% rollout -> in rollout
 		engine := NewEngine()
 		flag := makeFlag("rollout-flag", false, model.LifecycleActive)
-		config := makeConfig(true, "off", []model.Variant{
-			{Key: "off", Value: rawJSON(false)},
-			{Key: "on", Value: rawJSON(true)},
+		config := makeConfig(flag, true, "off", []model.Variant{
+			{Name: "off", Value: rawJSON(false)},
+			{Name: "on", Value: rawJSON(true)},
 		}, []model.TargetingRule{
 			{
 				Conditions: []model.Condition{
@@ -279,9 +279,9 @@ func TestEvaluateWithTrace_PercentageRollout(t *testing.T) {
 		// rollout-flag + user-abc = bucket 89, 50% rollout -> out of rollout
 		engine := NewEngine()
 		flag := makeFlag("rollout-flag", false, model.LifecycleActive)
-		config := makeConfig(true, "off", []model.Variant{
-			{Key: "off", Value: rawJSON(false)},
-			{Key: "on", Value: rawJSON(true)},
+		config := makeConfig(flag, true, "off", []model.Variant{
+			{Name: "off", Value: rawJSON(false)},
+			{Name: "on", Value: rawJSON(true)},
 		}, []model.TargetingRule{
 			{
 				Conditions: []model.Condition{
@@ -326,9 +326,9 @@ func TestEvaluateWithTrace_PercentageRollout(t *testing.T) {
 func TestEvaluateWithTrace_SegmentMatch(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", false, model.LifecycleActive)
-	config := makeConfig(true, "off", []model.Variant{
-		{Key: "off", Value: rawJSON(false)},
-		{Key: "on", Value: rawJSON(true)},
+	config := makeConfig(flag, true, "off", []model.Variant{
+		{Name: "off", Value: rawJSON(false)},
+		{Name: "on", Value: rawJSON(true)},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{
@@ -406,10 +406,10 @@ func TestEvaluateWithTrace_SegmentMatch(t *testing.T) {
 func TestEvaluateWithTrace_SkippedRules(t *testing.T) {
 	engine := NewEngine()
 	flag := makeFlag("test-flag", "none", model.LifecycleActive)
-	config := makeConfig(true, "default", []model.Variant{
-		{Key: "default", Value: rawJSON("none")},
-		{Key: "beta", Value: rawJSON("beta-experience")},
-		{Key: "vip", Value: rawJSON("vip-experience")},
+	config := makeConfig(flag, true, "default", []model.Variant{
+		{Name: "default", Value: rawJSON("none")},
+		{Name: "beta", Value: rawJSON("beta-experience")},
+		{Name: "vip", Value: rawJSON("vip-experience")},
 	}, []model.TargetingRule{
 		{
 			Conditions: []model.Condition{

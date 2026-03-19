@@ -30,21 +30,25 @@ This guide walks through the complete workflow for creating, configuring, and ma
 
 Each flag has independent configuration per environment. When you first create a project, three environments are set up automatically: **Development**, **Staging**, and **Production**.
 
-From the flag detail page, select an environment tab to configure that environment:
+From the flag detail page, select an environment tab to configure that environment.
 
 ### Enabled/Disabled Toggle
 
-The toggle at the top of the environment configuration controls whether the flag is active. When disabled, the flag returns the default value to all SDKs regardless of targeting rules.
+The toggle at the top of the environment configuration controls whether the flag is active. When disabled, the flag returns its **off variant** to all SDKs regardless of targeting rules.
 
-### Default Variant
+### Off Variant
 
-Choose which variant to serve when no targeting rule matches. Every flag starts with a single variant; you can add more to support multi-variate flags.
+The off variant is the value returned when the flag's targeting is disabled. For boolean flags this is always `false`. For string, number, and JSON flags you choose which variant acts as the safe fallback when the flag is switched off.
+
+### Fallthrough Variant
+
+The fallthrough variant is returned when the flag is enabled but no targeting rule matches the current user. This is what most users see until you configure targeting rules. For boolean flags this defaults to `true`.
 
 ### Variants
 
-Variants define the possible values a flag can return. Each variant has a key (name) and a value matching the flag's value type.
+Variants define the possible values a flag can return. Each variant has a name and a value matching the flag's value type. Boolean flags have implicit `true` and `false` variants that cannot be modified.
 
-Click **Add Variant** to create additional options beyond the default. For example, a string flag might have variants `control`, `variant-a`, and `variant-b`.
+Use the variant tag chips on the flag detail page to add, edit, or remove variants. For example, a string flag might have variants `control`, `variant-a`, and `variant-b`.
 
 ### Targeting Rules
 
@@ -64,7 +68,7 @@ Drag rules to reorder their priority. Since the first matching rule wins, rule o
 You can lock a flag's configuration in a specific environment to prevent accidental changes during critical periods like production freezes or incident response.
 
 1. Open the flag detail page.
-2. Expand the environment you want to lock.
+2. Select the environment tab you want to lock.
 3. Click the **Lock** button (visible to project admins only).
 4. Optionally enter a reason (e.g., "Production freeze for launch").
 5. Click **Confirm Lock**.
@@ -91,6 +95,15 @@ The flag list supports two filtering mechanisms:
 
 These filters can be combined to narrow down large flag lists.
 
+## Comparing and Reviewing Flag History
+
+The flag detail page header includes two actions for tracking changes:
+
+- **Compare** — opens a dialog showing a side-by-side diff of two history entries, letting you see exactly what changed between any two points in time.
+- **History** — opens a dialog listing all change events for the flag, with timestamps and the actor who made each change.
+
+Both are accessible directly from the flag detail header without leaving the page.
+
 ## Archiving Flags
 
 When a flag is no longer needed:
@@ -98,7 +111,7 @@ When a flag is no longer needed:
 1. Open the flag detail page.
 2. Click **Archive**.
 
-Archived flags return their default value to all SDKs. They remain in the system for audit purposes and can be found in the [Lifecycle Dashboard](./lifecycle-dashboard.md).
+Archived flags return the flag's `default_value` (set at creation time) to all SDKs. They remain in the system for audit purposes and can be found in the [Lifecycle Dashboard](./lifecycle-dashboard.md).
 
 :::tip
 Use flag types to help manage flag lifetimes. For example, `release` flags are expected to be short-lived and will be flagged as stale after their configured lifetime expires. See [Flag Lifecycle](/core-concepts/flag-lifecycle) for details on staleness thresholds and how to configure them.

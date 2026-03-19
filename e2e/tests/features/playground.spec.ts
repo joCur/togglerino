@@ -57,10 +57,11 @@ test.describe('Playground', () => {
     });
     await apiContext.setFlagEnvConfig(testProject.key, flagKey, 'development', {
       enabled: true,
-      default_variant: 'control',
+      fallthrough_variant: 'control',
+      off_variant: 'control',
       variants: [
-        { key: 'control', value: 'default' },
-        { key: 'vip', value: 'premium' },
+        { name: 'control', value: 'default' },
+        { name: 'vip', value: 'premium' },
       ],
       targeting_rules: [
         {

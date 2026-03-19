@@ -376,9 +376,6 @@ func TestFlagStore_GetEnvironmentConfig(t *testing.T) {
 	if cfg.Enabled {
 		t.Error("expected Enabled to be false by default")
 	}
-	if cfg.Variants == nil {
-		t.Error("expected non-nil Variants")
-	}
 	if cfg.TargetingRules == nil {
 		t.Error("expected non-nil TargetingRules")
 	}
@@ -499,11 +496,10 @@ func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	// Update the config: enable flag, set variants, add targeting rules
-	variants := json.RawMessage(`[{"key":"on","value":true},{"key":"off","value":false}]`)
+	// Update the config: enable flag, add targeting rules
 	rules := json.RawMessage(`[{"conditions":[{"attribute":"country","operator":"equals","value":"US"}],"variant":"on"}]`)
 
-	cfg, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", variants, rules, nil)
+	cfg, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", "off", rules, nil)
 	if err != nil {
 		t.Fatalf("UpdateEnvironmentConfig: %v", err)
 	}
@@ -511,11 +507,8 @@ func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 	if !cfg.Enabled {
 		t.Error("expected Enabled to be true")
 	}
-	if cfg.DefaultVariant != "on" {
-		t.Errorf("DefaultVariant: got %q, want %q", cfg.DefaultVariant, "on")
-	}
-	if len(cfg.Variants) != 2 {
-		t.Errorf("Variants length: got %d, want 2", len(cfg.Variants))
+	if cfg.FallthroughVariant != "on" {
+		t.Errorf("FallthroughVariant: got %q, want %q", cfg.FallthroughVariant, "on")
 	}
 	if len(cfg.TargetingRules) != 1 {
 		t.Errorf("TargetingRules length: got %d, want 1", len(cfg.TargetingRules))
@@ -549,11 +542,8 @@ func TestFlagStore_UpdateEnvironmentConfig(t *testing.T) {
 	if !readCfg.Enabled {
 		t.Error("expected Enabled to be true after re-read")
 	}
-	if readCfg.DefaultVariant != "on" {
-		t.Errorf("DefaultVariant after re-read: got %q, want %q", readCfg.DefaultVariant, "on")
-	}
-	if len(readCfg.Variants) != 2 {
-		t.Errorf("Variants length after re-read: got %d, want 2", len(readCfg.Variants))
+	if readCfg.FallthroughVariant != "on" {
+		t.Errorf("FallthroughVariant after re-read: got %q, want %q", readCfg.FallthroughVariant, "on")
 	}
 }
 
@@ -602,10 +592,9 @@ func TestFlagStore_UpdateEnvironmentConfig_UpdatedBy(t *testing.T) {
 		t.Fatalf("creating user: %v", err)
 	}
 
-	variants := json.RawMessage(`[{"key":"on","value":true},{"key":"off","value":false}]`)
 	rules := json.RawMessage(`[]`)
 
-	updated, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", variants, rules, &user.ID)
+	updated, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", "off", rules, &user.ID)
 	if err != nil {
 		t.Fatalf("UpdateEnvironmentConfig: %v", err)
 	}
@@ -656,7 +645,7 @@ func TestFlagStore_UpdateEnvironmentConfig_UpdatedBy(t *testing.T) {
 	}
 
 	// Update with nil updatedBy should clear it
-	updated2, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, false, "off", variants, rules, nil)
+	updated2, err := fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, false, "off", "off", rules, nil)
 	if err != nil {
 		t.Fatalf("UpdateEnvironmentConfig with nil: %v", err)
 	}
@@ -820,8 +809,8 @@ func TestFlagStore_CreateWithVariantConfig(t *testing.T) {
 	envOverrides := map[string]model.EnvironmentDefault{
 		"development": {
 			Enabled:        true,
-			Variants:       json.RawMessage(`[{"key":"on","value":true},{"key":"off","value":false}]`),
-			DefaultVariant: "off",
+			Variants:       json.RawMessage(`[{"name":"on","value":true},{"name":"off","value":false}]`),
+			FallthroughVariant: "off",
 			TargetingRules: json.RawMessage(`[{"conditions":[],"variant":"on","percentage_rollout":10}]`),
 		},
 	}
@@ -852,11 +841,8 @@ func TestFlagStore_CreateWithVariantConfig(t *testing.T) {
 	if !devConfig.Enabled {
 		t.Error("expected development to be enabled")
 	}
-	if devConfig.DefaultVariant != "off" {
-		t.Errorf("DefaultVariant: got %q, want %q", devConfig.DefaultVariant, "off")
-	}
-	if len(devConfig.Variants) != 2 {
-		t.Errorf("Variants length: got %d, want 2", len(devConfig.Variants))
+	if devConfig.FallthroughVariant != "off" {
+		t.Errorf("FallthroughVariant: got %q, want %q", devConfig.FallthroughVariant, "off")
 	}
 	if len(devConfig.TargetingRules) != 1 {
 		t.Errorf("TargetingRules length: got %d, want 1", len(devConfig.TargetingRules))
@@ -936,12 +922,11 @@ func TestFlagStore_EnvironmentConfigScannerRoundTrip(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	// Update with known variants and targeting rules
-	variants := json.RawMessage(`[{"key":"on","value":true},{"key":"off","value":false}]`)
+	// Update with targeting rules
 	rollout := 50
 	rules := json.RawMessage(`[{"conditions":[{"attribute":"country","operator":"equals","value":"US"}],"variant":"on","percentage_rollout":50}]`)
 
-	_, err = fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", variants, rules, nil)
+	_, err = fs.UpdateEnvironmentConfig(ctx, flag.ID, env.ID, true, "on", "off", rules, nil)
 	if err != nil {
 		t.Fatalf("UpdateEnvironmentConfig: %v", err)
 	}
@@ -949,11 +934,6 @@ func TestFlagStore_EnvironmentConfigScannerRoundTrip(t *testing.T) {
 	// Helper to verify a config has the expected parsed data
 	verifyConfig := func(t *testing.T, cfg model.FlagEnvironmentConfig, source string) {
 		t.Helper()
-		if len(cfg.Variants) != 2 {
-			t.Errorf("%s: Variants length: got %d, want 2", source, len(cfg.Variants))
-		} else if cfg.Variants[0].Key != "on" {
-			t.Errorf("%s: first variant key: got %q, want %q", source, cfg.Variants[0].Key, "on")
-		}
 		if len(cfg.TargetingRules) != 1 {
 			t.Errorf("%s: TargetingRules length: got %d, want 1", source, len(cfg.TargetingRules))
 		} else {

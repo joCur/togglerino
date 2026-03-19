@@ -59,8 +59,8 @@ const baseFlagQuery = `
 SELECT
     p.key AS project_key,
     e.key AS env_key,
-    f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at,
-    fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.default_variant, fec.variants, fec.targeting_rules, fec.updated_at
+    f.id, f.project_id, f.key, f.name, f.description, f.value_type, f.flag_type, f.default_value, f.tags, f.variants, f.lifecycle_status, f.lifecycle_status_changed_at, f.created_at, f.updated_at,
+    fec.id, fec.flag_id, fec.environment_id, fec.enabled, fec.fallthrough_variant, fec.off_variant, fec.targeting_rules, fec.updated_at
 FROM flags f
 JOIN projects p ON p.id = f.project_id
 JOIN flag_environment_configs fec ON fec.flag_id = f.id
@@ -298,6 +298,7 @@ func scanFlagRow(row rowScanner) (projectKey, envKey string, fd FlagData, err er
 		&fd.Flag.FlagType,
 		&fd.Flag.DefaultValue,
 		&fd.Flag.Tags,
+		&variantsJSON,
 		&fd.Flag.LifecycleStatus,
 		&fd.Flag.LifecycleStatusChangedAt,
 		&fd.Flag.CreatedAt,
@@ -307,8 +308,8 @@ func scanFlagRow(row rowScanner) (projectKey, envKey string, fd FlagData, err er
 		&fd.Config.FlagID,
 		&fd.Config.EnvironmentID,
 		&fd.Config.Enabled,
-		&fd.Config.DefaultVariant,
-		&variantsJSON,
+		&fd.Config.FallthroughVariant,
+		&fd.Config.OffVariant,
 		&targetingRulesJSON,
 		&fecUpdatedAt,
 	)
@@ -319,7 +320,7 @@ func scanFlagRow(row rowScanner) (projectKey, envKey string, fd FlagData, err er
 	fd.Config.UpdatedAt = fecUpdatedAt
 
 	if len(variantsJSON) > 0 {
-		if err := json.Unmarshal(variantsJSON, &fd.Config.Variants); err != nil {
+		if err := json.Unmarshal(variantsJSON, &fd.Flag.Variants); err != nil {
 			return "", "", FlagData{}, fmt.Errorf("unmarshal variants: %w", err)
 		}
 	}

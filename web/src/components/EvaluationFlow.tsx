@@ -9,7 +9,7 @@ interface Props {
 export default function EvaluationFlow({ config }: Props) {
   const enabled = config?.enabled ?? false
   const ruleCount = config?.targeting_rules?.length ?? 0
-  const defaultVariant = config?.default_variant ?? '—'
+  const defaultVariant = config?.fallthrough_variant ?? '—'
   const hasRules = ruleCount > 0
   const isMobile = useIsMobile()
 
@@ -32,7 +32,7 @@ export default function EvaluationFlow({ config }: Props) {
         </span>
         <span className="text-muted-foreground/30">·</span>
         <span className="text-muted-foreground">
-          Default: <span className="text-[#d4956a]">{defaultVariant || '—'}</span>
+          Fallthrough: <span className="text-[#d4956a]">{defaultVariant || '—'}</span>
         </span>
       </div>
     )
@@ -71,9 +71,9 @@ export default function EvaluationFlow({ config }: Props) {
       </span>
       <Arrow />
 
-      {/* Default variant */}
+      {/* Fallthrough variant */}
       <span className="px-2 py-1 rounded border bg-muted/50 text-foreground border-muted-foreground/10 whitespace-nowrap">
-        Default: <span className="text-[#d4956a]">{defaultVariant || '—'}</span>
+        Fallthrough: <span className="text-[#d4956a]">{defaultVariant || '—'}</span>
       </span>
     </div>
   )

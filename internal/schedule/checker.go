@@ -155,9 +155,6 @@ func (c *Checker) execute(ctx context.Context, sc model.ScheduledFlagChange) {
 		return
 	}
 
-	if snapshot.Variants == nil {
-		snapshot.Variants = json.RawMessage(`[]`)
-	}
 	if snapshot.TargetingRules == nil {
 		snapshot.TargetingRules = json.RawMessage(`[]`)
 	}

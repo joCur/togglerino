@@ -10,6 +10,8 @@ public record FlagDefinition(
     [property: JsonPropertyName("key")] string Key,
     [property: JsonPropertyName("valueType")] string ValueType,
     [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("defaultValue")] JsonElement? DefaultValue,
+    [property: JsonPropertyName("variants")] List<VariantDefinition> Variants,
     [property: JsonPropertyName("config")] FlagDefinitionConfig Config
 );
 
@@ -18,8 +20,8 @@ public record FlagDefinition(
 /// </summary>
 public record FlagDefinitionConfig(
     [property: JsonPropertyName("enabled")] bool Enabled,
-    [property: JsonPropertyName("defaultVariant")] string DefaultVariant,
-    [property: JsonPropertyName("variants")] List<VariantDefinition> Variants,
+    [property: JsonPropertyName("fallthroughVariant")] string FallthroughVariant,
+    [property: JsonPropertyName("offVariant")] string? OffVariant,
     [property: JsonPropertyName("targetingRules")] List<TargetingRuleDefinition> TargetingRules
 );
 
@@ -27,7 +29,7 @@ public record FlagDefinitionConfig(
 /// A variant with its value as a raw JSON element.
 /// </summary>
 public record VariantDefinition(
-    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("value")] JsonElement Value
 );
 

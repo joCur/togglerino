@@ -27,33 +27,26 @@ internal static class EvaluationEngine
     {
         var ctx = context ?? new EvaluationContext();
         var segMap = BuildSegmentMap(segments);
-
-        // Boolean flags use a simplified evaluation path.
-        if (flag.ValueType == "boolean")
-        {
-            return EvaluateBoolean(flag, ctx, segMap);
-        }
-
         var config = flag.Config;
 
-        // 1. If flag is archived, return default value with reason "archived".
+        // 1. If flag is archived, return the flag's default value with reason "archived".
         if (flag.Status == "archived")
         {
             return new EvaluationResult
             {
-                Value = LookupVariantValue(config.Variants, config.DefaultVariant),
+                Value = flag.DefaultValue ?? default,
                 Variant = "",
                 Reason = "archived",
             };
         }
 
-        // 2. If config is disabled, return default value with reason "disabled".
+        // 2. If config is disabled, return off variant value with reason "disabled".
         if (!config.Enabled)
         {
             return new EvaluationResult
             {
-                Value = LookupVariantValue(config.Variants, config.DefaultVariant),
-                Variant = "",
+                Value = LookupVariantValue(flag.Variants, config.OffVariant, flag.DefaultValue),
+                Variant = config.OffVariant ?? "",
                 Reason = "disabled",
             };
         }
@@ -75,7 +68,7 @@ internal static class EvaluationEngine
                 }
 
                 // Rule matched — find the variant value.
-                var value = LookupVariantValue(config.Variants, rule.Variant);
+                var value = LookupVariantValue(flag.Variants, rule.Variant, flag.DefaultValue);
                 return new EvaluationResult
                 {
                     Value = value,
@@ -85,73 +78,11 @@ internal static class EvaluationEngine
             }
         }
 
-        // 4. Return default variant.
+        // 4. Return fallthrough variant.
         return new EvaluationResult
         {
-            Value = LookupVariantValue(config.Variants, config.DefaultVariant),
-            Variant = config.DefaultVariant,
-            Reason = "default",
-        };
-    }
-
-    /// <summary>
-    /// Simplified evaluation path for boolean flags.
-    /// For boolean flags: enabled = true, disabled = false, archived = false.
-    /// Targeting rules use "true"/"false" strings as variant keys.
-    /// </summary>
-    internal static EvaluationResult EvaluateBoolean(
-        FlagDefinition flag,
-        EvaluationContext ctx,
-        Dictionary<string, SegmentDefinition> segments)
-    {
-        if (flag.Status == "archived")
-        {
-            return new EvaluationResult
-            {
-                Value = ToJsonElement(false),
-                Variant = "",
-                Reason = "archived",
-            };
-        }
-
-        if (!flag.Config.Enabled)
-        {
-            return new EvaluationResult
-            {
-                Value = ToJsonElement(false),
-                Variant = "",
-                Reason = "disabled",
-            };
-        }
-
-        // Evaluate targeting rules.
-        foreach (var rule in flag.Config.TargetingRules)
-        {
-            if (MatchesAllConditions(rule.Conditions, ctx, segments))
-            {
-                if (rule.Percentage is not null)
-                {
-                    var bucket = ConsistentHash(flag.Key, ctx.UserId ?? "");
-                    if (bucket >= rule.Percentage.Value)
-                    {
-                        continue;
-                    }
-                }
-
-                return new EvaluationResult
-                {
-                    Value = ToJsonElement(rule.Variant == "true"),
-                    Variant = "",
-                    Reason = "rule_match",
-                };
-            }
-        }
-
-        // Default: enabled = true.
-        return new EvaluationResult
-        {
-            Value = ToJsonElement(true),
-            Variant = "",
+            Value = LookupVariantValue(flag.Variants, config.FallthroughVariant, flag.DefaultValue),
+            Variant = config.FallthroughVariant,
             Reason = "default",
         };
     }
@@ -389,17 +320,20 @@ internal static class EvaluationEngine
     }
 
     /// <summary>
-    /// Finds the value for a variant key in the variants list.
-    /// Returns a default JsonElement if the variant is not found.
+    /// Finds the value for a variant name in the variants list.
+    /// Falls back to the flag's defaultValue, then a default JsonElement if not found.
     /// </summary>
-    private static JsonElement LookupVariantValue(List<VariantDefinition> variants, string variantKey)
+    private static JsonElement LookupVariantValue(List<VariantDefinition> variants, string? variantName, JsonElement? defaultValue)
     {
-        foreach (var v in variants)
+        if (!string.IsNullOrEmpty(variantName))
         {
-            if (v.Key == variantKey) return v.Value;
+            foreach (var v in variants)
+            {
+                if (v.Name == variantName) return v.Value;
+            }
         }
 
-        return default;
+        return defaultValue ?? default;
     }
 
     /// <summary>

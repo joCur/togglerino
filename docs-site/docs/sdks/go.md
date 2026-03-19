@@ -293,6 +293,7 @@ Key points:
 - `Evaluate()` is synchronous and thread-safe — it runs targeting and rollout logic entirely in-memory.
 - Create the server **once** at startup (e.g., in `main`) and share it across goroutines. Calling `NewServer` per request is unnecessary and wasteful.
 - The server subscribes to SSE updates and keeps its flag definitions current automatically.
+- Definitions use the unified evaluation model: each flag includes `OffVariant`, `FallthroughVariant`, and `DefaultValue` fields, and variants are identified by `Name`. All flag value types (boolean, string, number, JSON) are evaluated using the same algorithm.
 
 See [Client vs. Server SDKs](../core-concepts/client-vs-server-sdks) for guidance on when to use each approach.
 

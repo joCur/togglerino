@@ -8,27 +8,22 @@ import "encoding/json"
 func evaluateFlag(flag FlagDefinition, ctx EvaluationContext, segments []SegmentDefinition) EvaluationResult {
 	segMap := buildSegmentMap(segments)
 
-	// Boolean flags use a simplified evaluation path.
-	if flag.ValueType == "boolean" {
-		return evaluateBooleanFlag(flag, ctx, segMap)
-	}
-
 	config := flag.Config
 
 	// 1. If flag is archived, return default value with reason "archived".
 	if flag.Status == "archived" {
 		return EvaluationResult{
-			Value:   findVariantValue(config.Variants, config.DefaultVariant),
+			Value:   flag.DefaultValue,
 			Variant: "",
 			Reason:  "archived",
 		}
 	}
 
-	// 2. If config is disabled, return default value with reason "disabled".
+	// 2. If config is disabled, return off variant value with reason "disabled".
 	if !config.Enabled {
 		return EvaluationResult{
-			Value:   findVariantValue(config.Variants, config.DefaultVariant),
-			Variant: "",
+			Value:   findVariantValue(flag.Variants, config.OffVariant, flag.DefaultValue),
+			Variant: config.OffVariant,
 			Reason:  "disabled",
 		}
 	}
@@ -45,7 +40,7 @@ func evaluateFlag(flag FlagDefinition, ctx EvaluationContext, segments []Segment
 				}
 			}
 			// Rule matched — find the variant value.
-			value := findVariantValue(config.Variants, rule.Variant)
+			value := findVariantValue(flag.Variants, rule.Variant, flag.DefaultValue)
 			return EvaluationResult{
 				Value:   value,
 				Variant: rule.Variant,
@@ -54,46 +49,13 @@ func evaluateFlag(flag FlagDefinition, ctx EvaluationContext, segments []Segment
 		}
 	}
 
-	// 4. Return default variant.
-	value := findVariantValue(config.Variants, config.DefaultVariant)
+	// 4. Return fallthrough variant.
+	value := findVariantValue(flag.Variants, config.FallthroughVariant, flag.DefaultValue)
 	return EvaluationResult{
 		Value:   value,
-		Variant: config.DefaultVariant,
+		Variant: config.FallthroughVariant,
 		Reason:  "default",
 	}
-}
-
-// evaluateBooleanFlag handles the simplified evaluation path for boolean flags.
-// For boolean flags: enabled = true, disabled = false, archived = false.
-// Targeting rules use "true"/"false" strings as variant keys.
-func evaluateBooleanFlag(flag FlagDefinition, ctx EvaluationContext, segments map[string]SegmentDefinition) EvaluationResult {
-	if flag.Status == "archived" {
-		return EvaluationResult{Value: false, Variant: "", Reason: "archived"}
-	}
-
-	if !flag.Config.Enabled {
-		return EvaluationResult{Value: false, Variant: "", Reason: "disabled"}
-	}
-
-	// Evaluate targeting rules.
-	for _, rule := range flag.Config.TargetingRules {
-		if matchesAllConditions(rule.Conditions, ctx, segments) {
-			if rule.Percentage != nil {
-				bucket := consistentHash(flag.Key, ctx.UserID)
-				if bucket >= *rule.Percentage {
-					continue
-				}
-			}
-			return EvaluationResult{
-				Value:   rule.Variant == "true",
-				Variant: "",
-				Reason:  "rule_match",
-			}
-		}
-	}
-
-	// Default: enabled = true.
-	return EvaluationResult{Value: true, Variant: "", Reason: "default"}
 }
 
 // matchesAllConditions checks if all conditions in a rule match the evaluation context.
@@ -142,15 +104,15 @@ func getContextValue(attribute string, ctx EvaluationContext) any {
 	return v
 }
 
-// findVariantValue finds the value for a variant key in the variants list.
-// Returns the deserialized value, or nil if not found.
-func findVariantValue(variants []VariantDefinition, key string) any {
+// findVariantValue finds the value for a variant name in the variants list.
+// Returns the deserialized value, or defaultValue if not found.
+func findVariantValue(variants []VariantDefinition, name string, defaultValue interface{}) any {
 	for _, v := range variants {
-		if v.Key == key {
+		if v.Name == name {
 			return rawToAny(v.Value)
 		}
 	}
-	return nil
+	return defaultValue
 }
 
 // rawToAny converts json.RawMessage to a Go value.

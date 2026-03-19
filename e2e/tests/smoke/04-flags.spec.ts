@@ -32,18 +32,17 @@ test.describe('Flags', () => {
 
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
-    // Wait for the environment config to load
-    const toggle = page.getByRole('switch').first();
-    await expect(toggle).toBeVisible();
-    await expect(toggle).not.toBeChecked();
+    // Wait for the targeting config to load — look for the OFF button
+    const offBtn = page.getByRole('button', { name: /^OFF$/i });
+    await expect(offBtn).toBeVisible();
 
-    // Toggle ON
-    await toggle.click();
-    await expect(toggle).toBeChecked({ timeout: 10_000 });
+    // Toggle ON — click the OFF button
+    await offBtn.click();
+    await expect(page.getByRole('button', { name: /^ON$/i })).toBeVisible({ timeout: 10_000 });
 
-    // Toggle OFF
-    await toggle.click();
-    await expect(toggle).not.toBeChecked({ timeout: 10_000 });
+    // Toggle OFF — click the ON button
+    await page.getByRole('button', { name: /^ON$/i }).click();
+    await expect(page.getByRole('button', { name: /^OFF$/i })).toBeVisible({ timeout: 10_000 });
   });
 
   test('persists toggle state', async ({ authenticatedPage: page, testProject, apiContext }) => {
@@ -56,12 +55,11 @@ test.describe('Flags', () => {
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
     // Verify toggle shows enabled state
-    const toggle = page.getByRole('switch').first();
-    await expect(toggle).toBeChecked();
+    await expect(page.getByRole('button', { name: /^ON$/i })).toBeVisible();
 
     // Refresh and verify still enabled
     await page.reload();
-    await expect(page.getByRole('switch').first()).toBeChecked();
+    await expect(page.getByRole('button', { name: /^ON$/i })).toBeVisible();
   });
 
   test('creates different value types', async ({ authenticatedPage: page, testProject, apiContext }) => {
@@ -104,11 +102,15 @@ test.describe('Flags', () => {
     await page.goto(`/projects/${testProject.key}/flags/${key}`);
 
     // Verify it's on first
-    const toggle = page.getByRole('switch').first();
-    await expect(toggle).toBeChecked();
+    await expect(page.getByRole('button', { name: /^ON$/i })).toBeVisible();
 
-    // Toggle it off
-    await toggle.click();
+    // Toggle it off (local state change)
+    await page.getByRole('button', { name: /^ON$/i }).click();
+    await expect(page.getByRole('button', { name: /^OFF$/i })).toBeVisible();
+
+    // Save the change
+    const saveBtn = page.getByRole('button', { name: /save/i });
+    await saveBtn.click();
 
     // Wait for the API response
     await page.waitForResponse(resp =>
@@ -117,7 +119,7 @@ test.describe('Flags', () => {
 
     // Reload page and verify UI persists the off state
     await page.reload();
-    await expect(page.getByRole('switch').first()).not.toBeChecked();
+    await expect(page.getByRole('button', { name: /^OFF$/i })).toBeVisible();
   });
 
   test('archives a flag', async ({ authenticatedPage: page, testProject, apiContext }) => {

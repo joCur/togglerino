@@ -172,10 +172,10 @@ func (s *ScheduleStore) ListDue(ctx context.Context, now time.Time) ([]model.Sch
 func (s *ScheduleStore) Execute(ctx context.Context, tx pgx.Tx, scheduleID, flagID, environmentID string, snapshot model.ConfigSnapshotPayload) error {
 	cfgTag, err := tx.Exec(ctx,
 		`UPDATE flag_environment_configs
-		 SET enabled = $3, default_variant = $4, variants = $5, targeting_rules = $6, updated_at = NOW()
+		 SET enabled = $3, fallthrough_variant = $4, off_variant = $5, targeting_rules = $6, updated_at = NOW()
 		 WHERE flag_id = $1 AND environment_id = $2`,
 		flagID, environmentID,
-		snapshot.Enabled, snapshot.DefaultVariant, snapshot.Variants, snapshot.TargetingRules,
+		snapshot.Enabled, snapshot.FallthroughVariant, snapshot.OffVariant, snapshot.TargetingRules,
 	)
 	if err != nil {
 		return fmt.Errorf("applying config snapshot: %w", err)

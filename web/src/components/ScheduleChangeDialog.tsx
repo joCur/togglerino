@@ -24,7 +24,8 @@ interface Props {
   valueType?: string
   currentConfig: {
     enabled: boolean
-    default_variant: string
+    fallthrough_variant: string
+    off_variant: string
     variants: Variant[]
     targeting_rules: TargetingRule[]
   }
@@ -108,7 +109,7 @@ export default function ScheduleChangeDialog({
           </div>
           {valueType !== 'boolean' && (
           <div className="text-muted-foreground">
-            Default variant: <span className="text-[#d4956a]">{currentConfig.default_variant || '—'}</span>
+            Fallthrough variant: <span className="text-[#d4956a]">{currentConfig.fallthrough_variant || '—'}</span>
           </div>
           )}
           <div className="text-muted-foreground">

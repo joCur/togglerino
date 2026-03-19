@@ -29,15 +29,10 @@ export type FieldDiff = {
   values: Map<string, unknown>
 }
 
-export type VariantDiff = {
-  status: DiffStatus
-  perVariant: Map<string, FieldDiff>
-}
-
 export type ComparisonResult = {
   enabled: FieldDiff
-  defaultVariant: FieldDiff
-  variants: VariantDiff
+  fallthroughVariant: FieldDiff
+  offVariant: FieldDiff
   rules: FieldDiff
 }
 
@@ -56,55 +51,26 @@ export function compareEnabled(configs: FlagEnvironmentConfig[], environmentIds:
   return { status, values }
 }
 
-export function compareDefaultVariant(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
+export function compareFallthroughVariant(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
   const values = new Map<string, unknown>()
   for (const envId of environmentIds) {
     const config = getConfig(configs, envId)
-    values.set(envId, config?.default_variant ?? '')
+    values.set(envId, config?.fallthrough_variant ?? '')
   }
   const allValues = [...values.values()]
   const status: DiffStatus = allValues.every((v) => v === allValues[0]) ? 'match' : 'differs'
   return { status, values }
 }
 
-export function compareVariants(configs: FlagEnvironmentConfig[], environmentIds: string[]): VariantDiff {
-  const allKeys = new Set<string>()
+export function compareOffVariant(configs: FlagEnvironmentConfig[], environmentIds: string[]): FieldDiff {
+  const values = new Map<string, unknown>()
   for (const envId of environmentIds) {
     const config = getConfig(configs, envId)
-    for (const v of config?.variants ?? []) {
-      allKeys.add(v.key)
-    }
+    values.set(envId, config?.off_variant ?? '')
   }
-
-  const perVariant = new Map<string, FieldDiff>()
-  let overallDiffers = false
-
-  for (const variantKey of allKeys) {
-    const values = new Map<string, unknown>()
-    const serialized: string[] = []
-
-    for (const envId of environmentIds) {
-      const config = getConfig(configs, envId)
-      const variant = config?.variants?.find((v) => v.key === variantKey)
-      if (variant) {
-        values.set(envId, variant.value)
-        serialized.push(canonicalize(variant.value))
-      } else {
-        values.set(envId, null)
-        serialized.push('__MISSING__')
-      }
-    }
-
-    const allSame = serialized.every((s) => s === serialized[0])
-    const status: DiffStatus = allSame ? 'match' : 'differs'
-    if (!allSame) overallDiffers = true
-    perVariant.set(variantKey, { status, values })
-  }
-
-  return {
-    status: overallDiffers ? 'differs' : 'match',
-    perVariant,
-  }
+  const allValues = [...values.values()]
+  const status: DiffStatus = allValues.every((v) => v === allValues[0]) ? 'match' : 'differs'
+  return { status, values }
 }
 
 // Rule order is intentionally preserved (first-match-wins); only conditions within each rule are sorted.
@@ -138,8 +104,8 @@ export function compareRules(configs: FlagEnvironmentConfig[], environmentIds: s
 export function compareFlag(configs: FlagEnvironmentConfig[], environmentIds: string[]): ComparisonResult {
   return {
     enabled: compareEnabled(configs, environmentIds),
-    defaultVariant: compareDefaultVariant(configs, environmentIds),
-    variants: compareVariants(configs, environmentIds),
+    fallthroughVariant: compareFallthroughVariant(configs, environmentIds),
+    offVariant: compareOffVariant(configs, environmentIds),
     rules: compareRules(configs, environmentIds),
   }
 }

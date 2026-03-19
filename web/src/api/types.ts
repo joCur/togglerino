@@ -62,6 +62,7 @@ export interface Flag {
   flag_type: FlagPurpose
   default_value: unknown
   tags: string[]
+  variants: Variant[]
   lifecycle_status: LifecycleStatus
   lifecycle_status_changed_at: string | null
   last_evaluated_at: string | null
@@ -78,7 +79,7 @@ export interface ProjectFlagSettings {
 }
 
 export interface Variant {
-  key: string
+  name: string
   value: unknown
 }
 
@@ -99,8 +100,8 @@ export interface FlagEnvironmentConfig {
   flag_id: string
   environment_id: string
   enabled: boolean
-  default_variant: string
-  variants: Variant[]
+  fallthrough_variant: string
+  off_variant: string
   targeting_rules: TargetingRule[]
   updated_at: string
   updated_by?: string
@@ -167,7 +168,8 @@ export interface ScheduledFlagChange {
   status: ScheduleStatus
   config_snapshot: {
     enabled: boolean
-    default_variant: string
+    fallthrough_variant: string
+    off_variant: string
     variants: Variant[]
     targeting_rules: TargetingRule[]
   }
@@ -234,7 +236,8 @@ export interface FlagTemplate {
     environment_defaults: Record<string, { enabled: boolean }>
     variant_config: {
         variants?: Variant[]
-        default_variant?: string
+        fallthrough_variant?: string
+        off_variant?: string
         targeting_rules?: TargetingRule[]
     }
     is_system: boolean
@@ -279,7 +282,7 @@ export interface EvaluationTrace {
   variant: string
   reason: 'archived' | 'disabled' | 'rule_match' | 'default'
   steps: TraceStep[]
-  default_variant: string
+  fallthrough_variant: string
   selected_step: number
 }
 

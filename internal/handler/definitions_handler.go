@@ -28,21 +28,23 @@ type definitionsResponse struct {
 }
 
 type flagDefinition struct {
-	Key       string               `json:"key"`
-	ValueType model.ValueType      `json:"valueType"`
-	Status    model.LifecycleStatus `json:"status"`
-	Config    flagConfigDefinition `json:"config"`
+	Key          string                `json:"key"`
+	ValueType    model.ValueType       `json:"valueType"`
+	Status       model.LifecycleStatus `json:"status"`
+	DefaultValue json.RawMessage       `json:"defaultValue"`
+	Variants     []variantDefinition   `json:"variants"`
+	Config       flagConfigDefinition  `json:"config"`
 }
 
 type flagConfigDefinition struct {
-	Enabled        bool                      `json:"enabled"`
-	DefaultVariant string                    `json:"defaultVariant"`
-	Variants       []variantDefinition       `json:"variants"`
-	TargetingRules []targetingRuleDefinition `json:"targetingRules"`
+	Enabled            bool                      `json:"enabled"`
+	FallthroughVariant string                    `json:"fallthroughVariant"`
+	OffVariant         string                    `json:"offVariant"`
+	TargetingRules     []targetingRuleDefinition `json:"targetingRules"`
 }
 
 type variantDefinition struct {
-	Key   string          `json:"key"`
+	Name  string          `json:"name"`
 	Value json.RawMessage `json:"value"`
 }
 
@@ -87,10 +89,10 @@ func (h *DefinitionsHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func convertFlag(fd evaluation.FlagData) flagDefinition {
-	variants := make([]variantDefinition, 0, len(fd.Config.Variants))
-	for _, v := range fd.Config.Variants {
+	variants := make([]variantDefinition, 0, len(fd.Flag.Variants))
+	for _, v := range fd.Flag.Variants {
 		variants = append(variants, variantDefinition{
-			Key:   v.Key,
+			Name:  v.Name,
 			Value: v.Value,
 		})
 	}
@@ -106,14 +108,16 @@ func convertFlag(fd evaluation.FlagData) flagDefinition {
 	}
 
 	return flagDefinition{
-		Key:       fd.Flag.Key,
-		ValueType: fd.Flag.ValueType,
-		Status:    fd.Flag.LifecycleStatus,
+		Key:          fd.Flag.Key,
+		ValueType:    fd.Flag.ValueType,
+		Status:       fd.Flag.LifecycleStatus,
+		DefaultValue: fd.Flag.DefaultValue,
+		Variants:     variants,
 		Config: flagConfigDefinition{
-			Enabled:        fd.Config.Enabled,
-			DefaultVariant: fd.Config.DefaultVariant,
-			Variants:       variants,
-			TargetingRules: rules,
+			Enabled:            fd.Config.Enabled,
+			FallthroughVariant: fd.Config.FallthroughVariant,
+			OffVariant:         fd.Config.OffVariant,
+			TargetingRules:     rules,
 		},
 	}
 }

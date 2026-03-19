@@ -196,10 +196,11 @@ func TestUpdateEnvironmentConfig_Locked(t *testing.T) {
 	flagStore.LockEnvironmentConfig(ctx, flag.ID, env.ID, user.ID, &reason)
 
 	body, _ := json.Marshal(map[string]any{
-		"enabled":         true,
-		"default_variant": "on",
-		"variants":        []any{},
-		"targeting_rules": []any{},
+		"enabled":              true,
+		"fallthrough_variant":  "true",
+		"off_variant":          "false",
+		"variants":             []map[string]any{{"name": "true", "value": true}, {"name": "false", "value": false}},
+		"targeting_rules":      []any{},
 	})
 	req := httptest.NewRequest("PUT", "/api/v1/projects/"+project.Key+"/flags/"+flag.Key+"/environments/development", bytes.NewReader(body))
 	w := httptest.NewRecorder()

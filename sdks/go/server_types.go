@@ -4,23 +4,25 @@ import "encoding/json"
 
 // FlagDefinition represents a single flag as returned by the definitions endpoint.
 type FlagDefinition struct {
-	Key       string               `json:"key"`
-	ValueType string               `json:"valueType"`
-	Status    string               `json:"status"`
-	Config    FlagDefinitionConfig `json:"config"`
+	Key          string               `json:"key"`
+	ValueType    string               `json:"valueType"`
+	Status       string               `json:"status"`
+	DefaultValue interface{}          `json:"defaultValue"`
+	Variants     []VariantDefinition  `json:"variants"`
+	Config       FlagDefinitionConfig `json:"config"`
 }
 
 // FlagDefinitionConfig holds per-environment configuration for a flag definition.
 type FlagDefinitionConfig struct {
-	Enabled        bool                      `json:"enabled"`
-	DefaultVariant string                    `json:"defaultVariant"`
-	Variants       []VariantDefinition       `json:"variants"`
-	TargetingRules []TargetingRuleDefinition `json:"targetingRules"`
+	Enabled            bool                      `json:"enabled"`
+	FallthroughVariant string                    `json:"fallthroughVariant"`
+	OffVariant         string                    `json:"offVariant"`
+	TargetingRules     []TargetingRuleDefinition `json:"targetingRules"`
 }
 
-// VariantDefinition is a variant with a key and arbitrary JSON value.
+// VariantDefinition is a variant with a name and arbitrary JSON value.
 type VariantDefinition struct {
-	Key   string          `json:"key"`
+	Name  string          `json:"name"`
 	Value json.RawMessage `json:"value"`
 }
 

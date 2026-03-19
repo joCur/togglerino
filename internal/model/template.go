@@ -26,7 +26,8 @@ type FlagTemplate struct {
 
 // VariantConfig holds the pre-configured variant setup for a template.
 type VariantConfig struct {
-	Variants       []Variant       `json:"variants"`
-	DefaultVariant string          `json:"default_variant"`
-	TargetingRules []TargetingRule `json:"targeting_rules,omitempty"`
+	Variants           []Variant       `json:"variants"`
+	OffVariant         string          `json:"off_variant"`
+	FallthroughVariant string          `json:"fallthrough_variant"`
+	TargetingRules     []TargetingRule `json:"targeting_rules,omitempty"`
 }

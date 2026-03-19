@@ -254,6 +254,7 @@ Key points:
 - `evaluate()` is synchronous — it runs the full targeting and rollout logic in-memory with zero network overhead.
 - Initialize **once** at application startup and reuse the same `TogglerioServer` instance across all requests. Re-initializing per request defeats the purpose and causes unnecessary network traffic.
 - The server subscribes to SSE updates and keeps its flag definitions current automatically.
+- Definitions use the unified evaluation model: each flag includes `offVariant`, `fallthroughVariant`, and `defaultValue` fields, and variants are identified by `name`. All flag value types (boolean, string, number, JSON) are evaluated using the same algorithm.
 
 See [Client vs. Server SDKs](../core-concepts/client-vs-server-sdks) for guidance on when to use each approach.
 

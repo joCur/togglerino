@@ -267,6 +267,7 @@ Key points:
 - `Evaluate()` is synchronous — it runs targeting and rollout logic entirely in-memory with zero network overhead.
 - Register as a **singleton** so it is initialized once and reused across all requests. Instantiating per request defeats the purpose and causes unnecessary network traffic.
 - The server subscribes to SSE updates and keeps its flag definitions current automatically.
+- Definitions use the unified evaluation model: each flag includes `OffVariant`, `FallthroughVariant`, and `DefaultValue` fields, and variants are identified by `Name`. All flag value types (boolean, string, number, JSON) are evaluated using the same algorithm.
 
 See [Client vs. Server SDKs](../core-concepts/client-vs-server-sdks) for guidance on when to use each approach.
 
