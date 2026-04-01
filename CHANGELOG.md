@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/joCur/togglerino/compare/v1.3.0...v1.4.0) (2026-03-19)
+
+
+### Features
+
+* unified flag evaluation & targeting UX redesign ([#147](https://github.com/joCur/togglerino/issues/147)) ([b59e747](https://github.com/joCur/togglerino/commit/b59e7476c63c85ccd6754121db4716cf97124674))
+
 ## [1.3.0](https://github.com/joCur/togglerino/compare/v1.2.0...v1.3.0) (2026-03-17)
 
 
