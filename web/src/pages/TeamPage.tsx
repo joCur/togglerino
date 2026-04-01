@@ -335,7 +335,7 @@ export default function TeamPage() {
     fetchNextPage: fetchNextMembers,
     isFetchingNextPage: membersFetchingNext,
   } = useInfiniteQuery({
-    queryKey: ['users'],
+    queryKey: ['users', 'infinite'],
     queryFn: ({ pageParam = 0 }) =>
       api.users.list({ limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,

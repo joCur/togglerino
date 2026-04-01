@@ -484,7 +484,7 @@ export default function SegmentsPage() {
     fetchNextPage: fetchNextSegments,
     isFetchingNextPage: segmentsFetchingNext,
   } = useInfiniteQuery({
-    queryKey: ['segments', key],
+    queryKey: ['segments', key, 'infinite'],
     queryFn: ({ pageParam = 0 }) =>
       api.segments.list(key!, { limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,
