@@ -38,7 +38,7 @@ import { useEnvironmentWriteAccess } from '@/hooks/useEnvironmentAccess'
 import PromoteDialog from '../components/PromoteDialog.tsx'
 import CompareTab from '../components/CompareTab.tsx'
 import { FlagOverrideControl } from '../components/FlagOverrideControl.tsx'
-import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, Play, ArrowRightFromLine, Lock, Unlock, GitCompareArrows, History } from 'lucide-react'
+import { Settings, Trash2, Archive, RotateCcw, AlertTriangle, Play, ArrowRightFromLine, Lock, Unlock, GitCompareArrows, History, Copy, Check } from 'lucide-react'
 
 interface FlagDetailResponse {
   flag: Flag
@@ -61,6 +61,17 @@ export default function FlagDetailPage() {
   const [lockDialogState, setLockDialogState] = useState<{ open: boolean; envKey: string; envName: string } | null>(null)
   const [lockReason, setLockReason] = useState('')
   const [searchParams, setSearchParams] = useSearchParams()
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyKey = async () => {
+    try {
+      await navigator.clipboard.writeText(flagKey!)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API may not be available
+    }
+  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['projects', key, 'flags', flagKey],
@@ -226,7 +237,7 @@ export default function FlagDetailPage() {
       {/* Header: flag key + actions */}
       <div className="flex items-start justify-between mb-1">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-mono text-[#d4956a] tracking-wide">{flag.key}</h1>
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">{flag.name}</h1>
           <Link
             to={`/projects/${key}/playground?flag=${flag.key}`}
             className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-foreground/[0.05]"
@@ -293,8 +304,19 @@ export default function FlagDetailPage() {
         </div>
       </div>
 
-      {/* Flag name */}
-      <div className="text-[15px] text-muted-foreground mb-2">{flag.name}</div>
+      {/* Flag key with copy */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="font-mono text-sm text-[#d4956a]/70 tracking-wide">{flag.key}</span>
+        <button
+          onClick={handleCopyKey}
+          className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          title="Copy flag key"
+        >
+          {copied
+            ? <Check className="w-3.5 h-3.5 text-emerald-400" />
+            : <Copy className="w-3.5 h-3.5" />}
+        </button>
+      </div>
 
       {/* Metadata chips */}
       <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground/60 mb-2">
