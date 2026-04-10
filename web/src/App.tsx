@@ -9,7 +9,6 @@ import LoginPage from './pages/LoginPage.tsx'
 import ProjectsPage from './pages/ProjectsPage.tsx'
 import ProjectDetailPage from './pages/ProjectDetailPage.tsx'
 import FlagDetailPage from './pages/FlagDetailPage.tsx'
-import EnvironmentsPage from './pages/EnvironmentsPage.tsx'
 import SDKKeysPage from './pages/SDKKeysPage.tsx'
 import AuditLogPage from './pages/AuditLogPage.tsx'
 import TeamPage from './pages/TeamPage.tsx'
@@ -34,7 +33,6 @@ import WebhookDetailPage from './pages/settings/WebhookDetailPage.tsx'
 import ProjectTemplatesPage from './pages/ProjectTemplatesPage.tsx'
 import TemplatesPage from './pages/TemplatesPage.tsx'
 import PlaygroundPage from './pages/PlaygroundPage.tsx'
-import KillSwitchDashboardPage from './pages/KillSwitchDashboardPage.tsx'
 import MyOverridesPage from './pages/MyOverridesPage.tsx'
 import RolesPage from './pages/RolesPage.tsx'
 
@@ -104,9 +102,7 @@ function AuthRouter() {
       <Route path="/projects/:key" element={<ProjectLayout />}>
         <Route index element={<ProjectDetailPage />} />
         <Route path="lifecycle" element={<LifecycleBoardPage />} />
-        <Route path="kill-switches" element={<KillSwitchDashboardPage />} />
         <Route path="flags/:flag" element={<FlagDetailPage />} />
-        <Route path="environments" element={<EnvironmentsPage />} />
         <Route path="environments/:env/sdk-keys" element={<SDKKeysPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
         <Route path="templates" element={<ProjectTemplatesPage />} />
