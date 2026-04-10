@@ -1,7 +1,7 @@
 import type { EvaluationTrace, TraceStep, ConditionTrace } from '../api/types.ts'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { Check, X, Minus } from 'lucide-react'
+import { Check, X, Minus, ArrowRight } from 'lucide-react'
 
 function StepIcon({ passed, skipped }: { passed: boolean; skipped?: boolean }) {
   if (skipped) {
@@ -103,89 +103,132 @@ function RolloutBar({ step }: { step: TraceStep }) {
   )
 }
 
-function TraceStepRow({ step, index, isSelected }: { step: TraceStep; index: number; isSelected: boolean }) {
-  const label = step.type === 'lifecycle_check'
-    ? 'Lifecycle Check'
-    : step.type === 'enabled_check'
-      ? 'Enabled Check'
-      : `Rule ${(step.rule_index ?? index - 1) + 1}`
+function LifecycleStepContent({ step }: { step: TraceStep }) {
+  const status = step.status ?? (step.passed ? 'active' : 'archived')
+  if (step.passed) {
+    return (
+      <span className="text-[13px] text-muted-foreground">
+        Flag is <span className="text-emerald-400 font-medium">{status}</span>
+      </span>
+    )
+  }
+  return (
+    <span className="text-[13px] text-muted-foreground">
+      Flag is <span className="text-red-400 font-medium">{status}</span>, returning default value
+    </span>
+  )
+}
 
-  const statusBadge = () => {
-    if (step.type === 'lifecycle_check') {
-      return (
-        <Badge
-          variant="secondary"
-          className={cn(
-            'text-[10px]',
-            step.passed
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-              : 'bg-red-500/10 text-red-400 border-red-500/20',
-          )}
-        >
-          {step.status ?? (step.passed ? 'active' : 'archived')}
-        </Badge>
-      )
-    }
-    if (step.type === 'enabled_check') {
-      return (
-        <Badge
-          variant="secondary"
-          className={cn(
-            'text-[10px]',
-            step.enabled
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-              : 'bg-muted text-muted-foreground',
-          )}
-        >
-          {step.enabled ? 'Enabled' : 'Disabled'}
-        </Badge>
-      )
-    }
-    if (step.skipped) {
-      return <Badge variant="secondary" className="text-[10px] bg-muted text-muted-foreground">Skipped</Badge>
-    }
-    if (step.matched) {
-      return <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Matched</Badge>
-    }
-    return <Badge variant="secondary" className="text-[10px]">Not matched</Badge>
+function EnabledStepContent({ step, offVariant }: { step: TraceStep; offVariant?: string }) {
+  const enabled = step.enabled ?? false
+  if (enabled) {
+    return (
+      <span className="text-[13px] text-muted-foreground">
+        Targeting is{' '}
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          ON
+        </span>
+        , evaluating rules
+      </span>
+    )
+  }
+  return (
+    <span className="text-[13px] text-muted-foreground">
+      Targeting is{' '}
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted text-muted-foreground border border-muted-foreground/20">
+        OFF
+      </span>
+      {offVariant && (
+        <>
+          , serving <span className="font-mono text-[#d4956a]">{offVariant}</span> to all traffic
+        </>
+      )}
+    </span>
+  )
+}
+
+function RuleStepContent({ step, index }: { step: TraceStep; index: number }) {
+  // Fallback: subtract 2 to account for lifecycle_check + enabled_check steps before rules
+  const ruleNum = (step.rule_index ?? index - 2) + 1
+  const matched = step.matched ?? false
+
+  if (step.skipped) {
+    return (
+      <span className="text-[13px] text-muted-foreground">
+        <span className="font-medium text-foreground">Rule {ruleNum}</span> skipped
+      </span>
+    )
   }
 
+  const variantFragment = step.variant && (
+    <>, serving <span className="font-mono text-[#d4956a]">{step.variant}</span></>
+  )
+
+  const rolloutFragment = step.percentage_rollout != null && (
+    <> to <span className="font-medium text-foreground">{step.percentage_rollout}%</span> of traffic</>
+  )
+
+  return (
+    <div>
+      <span className="text-[13px] text-muted-foreground">
+        <span className="font-medium text-foreground">Rule {ruleNum}</span>
+        {matched ? (
+          <> matched{variantFragment}{rolloutFragment}</>
+        ) : (
+          <> did not match</>
+        )}
+      </span>
+
+      {step.conditions && step.conditions.length > 0 && (
+        <div className="mt-2 border-l-2 border-border/50 pl-3 flex flex-col gap-0.5">
+          {step.conditions.map((cond, i) => (
+            <ConditionRow key={i} condition={cond} />
+          ))}
+        </div>
+      )}
+
+      <RolloutBar step={step} />
+    </div>
+  )
+}
+
+function TraceStepRow({ step, index, isSelected, offVariant }: { step: TraceStep; index: number; isSelected: boolean; offVariant?: string }) {
   return (
     <div className="flex gap-3">
-      {/* Vertical line + icon */}
       <div className="flex flex-col items-center">
         <StepIcon passed={step.passed} skipped={step.skipped} />
         <div className="w-px flex-1 bg-border/50" />
       </div>
-
-      {/* Content */}
-      <div className={cn(
-        'flex-1 pb-4 -mt-0.5',
-      )}>
+      <div className="flex-1 pb-4 -mt-0.5">
         <div className={cn(
           'rounded-lg border p-3',
           isSelected && 'border-[#d4956a]/50 bg-[#d4956a]/5',
           step.skipped && 'opacity-50',
         )}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[13px] font-medium text-foreground">{label}</span>
-            {statusBadge()}
-            {step.variant && (
-              <Badge variant="outline" className="text-[10px] font-mono">{step.variant}</Badge>
-            )}
-          </div>
-
-          {/* Conditions */}
-          {step.conditions && step.conditions.length > 0 && (
-            <div className="mt-2 flex flex-col gap-0.5">
-              {step.conditions.map((cond, i) => (
-                <ConditionRow key={i} condition={cond} />
-              ))}
-            </div>
+          {step.type === 'lifecycle_check' && <LifecycleStepContent step={step} />}
+          {step.type === 'enabled_check' && (
+            <EnabledStepContent step={step} offVariant={offVariant} />
           )}
+          {step.type === 'rule' && <RuleStepContent step={step} index={index} />}
+        </div>
+      </div>
+    </div>
+  )
+}
 
-          {/* Rollout */}
-          <RolloutBar step={step} />
+function FallthroughStep({ variant }: { variant: string }) {
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-col items-center">
+        <div className="w-5 h-5 rounded-full bg-[#d4956a]/20 flex items-center justify-center shrink-0">
+          <ArrowRight className="w-3 h-3 text-[#d4956a]" />
+        </div>
+      </div>
+      <div className="flex-1 -mt-0.5">
+        <div className="rounded-lg border border-[#d4956a]/50 bg-[#d4956a]/5 p-3">
+          <span className="text-[13px] text-muted-foreground">
+            No rules matched, serving default variant <span className="font-mono text-[#d4956a]">{variant}</span>
+          </span>
         </div>
       </div>
     </div>
@@ -201,8 +244,12 @@ export default function PlaygroundTrace({ trace }: { trace: EvaluationTrace }) {
           step={step}
           index={i}
           isSelected={i === trace.selected_step}
+          offVariant={trace.reason === 'disabled' ? trace.variant : undefined}
         />
       ))}
+      {trace.reason === 'default' && trace.selected_step === -1 && (
+        <FallthroughStep variant={trace.fallthrough_variant} />
+      )}
     </div>
   )
 }
