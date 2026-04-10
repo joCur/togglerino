@@ -7,7 +7,6 @@ import type { Flag, Environment, FlagEnvironmentConfig, Variant, User, Paginated
 import NotFoundState from '../components/NotFoundState.tsx'
 import TargetingConfig from '../components/TargetingConfig.tsx'
 import VariantChips from '../components/VariantChips.tsx'
-import EvaluationFlow from '../components/EvaluationFlow.tsx'
 import FlagHistory from '../components/FlagHistory.tsx'
 import PendingSchedules from '../components/PendingSchedules.tsx'
 import { Button } from '@/components/ui/button'
@@ -537,9 +536,7 @@ export default function FlagDetailPage() {
                   </div>
                 )}
 
-                {/* Evaluation flow + override */}
-                <div className="flex items-center justify-between mb-4">
-                  <EvaluationFlow config={config} />
+                <div className="flex items-center justify-end mb-4">
                   <FlagOverrideControl
                     projectKey={key!}
                     flagKey={flagKey!}
