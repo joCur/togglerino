@@ -22,11 +22,15 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
 
   const [copied, setCopied] = useState(false)
 
-  const handleCopyKey = (e: React.MouseEvent) => {
+  const handleCopyKey = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(flag.key)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(flag.key)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API may not be available
+    }
   }
 
   return (
