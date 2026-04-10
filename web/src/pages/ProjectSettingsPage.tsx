@@ -22,7 +22,7 @@ export default function ProjectSettingsPage() {
   )
 
   return (
-    <div className="animate-[fadeIn_300ms_ease] max-w-[640px]">
+    <div className="animate-[fadeIn_300ms_ease]">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 mb-6 text-[13px] text-muted-foreground/60">
         <Link to="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
