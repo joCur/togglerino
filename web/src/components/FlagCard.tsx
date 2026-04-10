@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import type { Flag, Environment } from '../api/types.ts'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { gravatarUrl } from '@/lib/gravatar'
 import { formatRelativeTime } from '@/lib/date'
+import { Copy, Check } from 'lucide-react'
 
 interface Props {
   flag: Flag
@@ -17,6 +19,15 @@ interface Props {
 export default function FlagCard({ flag, environments, getEnvStatus, onClick, selected, onSelect }: Props) {
   const isArchived = flag.lifecycle_status === 'archived'
   const isSelectable = !!onSelect
+
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyKey = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(flag.key)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <div
@@ -43,15 +54,24 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
         </div>
       )}
 
-      {/* Row 1: Key + Type */}
+      {/* Row 1: Name + Type */}
       <div className="flex items-center justify-between mb-1">
-        <span className="font-mono text-sm text-[#d4956a] tracking-wide">{flag.key}</span>
+        <span className="text-sm font-medium text-foreground">{flag.name}</span>
         <Badge variant="secondary" className="font-mono text-[11px]">{flag.value_type}</Badge>
       </div>
 
-      {/* Row 2: Name + lifecycle badge */}
+      {/* Row 2: Key (with copy) + lifecycle badge */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-[13px] text-muted-foreground">{flag.name}</span>
+        <span className="font-mono text-[11px] text-[#d4956a]/70 tracking-wide">{flag.key}</span>
+        <button
+          onClick={handleCopyKey}
+          className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          title="Copy flag key"
+        >
+          {copied
+            ? <Check className="w-3 h-3 text-emerald-400" />
+            : <Copy className="w-3 h-3" />}
+        </button>
         {flag.lifecycle_status !== 'active' && flag.lifecycle_status !== 'archived' && (
           <Badge
             variant="secondary"
