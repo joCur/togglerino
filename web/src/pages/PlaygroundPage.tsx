@@ -318,16 +318,25 @@ export default function PlaygroundPage() {
                       : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                     }
                     <span className="font-mono text-[13px] text-[#d4956a] tracking-wide">{result.flag_key}</span>
-                    <span className="text-[13px] text-foreground font-mono ml-auto mr-2 truncate max-w-[200px]">
-                      {formatValue(result.value)}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-mono shrink-0">{result.variant}</Badge>
-                    <Badge
-                      variant="secondary"
-                      className={cn('text-[10px] shrink-0', reasonColor(result.reason))}
-                    >
-                      {result.reason.replace(/_/g, ' ')}
-                    </Badge>
+                    <div className="flex items-center gap-2 ml-auto">
+                      <span className="text-[13px] text-muted-foreground/60">Returns</span>
+                      <span className="text-[13px] font-mono font-medium text-foreground px-2 py-0.5 rounded bg-muted/50 truncate max-w-[200px]">
+                        {formatValue(result.value)}
+                      </span>
+                      {result.variant !== formatValue(result.value) && result.variant !== '' && (
+                        <>
+                          <span className="text-[11px] text-muted-foreground/40">variant</span>
+                          <Badge variant="outline" className="text-[10px] font-mono shrink-0">{result.variant}</Badge>
+                        </>
+                      )}
+                      <span className="text-[12px] text-muted-foreground/40">because</span>
+                      <Badge
+                        variant="secondary"
+                        className={cn('text-[10px] shrink-0', reasonColor(result.reason))}
+                      >
+                        {result.reason.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
                   </button>
                   {isExpanded && (
                     <div className="px-4 pb-4 border-t border-border/50">
