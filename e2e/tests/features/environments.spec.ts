@@ -2,15 +2,15 @@ import { test, expect } from '../../helpers/fixtures.js';
 
 test.describe('Environment Management', () => {
   test('creates a new environment', async ({ authenticatedPage: page, testProject }) => {
-    await page.goto(`/projects/${testProject.key}/environments`);
+    await page.goto(`/projects/${testProject.key}/settings/environments`);
 
-    await page.getByRole('button', { name: 'Create Environment' }).click();
+    await page.getByRole('button', { name: 'Add Environment' }).click();
 
     // The form uses labels KEY and NAME (uppercase)
     await page.getByPlaceholder('e.g. staging', { exact: true }).fill('qa');
     await page.getByPlaceholder('e.g. Staging', { exact: true }).fill('QA Environment');
 
-    // Click the Create button (not the "Create Environment" header button)
+    // Click the Create button (not the "Add Environment" header button)
     await page.getByRole('button', { name: 'Create', exact: true }).click();
 
     // Wait for the form to close and new environment to appear
@@ -18,7 +18,7 @@ test.describe('Environment Management', () => {
   });
 
   test('default environments exist in correct order', async ({ authenticatedPage: page, testProject }) => {
-    await page.goto(`/projects/${testProject.key}/environments`);
+    await page.goto(`/projects/${testProject.key}/settings/environments`);
 
     await expect(page.getByRole('cell', { name: 'development', exact: true })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'staging', exact: true })).toBeVisible();
@@ -31,7 +31,7 @@ test.describe('Environment Management', () => {
       data: { key: 'temp-env', name: 'Temporary' },
     });
 
-    await page.goto(`/projects/${testProject.key}/environments`);
+    await page.goto(`/projects/${testProject.key}/settings/environments`);
     await expect(page.locator('td').filter({ hasText: 'temp-env' })).toBeVisible();
 
     // Click delete button in the temp-env row
@@ -46,10 +46,10 @@ test.describe('Environment Management', () => {
   });
 
   test('navigates to SDK keys page', async ({ authenticatedPage: page, testProject }) => {
-    await page.goto(`/projects/${testProject.key}/environments`);
+    await page.goto(`/projects/${testProject.key}/settings/environments`);
 
     const devRow = page.locator('tr').filter({ hasText: 'development' });
-    await devRow.getByRole('link', { name: /manage sdk keys/i }).click();
+    await devRow.getByRole('link', { name: /sdk keys/i }).click();
 
     await page.waitForURL(`**/environments/development/sdk-keys`);
   });

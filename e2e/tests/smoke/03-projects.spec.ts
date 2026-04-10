@@ -24,7 +24,7 @@ test.describe('Projects', () => {
   });
 
   test('shows default environments', async ({ authenticatedPage: page, testProject }) => {
-    await page.goto(`/projects/${testProject.key}/environments`);
+    await page.goto(`/projects/${testProject.key}/settings/environments`);
 
     // Verify the 3 default environments exist
     await expect(page.getByText('development', { exact: true })).toBeVisible();
