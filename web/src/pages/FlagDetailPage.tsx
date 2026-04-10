@@ -454,7 +454,7 @@ export default function FlagDetailPage() {
             return next
           }, { replace: true })
         }} className="w-full">
-          <TabsList className="mb-6">
+          <TabsList variant="line" className="mb-6">
             {sortedEnvironments.map((env) => (
               <TabsTrigger key={env.key} value={env.key}>
                 {env.name}
@@ -539,6 +539,13 @@ export default function FlagDetailPage() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
+                    <FlagOverrideControl
+                      projectKey={key!}
+                      flagKey={flagKey!}
+                      envKey={env.key}
+                      valueType={flag.value_type}
+                      override={overridesData?.find((o) => o.environment_key === env.key)}
+                    />
                   </div>
                 </div>
 
@@ -557,16 +564,6 @@ export default function FlagDetailPage() {
                     )}
                   </div>
                 )}
-
-                <div className="flex items-center justify-end mb-4">
-                  <FlagOverrideControl
-                    projectKey={key!}
-                    flagKey={flagKey!}
-                    envKey={env.key}
-                    valueType={flag.value_type}
-                    override={overridesData?.find((o) => o.environment_key === env.key)}
-                  />
-                </div>
 
                 {/* Pending schedules */}
                 <PendingSchedules
