@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import type { Flag, Environment } from '../api/types.ts'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { gravatarUrl } from '@/lib/gravatar'
 import { formatRelativeTime } from '@/lib/date'
+import { Copy, Check } from 'lucide-react'
 
 interface Props {
   flag: Flag
@@ -17,6 +19,19 @@ interface Props {
 export default function FlagCard({ flag, environments, getEnvStatus, onClick, selected, onSelect }: Props) {
   const isArchived = flag.lifecycle_status === 'archived'
   const isSelectable = !!onSelect
+
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyKey = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(flag.key)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API may not be available
+    }
+  }
 
   return (
     <div
@@ -43,15 +58,24 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
         </div>
       )}
 
-      {/* Row 1: Key + Type */}
+      {/* Row 1: Name + Type */}
       <div className="flex items-center justify-between mb-1">
-        <span className="font-mono text-sm text-[#d4956a] tracking-wide">{flag.key}</span>
+        <span className="text-sm font-medium text-foreground">{flag.name}</span>
         <Badge variant="secondary" className="font-mono text-[11px]">{flag.value_type}</Badge>
       </div>
 
-      {/* Row 2: Name + lifecycle badge */}
+      {/* Row 2: Key (with copy) + lifecycle badge */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-[13px] text-muted-foreground">{flag.name}</span>
+        <span className="font-mono text-[11px] text-[#d4956a]/70 tracking-wide">{flag.key}</span>
+        <button
+          onClick={handleCopyKey}
+          className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          title="Copy flag key"
+        >
+          {copied
+            ? <Check className="w-3 h-3 text-emerald-400" />
+            : <Copy className="w-3 h-3" />}
+        </button>
         {flag.lifecycle_status !== 'active' && flag.lifecycle_status !== 'archived' && (
           <Badge
             variant="secondary"
@@ -98,25 +122,25 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
         })}
       </div>
 
-      {/* Row 4: Owner + Purpose */}
-      <div className="flex items-center justify-between min-w-0">
+      {/* Row 4: Owner + Evaluated + Purpose */}
+      <div className="grid grid-cols-3 items-center min-w-0">
         {flag.owner ? (
-          <div className="flex items-center gap-1.5 min-w-0 shrink">
+          <div className="flex items-center gap-1.5 min-w-0">
             <img
               src={gravatarUrl(flag.owner.email, 20)}
               alt=""
               className="w-5 h-5 rounded-full shrink-0"
             />
-            <span className="text-[11px] text-muted-foreground/60 truncate max-w-[140px]">
+            <span className="text-[11px] text-muted-foreground/60 truncate">
               {flag.owner.display_name ?? flag.owner.email}
             </span>
           </div>
         ) : (
           <span />
         )}
-        {!isArchived && (
+        {!isArchived ? (
           <span className={cn(
-            'text-[11px] truncate shrink-0',
+            'text-[11px] truncate text-center',
             flag.last_evaluated_at
               ? 'text-muted-foreground/50'
               : 'text-amber-400/70',
@@ -125,8 +149,10 @@ export default function FlagCard({ flag, environments, getEnvStatus, onClick, se
               ? `Evaluated ${formatRelativeTime(flag.last_evaluated_at)}`
               : 'Never evaluated'}
           </span>
+        ) : (
+          <span />
         )}
-        <span className="text-[11px] text-muted-foreground/50 capitalize shrink-0">{flag.flag_type}</span>
+        <span className="text-[11px] text-muted-foreground/50 capitalize text-right">{flag.flag_type}</span>
       </div>
     </div>
   )
