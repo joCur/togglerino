@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.0](https://github.com/joCur/togglerino/compare/v1.4.0...v1.5.0) (2026-04-15)
+
+
+### Features
+
+* redesign flag list and detail page hierarchy ([#154](https://github.com/joCur/togglerino/issues/154)) ([bd50bd3](https://github.com/joCur/togglerino/commit/bd50bd33da99ba0030933e08cbcf0ae794a32b10))
+* sentence-style playground evaluation trace ([#152](https://github.com/joCur/togglerino/issues/152)) ([ae0a95b](https://github.com/joCur/togglerino/commit/ae0a95bc39df58a82506ac2e14e71e8e8db661fa))
+* simplify project sidebar navigation ([#153](https://github.com/joCur/togglerino/issues/153)) ([9138078](https://github.com/joCur/togglerino/commit/9138078d738013913cb5bd88722ea20ff5dab29f))
+
+
+### Bug Fixes
+
+* remove misleading EvaluationFlow pipeline from flag detail page ([#151](https://github.com/joCur/togglerino/issues/151)) ([5fc3786](https://github.com/joCur/togglerino/commit/5fc378608c2fe7eaa7c1a2a1c4832111d6e35306))
+* resolve black screen when navigating to Team page ([#149](https://github.com/joCur/togglerino/issues/149)) ([058c7d3](https://github.com/joCur/togglerino/commit/058c7d327d35de73a6a98df4d6f6b863bc106f58))
+
 ## [1.4.0](https://github.com/joCur/togglerino/compare/v1.3.0...v1.4.0) (2026-03-19)
 
 
